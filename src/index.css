@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --color-smi-bg: #000000;
+  --color-smi-primary: #138A52;
+  --color-smi-secondary: #B30000;
+  --color-smi-white: #F5F5F5;
+  --color-smi-gray: #BDBDBD;
+}
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    margin: 0;
+    background: #000000;
+    color: #F5F5F5;
+    font-family: 'DM Sans', sans-serif;
+    overflow-x: hidden;
+  }
+
+  input::placeholder {
+    color: #666666;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #333333;
+    border-radius: 4px;
+  }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
