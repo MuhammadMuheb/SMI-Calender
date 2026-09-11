@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Modal, Badge, Button } from '../components/ui';
 import { theme } from '../config/theme';
+import { alpha } from '../utils/themeColor';
 import { useAuth } from '../context/AuthContext';
 import { useLeave } from '../context/LeaveContext';
 import { useAppData } from '../context/AppDataContext';
@@ -103,14 +104,14 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
     <Modal open={open} onClose={handleClose} title={dateLabel}>
       {holiday && (
         <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg"
-          style={{ backgroundColor: theme.colors.secondary + '15', border: `1px solid ${theme.colors.secondary}30` }}>
+          style={{ backgroundColor: alpha(theme.colors.secondary, '15'), border: `1px solid ${alpha(theme.colors.secondary, '30')}` }}>
           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: theme.colors.secondary }} />
           <span className="text-xs font-medium" style={{ color: theme.colors.secondary }}>{holiday.name}</span>
         </div>
       )}
       {special && (
         <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg"
-          style={{ backgroundColor: theme.colors.warning + '15', border: `1px solid ${theme.colors.warning}30` }}>
+          style={{ backgroundColor: alpha(theme.colors.warning, '15'), border: `1px solid ${alpha(theme.colors.warning, '30')}` }}>
           <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: theme.colors.warning }} />
           <span className="text-xs font-medium" style={{ color: theme.colors.warning }}>{special.name}</span>
         </div>
@@ -126,7 +127,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
                 <div key={r.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg" style={{ backgroundColor: theme.colors.bgCard }}>
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold"
-                      style={{ backgroundColor: theme.colors.primary + '20', color: theme.colors.primaryLight }}>
+                      style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight}}>
                       {r.userRef.displayName[0]?.toUpperCase()}
                     </div>
                     <div>
@@ -144,12 +145,12 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
                       <button type="button" onClick={(e) => { e.stopPropagation(); cancelRequest(r.id); }}
                         aria-label={`Remove ${r.userRef.displayName}'s day off`}
                         className="px-1.5 py-1 rounded text-[9px] font-bold cursor-pointer"
-                        style={{ backgroundColor: theme.colors.danger + '20', color: theme.colors.danger }}><span aria-hidden="true">🗑</span></button>
+                        style={{ backgroundColor: alpha(theme.colors.danger, '20'), color: theme.colors.danger }}><span aria-hidden="true">🗑</span></button>
                     )}
                     {canSwapWith && (
                       <button onClick={() => { setSwapTarget(r.userId); setShowMyDays(true); }}
                         className="px-2 py-1 rounded text-[9px] font-bold cursor-pointer"
-                        style={{ backgroundColor: theme.colors.primary + '20', color: theme.colors.primaryLight }}>🔄 Swap</button>
+                        style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight}}>🔄 Swap</button>
                     )}
                   </div>
                 </div>
@@ -169,7 +170,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
               {myOffDays.map((d) => (
                 <button key={d.id} onClick={() => setSelectedMyDay(d.date)}
                   className="w-full text-left px-2 py-1.5 rounded cursor-pointer"
-                  style={{ backgroundColor: selectedMyDay === d.date ? theme.colors.primary + '20' : 'transparent',
+                  style={{ backgroundColor: selectedMyDay === d.date ? alpha(theme.colors.primary, '20') : 'transparent',
                     border: `1px solid ${selectedMyDay === d.date ? theme.colors.primary : theme.colors.border}` }}>
                   <p className="text-[10px] font-medium" style={{ color: theme.colors.white }}>
                     {new Date(d.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
@@ -194,7 +195,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
             <div key={r.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg" style={{ backgroundColor: theme.colors.bgCard }}>
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold"
-                  style={{ backgroundColor: theme.colors.warning + '20', color: theme.colors.warning }}>{r.userRef.displayName[0]?.toUpperCase()}</div>
+                  style={{ backgroundColor: alpha(theme.colors.warning, '20'), color: theme.colors.warning }}>{r.userRef.displayName[0]?.toUpperCase()}</div>
                 <p className="text-xs" style={{ color: theme.colors.white }}>{r.userRef.displayName}</p>
               </div>
               <Badge color="warning" size="xs">Pending</Badge>
@@ -213,7 +214,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
       {isSuperAdmin && !showAssign && (
         <button onClick={() => setShowAssign(true)}
           className="w-full mt-3 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
-          style={{ backgroundColor: theme.colors.primary + '15', color: theme.colors.primaryLight, border: `1px solid ${theme.colors.primary}30` }}>
+          style={{ backgroundColor: alpha(theme.colors.primary, '15'), color: theme.colors.primaryLight, border: `1px solid ${alpha(theme.colors.primary, '30')}` }}>
           + Assign Day Off
         </button>
       )}
@@ -228,7 +229,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
               {assignableUsers.map(u => (
                 <button key={u.id} onClick={() => setAssignUserId(u.id)}
                   className="px-2 py-1 rounded-lg text-[10px] font-medium cursor-pointer"
-                  style={{ backgroundColor: assignUserId === u.id ? theme.colors.primary + '20' : theme.colors.bgElevated,
+                  style={{ backgroundColor: assignUserId === u.id ? alpha(theme.colors.primary, '20') : theme.colors.bgElevated,
                     color: assignUserId === u.id ? theme.colors.primaryLight : theme.colors.grayDark,
                     border: `1px solid ${assignUserId === u.id ? theme.colors.primary : theme.colors.border}` }}>
                   {assignUserId === u.id && '✓ '}{u.displayName}
@@ -243,7 +244,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
               {LEAVE_TYPES.map(lt => (
                 <button key={lt.type} onClick={() => setAssignType(lt.type)}
                   className="flex-1 py-1 rounded-lg text-[10px] font-medium cursor-pointer"
-                  style={{ backgroundColor: assignType === lt.type ? theme.colors.primary + '20' : theme.colors.bgElevated,
+                  style={{ backgroundColor: assignType === lt.type ? alpha(theme.colors.primary, '20') : theme.colors.bgElevated,
                     color: assignType === lt.type ? theme.colors.primaryLight : theme.colors.grayDark,
                     border: `1px solid ${assignType === lt.type ? theme.colors.primary : theme.colors.border}` }}>
                   {lt.label}

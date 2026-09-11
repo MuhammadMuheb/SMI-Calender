@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, Badge, Button, Modal, FormInput } from '../../components/ui';
 import { theme } from '../../config/theme';
+import { alpha } from '../../utils/themeColor';
 import { useAppData } from '../../context/AppDataContext';
 import { useLeave } from '../../context/LeaveContext';
 import { useAuth } from '../../context/AuthContext';
@@ -85,7 +86,7 @@ export default function VacationAdjustment({ onBack }: Props) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
-                      style={{ backgroundColor: theme.colors.primary + '20', color: theme.colors.primaryLight }}>
+                      style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight }}>
                       {u.displayName[0]?.toUpperCase()}
                     </div>
                     <p className="text-xs font-medium" style={{ color: theme.colors.white }}>{u.displayName}</p>

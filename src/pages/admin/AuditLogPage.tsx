@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, Badge } from '../../components/ui';
 import { theme } from '../../config/theme';
+import { alpha } from '../../utils/themeColor';
 import { fetchAuditLog } from '../../services/supabaseService';
 import type { AuditAction, AuditEntity } from '../../models/audit';
 
@@ -107,13 +108,13 @@ export default function AuditLogPage({ onBack }: Props) {
               {(entry.oldValue || entry.newValue) && (
                 <div className="mt-1.5 flex gap-2">
                   {entry.oldValue && (
-                    <div className="flex-1 rounded px-2 py-1" style={{ backgroundColor: theme.colors.danger + '10' }}>
+                    <div className="flex-1 rounded px-2 py-1" style={{ backgroundColor: alpha(theme.colors.danger, '10') }}>
                       <p className="text-[9px] font-medium" style={{ color: theme.colors.danger }}>Before</p>
                       <p className="text-[9px] break-all" style={{ color: theme.colors.gray }}>{entry.oldValue}</p>
                     </div>
                   )}
                   {entry.newValue && (
-                    <div className="flex-1 rounded px-2 py-1" style={{ backgroundColor: theme.colors.success + '10' }}>
+                    <div className="flex-1 rounded px-2 py-1" style={{ backgroundColor: alpha(theme.colors.success, '10') }}>
                       <p className="text-[9px] font-medium" style={{ color: theme.colors.success }}>After</p>
                       <p className="text-[9px] break-all" style={{ color: theme.colors.gray }}>{entry.newValue}</p>
                     </div>

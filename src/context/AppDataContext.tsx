@@ -25,7 +25,7 @@ import {
 interface AppDataContextValue {
   loading: boolean;
   users: StaffUser[];
-  addUser: (user: Omit<StaffUser, 'id' | 'createdAt' | 'updatedAt'>, actorName: string) => void;
+  addUser: (user: Omit<StaffUser, 'id' | 'createdAt' | 'updatedAt'>, actorName: string) => Promise<string>;
   updateUser: (id: string, updates: Partial<StaffUser>, actorName: string) => void;
   deleteUser: (id: string, actorName: string) => void;
   jobRoles: JobRole[];
@@ -95,6 +95,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setUsers((prev) => [...prev, newUser]);
     await insertUser({ id, username: user.username, displayName: user.displayName, pin: user.pin, role: user.role });
     await insertAuditLog({ actorId: 'admin', actorName, action: 'user_created', entityType: 'user', entityId: id, description: `Created user ${newUser.displayName}` });
+    return id;
   }, []);
 
   const updateUser = useCallback(async (id: string, updates: Partial<StaffUser>, actorName: string) => {

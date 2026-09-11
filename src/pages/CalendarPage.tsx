@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { CalendarTile, Card, Button, Icons } from '../components/ui';
 import { theme } from '../config/theme';
+import { alpha } from '../utils/themeColor';
 import { ROLES } from '../config/roles';
 import { useAuth } from '../context/AuthContext';
 import { useLeave } from '../context/LeaveContext';
@@ -244,14 +245,14 @@ function DayPreviewPanel({
 
       {holiday && (
         <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg"
-          style={{ backgroundColor: theme.colors.secondary + '12', border: `1px solid ${theme.colors.secondary}30` }}>
+          style={{ backgroundColor: alpha(theme.colors.secondary, '12'), border: `1px solid ${alpha(theme.colors.secondary, '30')}` }}>
           <div className="w-2 h-2 rounded-full" style={{ backgroundColor: theme.colors.secondary }} />
           <span className="text-[10px] font-medium" style={{ color: theme.colors.secondary }}>{holiday.name}</span>
         </div>
       )}
       {special && (
         <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg"
-          style={{ backgroundColor: theme.colors.warning + '12', border: `1px solid ${theme.colors.warning}30` }}>
+          style={{ backgroundColor: alpha(theme.colors.warning, '12'), border: `1px solid ${alpha(theme.colors.warning, '30')}` }}>
           <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: theme.colors.warning }} />
           <span className="text-[10px] font-medium" style={{ color: theme.colors.warning }}>{special.name}</span>
         </div>

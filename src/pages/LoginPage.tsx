@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { theme } from '../config/theme';
+import { alpha } from '../utils/themeColor';
 import { Button, FormInput, Icons } from '../components/ui';
 
 export default function LoginPage() {
@@ -63,7 +64,7 @@ export default function LoginPage() {
 
             {error && (
               <div role="alert" className="flex items-center gap-2 rounded-lg px-3 py-2 mb-3 -mt-1"
-                style={{ backgroundColor: theme.colors.danger + '15', border: `1px solid ${theme.colors.danger}40` }}>
+                style={{ backgroundColor: alpha(theme.colors.danger, '15'), border: `1px solid ${alpha(theme.colors.danger, '40')}` }}>
                 <span aria-hidden="true" style={{ color: theme.colors.danger }}>!</span>
                 <p className="text-xs" style={{ color: theme.colors.danger }}>{error}</p>
               </div>

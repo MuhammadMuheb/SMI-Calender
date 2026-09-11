@@ -18,6 +18,18 @@
 
     <title>Show Me Italy — Staff Calendar</title>
 
+    <!-- Apply the saved theme before first paint, so there's no dark-then-light
+         (or vice versa) flash while React mounts. -->
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem('smi_theme_mode') === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+        } catch (e) {}
+      })();
+    </script>
+
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/png" sizes="512x512" href="/icons/logo.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
@@ -28,6 +40,7 @@
     <!-- Splash screen color -->
     <style>
       html, body { background-color: #000000; }
+      html[data-theme="light"], html[data-theme="light"] body { background-color: #FFFFFF; }
       /* PWA splash fallback */
       #root:empty {
         display: flex;
@@ -35,6 +48,9 @@
         justify-content: center;
         min-height: 100vh;
         background: #000;
+      }
+      html[data-theme="light"] #root:empty {
+        background: #FFFFFF;
       }
       #root:empty::after {
         content: '';

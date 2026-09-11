@@ -28,3 +28,9 @@ supabase-real-data.sql
 
 # Stray artifact, not meant to be tracked
 =
+
+# Firebase
+functions/lib
+firebase-debug.log
+firebase-debug.*.log
+.firebase

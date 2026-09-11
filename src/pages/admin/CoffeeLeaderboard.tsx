@@ -1,6 +1,7 @@
 
 import { Card, Badge } from '../../components/ui';
 import { theme } from '../../config/theme';
+import { alpha } from '../../utils/themeColor';
 import { useNotifications } from '../../context/NotificationContext';
 import { useAppData } from '../../context/AppDataContext';
 
@@ -104,7 +105,7 @@ export default function CoffeeLeaderboard({ onBack }: Props) {
                   {i < 3 ? MEDALS[i] : <span className="text-xs" style={{ color: theme.colors.grayDark }}>#{i + 1}</span>}
                 </div>
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-                  style={{ backgroundColor: theme.colors.warning + '20', color: theme.colors.warning }}>
+                  style={{ backgroundColor: alpha(theme.colors.warning, '20'), color: theme.colors.warning }}>
                   {s.name[0]?.toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">

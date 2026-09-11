@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { theme } from '../../config/theme';
+import { alpha } from '../../utils/themeColor';
 import { ROLES, ROLE_LABELS, type Role } from '../../config/roles';
 import { Icons } from '../ui';
 import type { TabId } from './BottomNav';
@@ -36,6 +37,7 @@ export default function DesktopSidebar({
     { id: 'staff', label: 'Team Overview', icon: Icons.users },
     { id: 'calendar', label: 'Calendar', icon: Icons.calendar },
     { id: 'requests', label: 'Requests Queue', icon: Icons.bell, badge: pendingCount },
+    { id: 'staffManagement', label: 'Staff Management', icon: Icons.user, superAdminOnly: true },
     { id: 'staffingRules', label: 'Staffing Rules', icon: Icons.shield, superAdminOnly: true },
     { id: 'autoAssign', label: 'Auto-Assignment', icon: '\u{1F504}', superAdminOnly: true },
     { id: 'auditLog', label: 'Audit Log', icon: Icons.clock, superAdminOnly: true },
@@ -68,7 +70,7 @@ export default function DesktopSidebar({
               aria-current={active ? 'page' : undefined}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all cursor-pointer"
               style={{
-                backgroundColor: active ? theme.colors.primary + '18' : 'transparent',
+                backgroundColor: active ? alpha(theme.colors.primary, '18') : 'transparent',
                 borderLeft: `3px solid ${active ? theme.colors.primary : 'transparent'}`,
               }}
             >

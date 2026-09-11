@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, Badge, Button, Icons, StatBox, LeaveAllowanceCard } from '../../components/ui';
 import { theme } from '../../config/theme';
+import { alpha } from '../../utils/themeColor';
 import { useAuth } from '../../context/AuthContext';
 import { useLeave } from '../../context/LeaveContext';
 import { useAppData } from '../../context/AppDataContext';
@@ -181,7 +182,7 @@ export default function ManagerDashboard() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-                      style={{ backgroundColor: theme.colors.primary + '20', color: theme.colors.primaryLight }}>
+                      style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight }}>
                       {req.userRef.displayName[0]?.toUpperCase()}
                     </div>
                     <div>

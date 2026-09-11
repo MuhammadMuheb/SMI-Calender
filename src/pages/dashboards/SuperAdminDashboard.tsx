@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, Badge, Icons, Modal, StatBox } from '../../components/ui';
 import { theme } from '../../config/theme';
+import { alpha } from '../../utils/themeColor';
 import { useLeave } from '../../context/LeaveContext';
 import { useAppData } from '../../context/AppDataContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -155,7 +156,7 @@ export default function SuperAdminDashboard() {
                 style={{ backgroundColor: theme.colors.bgCard }}>
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
-                    style={{ backgroundColor: theme.colors.primary + '20', color: theme.colors.primaryLight }}>
+                    style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight }}>
                     {staff.displayName[0]?.toUpperCase()}
                   </div>
                   <div>

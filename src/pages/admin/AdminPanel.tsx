@@ -3,7 +3,6 @@ import { Card, Icons } from '../../components/ui';
 import { theme } from '../../config/theme';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES } from '../../config/roles';
-import UserManagement from './UserManagement';
 import RoleManagement from './RoleManagement';
 import StaffingRulesPage from './StaffingRulesPage';
 import SpecialDayEditor from './SpecialDayEditor';
@@ -14,12 +13,11 @@ import AuditLogPage from './AuditLogPage';
 import CoffeeLeaderboard from './CoffeeLeaderboard';
 import LocationManager from '../../components/LocationManager';
 
-type AdminView = 'menu' | 'users' | 'roles' | 'staffing' | 'special' | 'vacation' | 'notifications' | 'auto' | 'audit' | 'coffee' | 'locations';
+type AdminView = 'menu' | 'roles' | 'staffing' | 'special' | 'vacation' | 'notifications' | 'auto' | 'audit' | 'coffee' | 'locations';
 
 interface MenuItem { id: AdminView; label: string; description: string; superAdminOnly?: boolean }
 
 const MENU_ITEMS: MenuItem[] = [
-  { id: 'users', label: 'User Management', description: 'Create, edit, delete staff members', superAdminOnly: true },
   { id: 'roles', label: 'Role Management', description: 'Job roles including hidden roles', superAdminOnly: true },
   { id: 'staffing', label: 'Staffing Rules', description: 'Minimum coverage per role per day', superAdminOnly: true },
   { id: 'locations', label: '📍 Check-In Locations', description: 'Manage GPS check-in locations and role access', superAdminOnly: true },
@@ -47,7 +45,6 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
 
   const views: Record<AdminView, React.ReactNode> = {
     menu: null,
-    users: <UserManagement onBack={() => setView('menu')} />,
     roles: <RoleManagement onBack={() => setView('menu')} />,
     staffing: <StaffingRulesPage onBack={() => setView('menu')} />,
     special: <SpecialDayEditor onBack={() => setView('menu')} />,

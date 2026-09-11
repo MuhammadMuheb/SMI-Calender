@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, Badge, Button, Modal, Icons } from '../../components/ui';
 import { theme } from '../../config/theme';
+import { alpha } from '../../utils/themeColor';
 import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
 import type { StaffingEnforcement } from '../../models/staffing';
@@ -93,7 +94,7 @@ export default function StaffingRulesPage({ onBack }: Props) {
               <button key={r.id} onClick={() => setFormRoleId(r.id)}
                 className="w-full text-left px-3 py-2 rounded-lg text-xs cursor-pointer"
                 style={{
-                  backgroundColor: formRoleId === r.id ? theme.colors.primary + '15' : theme.colors.bgCard,
+                  backgroundColor: formRoleId === r.id ? alpha(theme.colors.primary, '15') : theme.colors.bgCard,
                   color: theme.colors.white,
                   border: `1px solid ${formRoleId === r.id ? theme.colors.primary : theme.colors.border}`,
                 }}>

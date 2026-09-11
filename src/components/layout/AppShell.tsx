@@ -14,6 +14,7 @@ import StaffPage from '../../pages/StaffPage';
 import SettingsPage from '../../pages/SettingsPage';
 import ManagerRequestQueue from '../../pages/ManagerRequestQueue';
 import AdminPanel from '../../pages/admin/AdminPanel';
+import StaffManagement from '../../pages/admin/StaffManagement';
 import StaffingRulesPage from '../../pages/admin/StaffingRulesPage';
 import AutoAssignment from '../../pages/admin/AutoAssignment';
 import AuditLogPage from '../../pages/admin/AuditLogPage';
@@ -35,11 +36,12 @@ const TAB_TITLES: Record<TabId, string> = {
   staffingRules: 'Staffing Rules',
   autoAssign: 'Auto-Assignment',
   auditLog: 'Audit Log',
+  staffManagement: 'Staff Management',
 };
 
-const DESKTOP_ONLY_TABS: TabId[] = ['requests', 'admin', 'staffingRules', 'autoAssign', 'auditLog'];
+const DESKTOP_ONLY_TABS: TabId[] = ['requests', 'admin', 'staffingRules', 'autoAssign', 'auditLog', 'staffManagement'];
 // Company-wide config tools — Super Admin only, on any device, per the capability blueprint.
-const SUPER_ADMIN_ONLY_TABS: TabId[] = ['admin', 'staffingRules', 'autoAssign', 'auditLog'];
+const SUPER_ADMIN_ONLY_TABS: TabId[] = ['admin', 'staffingRules', 'autoAssign', 'auditLog', 'staffManagement'];
 
 export default function AppShell() {
   const { user, logout } = useAuth();
@@ -106,6 +108,11 @@ export default function AppShell() {
     auditLog: (
       <RoleGuard allowed={[ROLES.SUPER_ADMIN]}>
         <AuditLogPage onBack={() => setTab('home')} />
+      </RoleGuard>
+    ),
+    staffManagement: (
+      <RoleGuard allowed={[ROLES.SUPER_ADMIN]}>
+        <StaffManagement onBack={() => setTab('home')} />
       </RoleGuard>
     ),
     settings: <SettingsPage />,

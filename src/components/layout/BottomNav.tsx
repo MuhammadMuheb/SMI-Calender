@@ -5,7 +5,7 @@ import { Icons } from '../ui';
 
 export type TabId =
   | 'home' | 'tasks' | 'calendar' | 'staff' | 'settings'
-  | 'requests' | 'admin' | 'staffingRules' | 'autoAssign' | 'auditLog';
+  | 'requests' | 'admin' | 'staffingRules' | 'autoAssign' | 'auditLog' | 'staffManagement';
 
 interface Tab { id: TabId; icon: ReactNode; label: string; }
 

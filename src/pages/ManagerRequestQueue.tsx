@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, Badge } from '../components/ui';
 import { theme } from '../config/theme';
+import { alpha } from '../utils/themeColor';
 import { useAuth } from '../context/AuthContext';
 import { useLeave } from '../context/LeaveContext';
 import type { LeaveRequest, LeaveStatus } from '../models/leave';
@@ -120,7 +121,7 @@ export default function ManagerRequestQueue({ onBack }: ManagerRequestQueueProps
                     {/* Avatar */}
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-                      style={{ backgroundColor: theme.colors.primary + '20', color: theme.colors.primaryLight }}
+                      style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight }}
                     >
                       {req.userRef.displayName[0]?.toUpperCase()}
                     </div>

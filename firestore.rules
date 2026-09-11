@@ -1,0 +1,14 @@
+rules_version = '2';
+
+// Placeholder — deliberately locked down (deny everything) until Phase 5 of
+// the Firebase migration, when real rules get written to match the
+// staff/manager/super_admin capability table enforced in the app's UI.
+// Do not weaken this to "allow read, write: if true" even temporarily —
+// that was exactly the Supabase RLS mistake this migration exists to fix.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

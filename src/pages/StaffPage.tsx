@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Card, Badge } from '../components/ui';
 import { theme } from '../config/theme';
+import { alpha } from '../utils/themeColor';
 import { useAppData } from '../context/AppDataContext';
 import { useLeave } from '../context/LeaveContext';
 import { ROLE_LABELS, ROLE_BADGE_COLOR } from '../config/roles';
@@ -158,7 +159,7 @@ export default function StaffPage() {
             <Card key={u.id}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
-                  style={{ backgroundColor: theme.colors.primary + '20', color: theme.colors.primaryLight }}>
+                  style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight }}>
                   {u.displayName[0]?.toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">

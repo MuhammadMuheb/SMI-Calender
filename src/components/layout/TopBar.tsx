@@ -3,6 +3,7 @@ import { theme } from '../../config/theme';
 import { Icons } from '../ui';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useThemeMode } from '../../hooks/useThemeMode';
 import NotificationPanel from '../../pages/NotificationPanel';
 
 interface TopBarProps {
@@ -15,6 +16,7 @@ export default function TopBar({ title, subtitle, onLogout }: TopBarProps) {
   const { user } = useAuth();
   const { getForUser } = useNotifications();
   const [showNotifs, setShowNotifs] = useState(false);
+  const { mode, toggle } = useThemeMode();
 
   const unreadCount = user
     ? getForUser(user.id).filter((n) => !n.isRead).length
@@ -41,6 +43,15 @@ export default function TopBar({ title, subtitle, onLogout }: TopBarProps) {
           )}
         </div>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer"
+            style={{ color: theme.colors.white, backgroundColor: theme.colors.bgElevated, border: `1px solid ${theme.colors.border}` }}
+          >
+            <span aria-hidden="true">{mode === 'dark' ? Icons.sun : Icons.moon}</span>
+          </button>
           <button
             type="button"
             onClick={() => setShowNotifs(true)}

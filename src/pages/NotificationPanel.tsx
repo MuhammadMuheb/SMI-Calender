@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Modal, Badge } from '../components/ui';
 import { theme } from '../config/theme';
+import { alpha } from '../utils/themeColor';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useLeave } from '../context/LeaveContext';
@@ -132,7 +133,7 @@ export default function NotificationPanel({ open, onClose }: NotificationPanelPr
       {/* Urgent rejections alert (admin/manager) */}
       {urgentRejections.length > 0 && (
         <div className="mb-3 p-2.5 rounded-lg"
-          style={{ backgroundColor: theme.colors.danger + '15', border: `1px solid ${theme.colors.danger}30` }}>
+          style={{ backgroundColor: alpha(theme.colors.danger, '15'), border: `1px solid ${alpha(theme.colors.danger, '30')}` }}>
           <p className="text-[10px] uppercase tracking-wider mb-1.5 font-semibold"
             style={{ color: theme.colors.danger }}>
             ⚠️ {urgentRejections.length} Shift Rejection{urgentRejections.length > 1 ? 's' : ''}
@@ -183,11 +184,11 @@ export default function NotificationPanel({ open, onClose }: NotificationPanelPr
                   <div
                     className="px-3 py-2 rounded-lg transition-colors"
                     style={{
-                      backgroundColor: notif.isRead ? theme.colors.bgCard : theme.colors.primary + '08',
+                      backgroundColor: notif.isRead ? theme.colors.bgCard : alpha(theme.colors.primary, '08'),
                       border: `1px solid ${
-                        notif.confirmStatus === 'rejected' ? theme.colors.danger + '50' :
-                        notif.confirmStatus === 'confirmed' ? theme.colors.success + '50' :
-                        notif.isRead ? theme.colors.border : theme.colors.primary + '30'
+                        notif.confirmStatus === 'rejected' ? alpha(theme.colors.danger, '50') :
+                        notif.confirmStatus === 'confirmed' ? alpha(theme.colors.success, '50') :
+                        notif.isRead ? theme.colors.border : alpha(theme.colors.primary, '30')
                       }`,
                     }}
                   >

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, Badge, Button, Icons, BalanceRing } from '../components/ui';
 import { theme } from '../config/theme';
+import { alpha } from '../utils/themeColor';
 import { useAuth } from '../context/AuthContext';
 import { useLeave } from '../context/LeaveContext';
 import MoveDayOffModal from '../components/MoveDayOffModal';
@@ -153,7 +154,7 @@ function EmptyStateIcon() {
   return (
     <svg width="72" height="72" viewBox="0 0 72 72" role="img" aria-label="No requests">
       <circle cx="36" cy="36" r="30" fill="none" stroke={theme.colors.border} strokeWidth="2" strokeDasharray="4 5" />
-      <circle cx="36" cy="36" r="20" fill={theme.colors.primary + '15'} stroke={theme.colors.primary} strokeWidth="2" />
+      <circle cx="36" cy="36" r="20" fill={alpha(theme.colors.primary, '15')} stroke={theme.colors.primary} strokeWidth="2" />
       <path d="M27 36l7 7 13-14" fill="none" stroke={theme.colors.primary} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );

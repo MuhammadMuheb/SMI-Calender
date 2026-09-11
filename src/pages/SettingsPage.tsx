@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppData } from '../context/AppDataContext';
 import { ROLE_LABELS, ROLE_BADGE_COLOR } from '../config/roles';
 import { theme } from '../config/theme';
+import { alpha } from '../utils/themeColor';
 import { Card, Badge, Button, Modal, FormInput, Icons } from '../components/ui';
 import { authenticateUser } from '../services/supabaseService';
 import { subscribeToPush, sendPushToUser } from '../utils/pushManager';
@@ -107,7 +108,7 @@ export default function SettingsPage() {
               </Button>
             )}
             {pushStatus === 'enabled' && (
-              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: theme.colors.primary + '20' }}>
+              <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: alpha(theme.colors.primary, '20') }}>
                 <span style={{ color: theme.colors.primary, fontSize: 14 }}>✓</span>
               </div>
             )}
@@ -115,7 +116,7 @@ export default function SettingsPage() {
 
           {/* Error display */}
           {pushError && (
-            <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: theme.colors.danger + '15', border: `1px solid ${theme.colors.danger}30` }}>
+            <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: alpha(theme.colors.danger, '15'), border: `1px solid ${alpha(theme.colors.danger, '30')}` }}>
               <p className="text-[10px] font-medium" style={{ color: theme.colors.danger }}>Error: {pushError}</p>
             </div>
           )}

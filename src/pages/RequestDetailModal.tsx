@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Modal, Button, Badge, FormInput, BalanceRing } from '../components/ui';
 import { theme } from '../config/theme';
+import { alpha } from '../utils/themeColor';
 import { useAuth } from '../context/AuthContext';
 import { useLeave } from '../context/LeaveContext';
 import { useAppData } from '../context/AppDataContext';
@@ -264,7 +265,7 @@ export default function RequestDetailModal({
 
       {/* Super Admin: Delete approved day off */}
       {request.status === 'approved' && user.role === 'super_admin' && !actionDone && (
-        <div className="rounded-lg p-3 mb-4" style={{ backgroundColor: theme.colors.danger + '10', border: `1px solid ${theme.colors.danger}30` }}>
+        <div className="rounded-lg p-3 mb-4" style={{ backgroundColor: alpha(theme.colors.danger, '10'), border: `1px solid ${alpha(theme.colors.danger, '30')}` }}>
           <p className="text-[10px] font-medium mb-2" style={{ color: theme.colors.danger }}>
             Remove this day off? Quota will be restored so they can pick a new date.
           </p>

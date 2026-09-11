@@ -4,10 +4,17 @@ import type { Role } from '../config/roles';
 /**
  * Supabase database service layer.
  * All database reads/writes go through here.
+ *
+ * NOTE: login currently authenticates by comparing the PIN directly against
+ * `users.pin_hash` (plaintext). A Supabase-Auth-based login (real per-user
+ * session -> real RLS) would be a better long-term fix for the "RLS is
+ * cosmetic" problem, but that rollout (supabase-security-migration-part1/
+ * part2.sql + scripts/migrate-users-to-auth.mjs) is on hold and its
+ * migration script is disabled — do not re-enable or run any part of it
+ * without also switching this function to `supabase.auth.signInWithPassword`
+ * in the same change, or every existing user's PIN gets destroyed with no
+ * way left to authenticate them.
  */
-
-// ─── Auth ─────────────────────────────────────────────────
-
 export async function authenticateUser(username: string, pin: string) {
   const { data, error } = await supabase
     .from('users')
@@ -42,6 +49,10 @@ export async function fetchUsers() {
 export async function insertUser(user: {
   id: string; username: string; displayName: string; pin: string; role: Role;
 }) {
+  // pin_hash stores the plaintext PIN — the new user can log in immediately
+  // with it. Do NOT run scripts/migrate-users-to-auth.mjs "to finish setting
+  // them up" — that script is disabled because it overwrites this column and
+  // permanently breaks login (see the NOTE on authenticateUser above).
   const { error } = await supabase.from('users').insert({
     id: user.id, username: user.username, display_name: user.displayName,
     pin_hash: user.pin, role: user.role, is_active: true,

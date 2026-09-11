@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal, Badge } from './ui';
 import { theme } from '../config/theme';
+import { alpha } from '../utils/themeColor';
 import { useNotifications } from '../context/NotificationContext';
 import type { StaffUser } from '../models/user';
 
@@ -52,7 +53,7 @@ export default function WorkingTodayModal({
               style={{ backgroundColor: theme.colors.bgCard }}>
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
-                  style={{ backgroundColor: theme.colors.primary + '20', color: theme.colors.primaryLight }}>
+                  style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight }}>
                   {s.displayName[0]?.toUpperCase()}
                 </div>
                 <div>
@@ -77,9 +78,9 @@ export default function WorkingTodayModal({
                   disabled={sending}
                   className="px-2.5 py-1.5 rounded-lg text-[11px] cursor-pointer transition-all"
                   style={{
-                    backgroundColor: sending ? theme.colors.primary + '20' : theme.colors.warning + '18',
+                    backgroundColor: sending ? alpha(theme.colors.primary, '20') : alpha(theme.colors.warning, '18'),
                     color: sending ? theme.colors.primary : theme.colors.warning,
-                    border: `1px solid ${sending ? theme.colors.primary + '40' : theme.colors.warning + '40'}`,
+                    border: `1px solid ${sending ? alpha(theme.colors.primary, '40') : alpha(theme.colors.warning, '40')}`,
                   }}>
                   {sending ? '✓ Sent!' : '☕'}
                 </button>
@@ -96,7 +97,7 @@ export default function WorkingTodayModal({
           </p>
           {offList.map((s) => (
             <div key={s.id} className="flex items-center gap-2 py-1 px-2 rounded-lg mb-1"
-              style={{ backgroundColor: theme.colors.secondary + '10' }}>
+              style={{ backgroundColor: alpha(theme.colors.secondary, '10') }}>
               <span className="text-xs" style={{ color: theme.colors.gray }}>{s.displayName}</span>
               <Badge color="danger" size="xs">Off</Badge>
             </div>

@@ -1,4 +1,5 @@
 import { theme } from '../../config/theme';
+import { alpha } from '../../utils/themeColor';
 import type { DaySummary } from '../../models/calendar';
 
 interface CalendarTileProps {
@@ -32,19 +33,19 @@ export default function CalendarTile({
   let borderWidth: string = '1px';
 
   if (isToday) {
-    bg = theme.colors.primary + '20';
+    bg = alpha(theme.colors.primary, '20');
     borderColor = theme.colors.primary;
     borderWidth = '1.5px';
   } else if (isHoliday) {
-    bg = theme.colors.secondary + '12';
-    borderColor = theme.colors.secondary + '40';
+    bg = alpha(theme.colors.secondary, '12');
+    borderColor = alpha(theme.colors.secondary, '40');
   } else if (isSpecialDay) {
-    bg = theme.colors.warning + '10';
-    borderColor = theme.colors.warning + '40';
+    bg = alpha(theme.colors.warning, '10');
+    borderColor = alpha(theme.colors.warning, '40');
   } else if (isCurrentMonth && staffingLevel === 'low') {
-    borderColor = theme.colors.danger + '50';
+    borderColor = alpha(theme.colors.danger, '50');
   } else if (isCurrentMonth && staffingLevel === 'exact') {
-    borderColor = theme.colors.warning + '40';
+    borderColor = alpha(theme.colors.warning, '40');
   }
 
   let dateColor: string = theme.colors.white;

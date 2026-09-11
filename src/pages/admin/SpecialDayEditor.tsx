@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, Badge, Button, Modal, FormInput, Icons } from '../../components/ui';
 import { theme } from '../../config/theme';
+import { alpha } from '../../utils/themeColor';
 import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
 import { todayStr } from '../../utils/dateUtils';
@@ -83,7 +84,7 @@ export default function SpecialDayEditor({ onBack }: Props) {
           <div className="space-y-2">
             <button onClick={() => setFormConsumes(false)} className="w-full text-left px-3 py-2 rounded-lg cursor-pointer"
               style={{
-                backgroundColor: !formConsumes ? theme.colors.success + '15' : theme.colors.bgCard,
+                backgroundColor: !formConsumes ? alpha(theme.colors.success, '15') : theme.colors.bgCard,
                 border: `1px solid ${!formConsumes ? theme.colors.success : theme.colors.border}`,
               }}>
               <p className="text-xs font-medium" style={{ color: theme.colors.white }}>Extra Day Off</p>
@@ -91,7 +92,7 @@ export default function SpecialDayEditor({ onBack }: Props) {
             </button>
             <button onClick={() => setFormConsumes(true)} className="w-full text-left px-3 py-2 rounded-lg cursor-pointer"
               style={{
-                backgroundColor: formConsumes ? theme.colors.warning + '15' : theme.colors.bgCard,
+                backgroundColor: formConsumes ? alpha(theme.colors.warning, '15') : theme.colors.bgCard,
                 border: `1px solid ${formConsumes ? theme.colors.warning : theme.colors.border}`,
               }}>
               <p className="text-xs font-medium" style={{ color: theme.colors.white }}>Consumes Balance</p>
