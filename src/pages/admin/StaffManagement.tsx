@@ -260,7 +260,7 @@ export default function StaffManagement({ onBack }: Props) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button onClick={onBack} className="text-xs font-medium cursor-pointer" style={{ color: theme.colors.primary }}>← Back</button>
-          <h2 className="text-base font-bold" style={{ color: theme.colors.white }}>Staff Management ({users.length})</h2>
+          <h2 className="text-base font-bold" style={{ color: theme.colors.white }}>Team Management ({users.length})</h2>
         </div>
         <Button variant="primary" size="sm" icon={Icons.plus} onClick={() => { resetForm(); setShowAdd(true); }}>Add New Staff</Button>
       </div>
@@ -298,8 +298,8 @@ export default function StaffManagement({ onBack }: Props) {
                       {staffJobRoles.length > 0 ? (
                         <div className="flex gap-1 flex-wrap">
                           {staffJobRoles.map((r) => (
-                            <span key={r.id} className="text-[9px] px-1.5 py-0.5 rounded"
-                              style={{ backgroundColor: r.roleColor + '20', color: r.roleColor }}>
+                            <span key={r.id} className="text-[9px] font-semibold px-1.5 py-0.5 rounded"
+                              style={{ backgroundColor: r.roleColor, color: '#FFFFFF' }}>
                               {r.roleName}{r.isPrimary ? ' ★' : ''}
                             </span>
                           ))}

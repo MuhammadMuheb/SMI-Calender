@@ -28,6 +28,14 @@ export const theme = {
     danger: 'var(--sm-danger)',
     warning: 'var(--sm-warning)',
   },
+  badge: {
+    primary: { bg: 'var(--sm-badge-primary-bg)', text: 'var(--sm-badge-primary-text)' },
+    secondary: { bg: 'var(--sm-badge-secondary-bg)', text: 'var(--sm-badge-secondary-text)' },
+    gray: { bg: 'var(--sm-badge-gray-bg)', text: 'var(--sm-badge-gray-text)' },
+    success: { bg: 'var(--sm-badge-success-bg)', text: 'var(--sm-badge-success-text)' },
+    danger: { bg: 'var(--sm-badge-danger-bg)', text: 'var(--sm-badge-danger-text)' },
+    warning: { bg: 'var(--sm-badge-warning-bg)', text: 'var(--sm-badge-warning-text)' },
+  },
 } as const;
 
 export type ThemeColors = typeof theme.colors;

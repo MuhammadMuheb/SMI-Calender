@@ -26,6 +26,20 @@
   --sm-success: #138A52;
   --sm-danger: #B30000;
   --sm-warning: #E6A800;
+
+  /* Badge/tag tokens — soft, translucent chips read well on this near-black surface */
+  --sm-badge-primary-bg: color-mix(in srgb, var(--sm-primary) 22%, transparent);
+  --sm-badge-primary-text: var(--sm-primary-light);
+  --sm-badge-secondary-bg: color-mix(in srgb, var(--sm-secondary) 22%, transparent);
+  --sm-badge-secondary-text: var(--sm-secondary-light);
+  --sm-badge-gray-bg: var(--sm-gray-darker);
+  --sm-badge-gray-text: var(--sm-gray);
+  --sm-badge-success-bg: color-mix(in srgb, var(--sm-success) 22%, transparent);
+  --sm-badge-success-text: var(--sm-success);
+  --sm-badge-danger-bg: color-mix(in srgb, var(--sm-danger) 22%, transparent);
+  --sm-badge-danger-text: var(--sm-danger);
+  --sm-badge-warning-bg: color-mix(in srgb, var(--sm-warning) 22%, transparent);
+  --sm-badge-warning-text: var(--sm-warning);
 }
 
 /* Light theme — same brand accents (green/red), inverted neutrals */
@@ -46,6 +60,21 @@
   --sm-success: #138A52;
   --sm-danger: #B30000;
   --sm-warning: #9C6E00;
+
+  /* Badge/tag tokens — solid, rich fills read as professional on a white
+     surface; the translucent dark-theme pastels wash out here instead. */
+  --sm-badge-primary-bg: var(--sm-primary);
+  --sm-badge-primary-text: #FFFFFF;
+  --sm-badge-secondary-bg: var(--sm-secondary);
+  --sm-badge-secondary-text: #FFFFFF;
+  --sm-badge-gray-bg: #3F4750;
+  --sm-badge-gray-text: #FFFFFF;
+  --sm-badge-success-bg: var(--sm-success);
+  --sm-badge-success-text: #FFFFFF;
+  --sm-badge-danger-bg: var(--sm-danger);
+  --sm-badge-danger-text: #FFFFFF;
+  --sm-badge-warning-bg: #7A5200;
+  --sm-badge-warning-text: #FFFFFF;
 }
 
 @layer base {

@@ -37,7 +37,7 @@ export default function DesktopSidebar({
     { id: 'staff', label: 'Team Overview', icon: Icons.users },
     { id: 'calendar', label: 'Calendar', icon: Icons.calendar },
     { id: 'requests', label: 'Requests Queue', icon: Icons.bell, badge: pendingCount },
-    { id: 'staffManagement', label: 'Staff Management', icon: Icons.user, superAdminOnly: true },
+    { id: 'staffManagement', label: 'Team Management', icon: Icons.user, superAdminOnly: true },
     { id: 'staffingRules', label: 'Staffing Rules', icon: Icons.shield, superAdminOnly: true },
     { id: 'autoAssign', label: 'Auto-Assignment', icon: '\u{1F504}', superAdminOnly: true },
     { id: 'auditLog', label: 'Audit Log', icon: Icons.clock, superAdminOnly: true },

@@ -36,7 +36,7 @@ const TAB_TITLES: Record<TabId, string> = {
   staffingRules: 'Staffing Rules',
   autoAssign: 'Auto-Assignment',
   auditLog: 'Audit Log',
-  staffManagement: 'Staff Management',
+  staffManagement: 'Team Management',
 };
 
 const DESKTOP_ONLY_TABS: TabId[] = ['requests', 'admin', 'staffingRules', 'autoAssign', 'auditLog', 'staffManagement'];

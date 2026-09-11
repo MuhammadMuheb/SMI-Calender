@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { theme } from '../../config/theme';
+import { alpha } from '../../utils/themeColor';
 import { Icons } from '../ui';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
@@ -63,8 +64,12 @@ export default function TopBar({ title, subtitle, onLogout }: TopBarProps) {
             {unreadCount > 0 && (
               <div
                 aria-hidden="true"
-                className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold"
-                style={{ backgroundColor: theme.colors.danger, color: theme.colors.white }}
+                className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[10px] font-semibold tabular-nums"
+                style={{
+                  backgroundColor: theme.colors.secondaryLight,
+                  color: theme.colors.white,
+                  boxShadow: `0 0 0 2px ${theme.colors.bgElevated}, 0 1px 3px ${alpha(theme.colors.secondary, '60')}`,
+                }}
               >
                 {unreadCount > 9 ? '9+' : unreadCount}
               </div>
