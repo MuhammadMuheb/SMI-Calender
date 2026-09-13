@@ -242,6 +242,26 @@ export async function deleteSpecialDayDb(id: string) {
   if (error) console.error('deleteSpecialDay:', error);
 }
 
+// ─── Tour Assignments ─────────────────────────────────────
+
+export async function fetchTourAssignments() {
+  const { data, error } = await supabase.from('tour_assignments').select('*').order('date');
+  if (error) { console.error('fetchTourAssignments:', error); return []; }
+  return data.map(mapTourAssignment);
+}
+
+export async function upsertTourAssignments(rows: {
+  id: string; userId: string; date: string; source: string; note?: string;
+}[]) {
+  const { error } = await supabase.from('tour_assignments').upsert(
+    rows.map((r) => ({
+      id: r.id, user_id: r.userId, date: r.date, source: r.source, note: r.note ?? '',
+    })),
+    { onConflict: 'user_id,date' },
+  );
+  if (error) console.error('upsertTourAssignments ERROR:', error.message, error.details);
+}
+
 // ─── Audit Log ────────────────────────────────────────────
 
 export async function insertAuditLog(entry: {
@@ -458,6 +478,17 @@ function mapSpecialDay(row: Record<string, unknown>) {
     appliesToAll: row.applies_to_all as boolean,
     appliesTo: (row.applies_to ?? []) as string[],
     createdBy: row.created_by as string,
+    createdAt: row.created_at as string,
+  };
+}
+
+function mapTourAssignment(row: Record<string, unknown>) {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    date: (row.date as string).split('T')[0],
+    source: row.source as string,
+    note: (row.note ?? '') as string,
     createdAt: row.created_at as string,
   };
 }

@@ -12,6 +12,8 @@ import { supabase } from '../lib/supabase';
 import DayDetailModal from './DayDetailModal';
 import RequestFormModal from './RequestFormModal';
 import type { LeaveRequest, LeaveType } from '../models/leave';
+import type { TourAssignment } from '../models/tourAssignment';
+import type { StaffUser } from '../models/user';
 import { LEAVE_TYPE_LABELS } from '../models/leave';
 import {
   buildMonthGrid, formatMonthLabel, todayStr,
@@ -21,7 +23,7 @@ import {
 export default function CalendarPage() {
   const { user } = useAuth();
   const { requests } = useLeave();
-  const { jobRoles, roleAssignments, staffingRules, holidays, specialDays } = useAppData();
+  const { jobRoles, roleAssignments, staffingRules, holidays, specialDays, tourAssignments, users } = useAppData();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -140,6 +142,8 @@ export default function CalendarPage() {
         requests={requests}
         holidays={holidays}
         specialDays={specialDays}
+        tourAssignments={tourAssignments}
+        users={users}
         onManage={() => setManageDate(previewDate)}
         viewerId={user?.id}
         viewerCanSeeTypes={isRichView}
@@ -206,12 +210,14 @@ function useDayAttendanceCounts(date: string) {
 }
 
 function DayPreviewPanel({
-  date, requests, holidays, specialDays, onManage, viewerId, viewerCanSeeTypes,
+  date, requests, holidays, specialDays, tourAssignments, users, onManage, viewerId, viewerCanSeeTypes,
 }: {
   date: string;
   requests: LeaveRequest[];
   holidays: { date: string; name: string }[];
   specialDays: { date: string; name: string }[];
+  tourAssignments: TourAssignment[];
+  users: StaffUser[];
   onManage: () => void;
   viewerId?: string;
   viewerCanSeeTypes: boolean;
@@ -221,6 +227,7 @@ function DayPreviewPanel({
   const pending = dayRequests.filter((r) => r.status === 'pending');
   const holiday = holidays.find((h) => h.date === date);
   const special = specialDays.find((s) => s.date === date);
+  const dayTours = tourAssignments.filter((t) => t.date === date);
   const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const isEmpty = approved.length === 0 && pending.length === 0 && !holiday && !special;
   const attendance = useDayAttendanceCounts(date);
@@ -255,6 +262,23 @@ function DayPreviewPanel({
           style={{ backgroundColor: alpha(theme.colors.warning, '12'), border: `1px solid ${alpha(theme.colors.warning, '30')}` }}>
           <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: theme.colors.warning }} />
           <span className="text-[10px] font-medium" style={{ color: theme.colors.warning }}>{special.name}</span>
+        </div>
+      )}
+
+      {dayTours.length > 0 && (
+        <div className="mb-3 pb-3" style={{ borderBottom: `1px solid ${theme.colors.border}` }}>
+          <p className="text-[9px] font-semibold mb-1.5" style={{ color: theme.colors.grayDark }}>SCHEDULED ON TOUR</p>
+          <div className="flex flex-wrap gap-1.5">
+            {dayTours.map((t) => {
+              const staffMember = users.find((u) => u.id === t.userId);
+              return (
+                <span key={t.id} className="text-[10px] font-medium px-2 py-1 rounded-full"
+                  style={{ color: theme.colors.primary, border: `1px solid ${theme.colors.primary}` }}>
+                  {staffMember?.displayName ?? t.userId}
+                </span>
+              );
+            })}
+          </div>
         </div>
       )}
 

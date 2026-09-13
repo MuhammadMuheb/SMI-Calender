@@ -6,6 +6,7 @@ import type { JobRole, StaffRoleAssignment } from '../models/jobRole';
 import type { StaffingRule } from '../models/staffing';
 import type { Holiday, SpecialDay } from '../models/holiday';
 import type { NotificationSettings } from '../models/notification';
+import type { TourAssignment } from '../models/tourAssignment';
 import {
   fetchUsers, insertUser, updateUserDb, deleteUserDb,
   fetchJobRoles, insertJobRole, updateJobRoleDb, deleteJobRoleDb,
@@ -13,6 +14,7 @@ import {
   fetchStaffingRules, insertStaffingRule, updateStaffingRuleDb, deleteStaffingRuleDb,
   fetchHolidays, fetchSpecialDays, insertSpecialDay, deleteSpecialDayDb,
   fetchNotificationSettings, updateNotificationSettingsDb,
+  fetchTourAssignments,
   insertAuditLog,
 } from '../services/supabaseService';
 
@@ -41,6 +43,7 @@ interface AppDataContextValue {
   deleteStaffingRule: (id: string, actorName: string) => void;
   holidays: Holiday[];
   specialDays: SpecialDay[];
+  tourAssignments: TourAssignment[];
   addSpecialDay: (day: Omit<SpecialDay, 'id' | 'createdAt'>, actorName: string) => void;
   deleteSpecialDay: (id: string, actorName: string) => void;
   notificationSettings: NotificationSettings;
@@ -58,6 +61,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [staffingRules, setStaffingRules] = useState<StaffingRule[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [specialDays, setSpecialDays] = useState<SpecialDay[]>([]);
+  const [tourAssignments, setTourAssignments] = useState<TourAssignment[]>([]);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     dailyReminderTime: '14:00', dailyReminderEnabled: true, updatedAt: '', updatedBy: '',
   });
@@ -68,10 +72,10 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [u, jr, ra, sr, h, sd, ns] = await Promise.all([
+      const [u, jr, ra, sr, h, sd, ns, ta] = await Promise.all([
         fetchUsers(), fetchJobRoles(), fetchRoleAssignments(),
         fetchStaffingRules(), fetchHolidays(), fetchSpecialDays(),
-        fetchNotificationSettings(),
+        fetchNotificationSettings(), fetchTourAssignments(),
       ]);
       setUsers(u as StaffUser[]);
       setJobRoles(jr as JobRole[]);
@@ -80,6 +84,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setHolidays(h as Holiday[]);
       setSpecialDays(sd as SpecialDay[]);
       setNotificationSettings(ns as NotificationSettings);
+      setTourAssignments(ta as TourAssignment[]);
     } catch (err) {
       console.error('Failed to load app data:', err);
     }
@@ -195,6 +200,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     roleAssignments, assignRole, removeRoleAssignment,
     staffingRules, addStaffingRule, updateStaffingRule, deleteStaffingRule,
     holidays, specialDays, addSpecialDay, deleteSpecialDay,
+    tourAssignments,
     notificationSettings, updateNotificationSettings: updateNotificationSettingsHandler,
     refreshData: loadData,
   }), [
@@ -203,6 +209,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     roleAssignments, assignRole, removeRoleAssignment,
     staffingRules, addStaffingRule, updateStaffingRule, deleteStaffingRule,
     holidays, specialDays, addSpecialDay, deleteSpecialDay,
+    tourAssignments,
     notificationSettings, updateNotificationSettingsHandler, loadData,
   ]);
 
