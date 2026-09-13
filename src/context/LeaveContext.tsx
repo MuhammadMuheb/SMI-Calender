@@ -54,8 +54,12 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const data = await fetchLeaveRequests();
-      setRequests(data as LeaveRequest[]);
+      try {
+        const data = await fetchLeaveRequests();
+        setRequests(data as LeaveRequest[]);
+      } catch (err) {
+        console.error('Failed to load leave requests:', err);
+      }
       setLoading(false);
     })();
   }, []);
@@ -91,10 +95,16 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     const staffingErr = checkStaffingBeforeSubmit(normalizedDate, userId, requests, staffingRules, roleAssignments, jobRoles);
     if (staffingErr) return staffingErr;
 
-    const id = await insertLeaveRequest({
-      userId, userDisplayName: userRef.displayName, userRole: userRef.role,
-      date: normalizedDate, leaveType, status: autoApprove ? 'approved' : 'pending', staffNote: note,
-    });
+    let id: string;
+    try {
+      id = await insertLeaveRequest({
+        userId, userDisplayName: userRef.displayName, userRole: userRef.role,
+        date: normalizedDate, leaveType, status: autoApprove ? 'approved' : 'pending', staffNote: note,
+      });
+    } catch (err) {
+      console.error('Failed to save leave request:', err);
+      return 'Failed to save your request — please try again';
+    }
 
     const newRequest: LeaveRequest = {
       id, userId, userRef, date: normalizedDate, leaveType,
