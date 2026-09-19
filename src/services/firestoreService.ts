@@ -525,20 +525,18 @@ export async function fetchSchedules(month?: number, year?: number) {
       q = query(
         collection(db, 'schedules'),
         where('month', '==', month),
-        where('year', '==', year),
-        orderBy('date', 'asc')
+        where('year', '==', year)
       );
     } else {
-      q = query(
-        collection(db, 'schedules'),
-        orderBy('date', 'asc')
-      );
+      q = query(collection(db, 'schedules'));
     }
     const snapshot = await getDocs(q);
     const result = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
+    // Sort client-side instead of relying on Firestore index
+    result.sort((a: any, b: any) => a.date.localeCompare(b.date));
     console.log(`✓ fetchSchedules: Retrieved ${result.length} schedules${month && year ? ` for ${month}/${year}` : ''}`);
     return result;
   } catch (err) {
@@ -552,14 +550,16 @@ export async function fetchSchedulesByDate(date: string) {
   try {
     const q = query(
       collection(db, 'schedules'),
-      where('date', '==', date),
-      orderBy('guide', 'asc')
+      where('date', '==', date)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
+    const result = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
+    // Sort client-side
+    result.sort((a: any, b: any) => a.guide.localeCompare(b.guide));
+    return result;
   } catch (err) {
     console.error('fetchSchedulesByDate:', err);
     return [];

@@ -23,7 +23,7 @@ import {
 export default function CalendarPage() {
   const { user } = useAuth();
   const { requests } = useLeave();
-  const { jobRoles, roleAssignments, staffingRules, holidays, specialDays, tourAssignments, users } = useAppData();
+  const { jobRoles, roleAssignments, staffingRules, holidays, specialDays, tourAssignments, users, schedules } = useAppData();
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -145,6 +145,7 @@ export default function CalendarPage() {
         specialDays={specialDays}
         tourAssignments={tourAssignments}
         users={users}
+        schedules={schedules}
         onManage={() => setManageDate(previewDate)}
         viewerId={user?.id}
         viewerCanSeeTypes={isRichView}
@@ -211,7 +212,7 @@ function useDayAttendanceCounts(date: string) {
 }
 
 function DayPreviewPanel({
-  date, requests, holidays, specialDays, tourAssignments, users, onManage, viewerId, viewerCanSeeTypes,
+  date, requests, holidays, specialDays, tourAssignments, users, onManage, viewerId, viewerCanSeeTypes, schedules = [],
 }: {
   date: string;
   requests: LeaveRequest[];
@@ -219,6 +220,7 @@ function DayPreviewPanel({
   specialDays: { date: string; name: string }[];
   tourAssignments: TourAssignment[];
   users: StaffUser[];
+  schedules: import('../models/schedule').Schedule[];
   onManage: () => void;
   viewerId?: string;
   viewerCanSeeTypes: boolean;
@@ -229,8 +231,13 @@ function DayPreviewPanel({
   const holiday = holidays.find((h) => h.date === date);
   const special = specialDays.find((s) => s.date === date);
   const dayTours = tourAssignments.filter((t) => t.date === date);
+
+  // Get scheduled guides for this date
+  const daySchedules = schedules.filter((s: any) => s.date === date);
+  const scheduledGuides = [...new Set(daySchedules.map((s: any) => s.guide))].sort();
+
   const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const isEmpty = approved.length === 0 && pending.length === 0 && !holiday && !special;
+  const isEmpty = approved.length === 0 && pending.length === 0 && !holiday && !special && scheduledGuides.length === 0;
   const attendance = useDayAttendanceCounts(date);
 
   return (
@@ -263,6 +270,23 @@ function DayPreviewPanel({
           style={{ backgroundColor: alpha(theme.colors.warning, '12'), border: `1px solid ${alpha(theme.colors.warning, '30')}` }}>
           <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: theme.colors.warning }} />
           <span className="text-[10px] font-medium" style={{ color: theme.colors.warning }}>{special.name}</span>
+        </div>
+      )}
+
+      {scheduledGuides.length > 0 && (
+        <div className="mb-3 pb-3" style={{ borderBottom: `1px solid ${theme.colors.border}` }}>
+          <p className="text-[9px] font-semibold mb-1.5 uppercase tracking-wider" style={{ color: theme.colors.grayDark }}>📍 Tour Guides Scheduled ({scheduledGuides.length})</p>
+          <div className="space-y-1.5">
+            {scheduledGuides.map((guide: string) => (
+              <div key={guide} className="flex items-center gap-2 py-1.5 px-2 rounded-lg" style={{ backgroundColor: alpha(theme.colors.primary, '10'), border: `1px solid ${alpha(theme.colors.primary, '20')}` }}>
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold"
+                  style={{ backgroundColor: alpha(theme.colors.primary, '30'), color: theme.colors.primaryLight }}>
+                  {guide[0]?.toUpperCase()}
+                </div>
+                <p className="text-xs font-medium" style={{ color: theme.colors.white }}>{guide}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
