@@ -10,10 +10,11 @@ export async function fetchUsers(): Promise<StaffUser[]> {
     const snapshot = await getDocs(collection(db, 'users'));
     return snapshot.docs.map((docSnap) => {
       const data = docSnap.data();
+      const username = data.username as string;
       return {
         id: data.id as string,
-        username: data.username as string,
-        displayName: data.displayName as string,
+        username,
+        displayName: (data.displayName as string) || username,
         pin: data.pinHash as string,
         role: data.role as Role,
         isActive: data.isActive as boolean,
