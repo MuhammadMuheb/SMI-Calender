@@ -28,6 +28,31 @@ export async function fetchTourAssignments(): Promise<TourAssignment[]> {
 }
 
 /**
+ * Fetch audit log entries
+ */
+export async function fetchAuditLog(limit_: number = 500) {
+  try {
+    const q = query(collection(db, 'audit_log'), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs
+      .slice(0, limit_)
+      .map(docSnap => ({
+        id: docSnap.id,
+        actorId: docSnap.data().actorId ?? 'unknown',
+        actorName: docSnap.data().actorName ?? 'Unknown',
+        action: docSnap.data().action ?? '',
+        entityType: docSnap.data().entityType ?? '',
+        entityId: docSnap.data().entityId ?? '',
+        description: docSnap.data().description ?? '',
+        createdAt: docSnap.data().createdAt ?? new Date().toISOString(),
+      }));
+  } catch (error) {
+    console.error('Error fetching audit log:', error);
+    return [];
+  }
+}
+
+/**
  * Insert audit log entry
  */
 export async function insertAuditLog(entry: {

@@ -43,4 +43,4 @@ export { insertUser, updateUserDb, deleteUserDb } from './firestoreUserService';
 /**
  * Re-export from firestoreService for backward compatibility
  */
-export { insertAuditLog } from './firestoreService';
+export { insertAuditLog, fetchAuditLog } from './firestoreService';
