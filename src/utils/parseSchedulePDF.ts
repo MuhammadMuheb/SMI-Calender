@@ -10,12 +10,6 @@ const DAY_NAME_TO_INDEX: Record<string, number> = {
   MONDAY: 0, TUESDAY: 1, WEDNESDAY: 2, THURSDAY: 3, FRIDAY: 4, SATURDAY: 5, SUNDAY: 6,
 };
 
-interface CalendarCell {
-  date: number;
-  dayOfWeekIndex: number;
-  guides: string[];
-}
-
 /**
  * Parses a table from pdfplumber into schedule entries
  * @param table - 2D array from pdfplumber.extract_tables()

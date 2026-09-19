@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Card, Button } from '../../components/ui';
 import { theme } from '../../config/theme';
 import { useAppData } from '../../context/AppDataContext';
-import { useNotifications } from '../../context/NotificationContext';
 import type { Schedule } from '../../models/schedule';
 
 interface ScheduleImportProps {
@@ -11,7 +10,6 @@ interface ScheduleImportProps {
 
 export default function ScheduleImport({ onBack }: ScheduleImportProps) {
   const { schedules, seedSchedules } = useAppData();
-  const { addNotification } = useNotifications();
   const [importing, setImporting] = useState(false);
   const [preview, setPreview] = useState<Schedule[]>([]);
 
@@ -123,21 +121,9 @@ export default function ScheduleImport({ onBack }: ScheduleImportProps) {
     setImporting(true);
     try {
       await seedSchedules(augustSchedules);
-      addNotification(
-        'admin',
-        'success',
-        'August Schedules Imported',
-        `Imported ${augustSchedules.length} schedule entries for August 2026`
-      );
       setPreview([]);
     } catch (err) {
       console.error('Import error:', err);
-      addNotification(
-        'admin',
-        'error',
-        'Import Failed',
-        'Failed to import August schedules'
-      );
     } finally {
       setImporting(false);
     }
@@ -147,21 +133,9 @@ export default function ScheduleImport({ onBack }: ScheduleImportProps) {
     setImporting(true);
     try {
       await seedSchedules(septemberSchedules);
-      addNotification(
-        'admin',
-        'success',
-        'September Schedules Imported',
-        `Imported ${septemberSchedules.length} schedule entries for September 2026`
-      );
       setPreview([]);
     } catch (err) {
       console.error('Import error:', err);
-      addNotification(
-        'admin',
-        'error',
-        'Import Failed',
-        'Failed to import September schedules'
-      );
     } finally {
       setImporting(false);
     }
