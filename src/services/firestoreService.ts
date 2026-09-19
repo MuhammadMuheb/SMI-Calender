@@ -535,12 +535,15 @@ export async function fetchSchedules(month?: number, year?: number) {
       );
     }
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
+    const result = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
+    console.log(`✓ fetchSchedules: Retrieved ${result.length} schedules${month && year ? ` for ${month}/${year}` : ''}`);
+    return result;
   } catch (err) {
-    console.error('fetchSchedules:', err);
+    console.error('✗ fetchSchedules error:', err);
+    console.log('Note: Firestore query failed - may be missing index or permission issue');
     return [];
   }
 }
@@ -592,6 +595,13 @@ export async function insertSchedulesBatch(schedules: Array<{
   year: number;
 }>) {
   try {
+    console.log(`insertSchedulesBatch: Attempting to insert ${schedules.length} schedules...`);
+
+    if (!schedules || schedules.length === 0) {
+      console.warn('insertSchedulesBatch: No schedules to insert');
+      return false;
+    }
+
     const batch = writeBatch(db);
     const schedulesRef = collection(db, 'schedules');
 
@@ -604,9 +614,14 @@ export async function insertSchedulesBatch(schedules: Array<{
     }
 
     await batch.commit();
+    console.log(`✓ insertSchedulesBatch: Successfully inserted ${schedules.length} schedules`);
     return true;
   } catch (err) {
-    console.error('insertSchedulesBatch:', err);
+    console.error('✗ insertSchedulesBatch: Failed to insert:', err);
+    if (err instanceof Error) {
+      console.error('Error message:', err.message);
+      console.error('Error code:', (err as any).code);
+    }
     throw err;
   }
 }

@@ -96,11 +96,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setNotificationSettings(ns as NotificationSettings);
       setTourAssignments(ta as TourAssignment[]);
       const scheduleData = sched as Schedule[];
+      console.log(`AppDataContext: Loaded ${scheduleData.length} schedules from Firestore`);
       setSchedules(scheduleData);
 
       // Auto-import schedules if none exist
-      if (scheduleData.length === 0 && (augustSchedules.length > 0 || septemberSchedules.length > 0)) {
-        try {
+      if (scheduleData.length === 0) {
+        console.log(`AppDataContext: No schedules in Firestore, checking for local data...`);
+        console.log(`August schedules available: ${augustSchedules.length}, September: ${septemberSchedules.length}`);
+
+        if (augustSchedules.length > 0 || septemberSchedules.length > 0) {
+          try {
           const allSchedules = [...augustSchedules, ...septemberSchedules];
           console.log(`Attempting to auto-import ${allSchedules.length} schedule entries...`);
           console.log('Sample entries:', allSchedules.slice(0, 3));
@@ -110,15 +115,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
             return;
           }
 
-          await insertSchedulesBatch(allSchedules);
+          // Set local state first so it renders even if Firestore fails
           setSchedules(allSchedules);
-          console.log(`✓ Successfully auto-imported ${allSchedules.length} schedule entries`);
-        } catch (importErr) {
-          console.error('✗ Failed to auto-import schedules:', importErr);
-          // Even if Firestore fails, set local state so display works
-          const fallbackSchedules = [...augustSchedules, ...septemberSchedules];
-          setSchedules(fallbackSchedules);
-          console.warn(`Set ${fallbackSchedules.length} schedules from local data (Firestore save may have failed)`);
+          console.log(`AppDataContext: Set local schedules state (${allSchedules.length} entries)`);
+
+          // Then attempt to save to Firestore
+          try {
+            await insertSchedulesBatch(allSchedules);
+            console.log(`✓ AppDataContext: Successfully saved ${allSchedules.length} schedules to Firestore`);
+          } catch (firestoreErr) {
+            console.warn(`⚠ AppDataContext: Firestore save failed, but local data is available`);
+          }
+          } catch (importErr) {
+            console.error('✗ AppDataContext: Failed to auto-import schedules:', importErr);
+          }
         }
       }
     } catch (err) {
