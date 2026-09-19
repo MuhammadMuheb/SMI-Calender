@@ -1,14 +1,24 @@
 import { getFirestore, collection, getDocs, addDoc, writeBatch, doc, setDoc, updateDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import type { TourAssignment } from '../models/tourAssignment';
+import type { Schedule } from '../models/schedule';
 
 const db = getFirestore();
 
 /**
  * Fetch all tour assignments
  */
-export async function fetchTourAssignments() {
+export async function fetchTourAssignments(): Promise<TourAssignment[]> {
   try {
     const snapshot = await getDocs(collection(db, 'tour_assignments'));
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return snapshot.docs.map(docSnap => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        userId: (data.userId ?? '') as string,
+        tourId: (data.tourId ?? '') as string,
+        assignedDate: (data.assignedDate ?? '') as string,
+      } as TourAssignment;
+    });
   } catch (error) {
     console.error('Error fetching tour assignments:', error);
     return [];
@@ -39,10 +49,21 @@ export async function insertAuditLog(entry: {
 /**
  * Fetch all schedules
  */
-export async function fetchSchedules() {
+export async function fetchSchedules(): Promise<Schedule[]> {
   try {
     const snapshot = await getDocs(collection(db, 'schedules'));
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return snapshot.docs.map(docSnap => {
+      const data = docSnap.data();
+      return {
+        id: docSnap.id,
+        date: (data.date ?? '') as string,
+        staffUserId: (data.staffUserId ?? '') as string,
+        jobRoleId: (data.jobRoleId ?? '') as string,
+        shiftStartTime: (data.shiftStartTime ?? '') as string,
+        shiftEndTime: (data.shiftEndTime ?? '') as string,
+        notes: (data.notes ?? '') as string,
+      } as Schedule;
+    });
   } catch (error) {
     console.error('Error fetching schedules:', error);
     return [];
