@@ -90,18 +90,19 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const completeTask = useCallback(async (id: string) => {
-    if (!user) return;
+    if (!user || !user.id) return;
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     const now = new Date().toISOString();
-    await updateTask(id, { status: 'done', completed_at: now, completed_by: user.id, completed_by_name: user.displayName });
+    const userName = user?.displayName ?? user?.username ?? 'Unknown';
+    await updateTask(id, { status: 'done', completed_at: now, completed_by: user.id, completed_by_name: userName });
     if (task.group_id) {
-      await completeGroupTasks(task.group_id, user.id, user.displayName);
-      setTasks(prev => prev.map(t => t.group_id === task.group_id ? { ...t, status: 'done', completed_at: now, completed_by: user.id, completed_by_name: user.displayName } : t));
+      await completeGroupTasks(task.group_id, user.id, userName);
+      setTasks(prev => prev.map(t => t.group_id === task.group_id ? { ...t, status: 'done', completed_at: now, completed_by: user.id, completed_by_name: userName } : t));
     } else {
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'done', completed_at: now, completed_by: user.id, completed_by_name: user.displayName } : t));
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'done', completed_at: now, completed_by: user.id, completed_by_name: userName } : t));
     }
-    await logActivity({ task_id: id, actor_id: user.id, actor_name: user.displayName, action: 'completed', detail: `Completed "${task.title}"` });
+    await logActivity({ task_id: id, actor_id: user.id, actor_name: userName, action: 'completed', detail: `Completed "${task.title}"` });
   }, [user, tasks]);
 
   const addHandoverNote = useCallback(async (id: string, note: string) => {

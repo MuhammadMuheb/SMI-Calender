@@ -28,7 +28,7 @@ export default function TaskDetailModal({ task, open, onClose }: Props) {
 
   const handleComment = async () => {
     if (!newComment.trim()) return;
-    await insertComment({ id: `cmt_${Date.now()}`, task_id: task.id, user_id: user.id, user_name: user.displayName, body: newComment.trim() });
+    await insertComment({ id: `cmt_${Date.now()}`, task_id: task.id, user_id: user?.id ?? 'unknown', user_name: user?.displayName ?? user?.username ?? 'Unknown', body: newComment.trim() });
     setNewComment(''); loadComments();
   };
 
