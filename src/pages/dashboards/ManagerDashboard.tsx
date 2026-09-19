@@ -39,18 +39,18 @@ export default function ManagerDashboard() {
   if (showCoffee) return <CoffeeLeaderboard onBack={() => setShowCoffee(false)} />;
   if (view === 'queue') return <ManagerRequestQueue onBack={() => setView('dashboard')} />;
   if (view === 'myHistory') return <RequestHistory onBack={() => setView('dashboard')} />;
-  if (view === 'checkins') return <CheckInBoard onBack={() => setView('dashboard')} currentUserRole={user.role} />;
+  if (view === 'checkins') return <CheckInBoard onBack={() => setView('dashboard')} currentUserRole={user?.role ?? 'staff'} />;
   if (view === 'shiftStatus') return <ShiftStatusBoard onBack={() => setView('dashboard')} />;
   if (view === 'attendance') return (
     <div className="space-y-3">
       <button onClick={() => setView('dashboard')} className="text-xs font-medium cursor-pointer" style={{ color: theme.colors.primary }}>← Back</button>
-      <AttendanceSummary currentUserId={user.id} currentUserRole={user.role} currentUserJobRoles={user.jobRole ?? ['Office']} />
+      <AttendanceSummary currentUserId={user.id} currentUserRole={user?.role ?? 'staff'} currentUserJobRoles={user?.jobRole ?? ['Office']} />
     </div>
   );
 
   const activeStaff = users.filter((u) => u.isActive);
   const pendingRequests = getPendingRequests().filter(
-    (r) => r.userRef.role === 'staff' && r.userId !== user.id,
+    (r) => (r.userRef?.role ?? 'staff') === 'staff' && r.userId !== user.id,
   );
 
   const tomorrow = new Date();
