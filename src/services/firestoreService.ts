@@ -178,13 +178,44 @@ export async function rejectLeaveRequest(id: string, rejectedBy: string, reason?
 }
 
 /**
+ * Ensure LeaveRequest has safe userRef with displayName fallback
+ */
+function ensureSafeUserRef(data: any) {
+  if (!data.userRef) {
+    return { id: data.userId ?? 'unknown', displayName: data.user_display_name ?? 'Unknown', role: 'staff' };
+  }
+  return {
+    id: data.userRef.id ?? data.userId ?? 'unknown',
+    displayName: data.userRef.displayName ?? data.user_display_name ?? 'Unknown',
+    role: data.userRef.role ?? 'staff',
+  };
+}
+
+/**
  * Listen to leave requests changes
  */
 export function listenLeaveRequests(callback: (requests: any[]) => void) {
   try {
     const q = query(collection(db, 'leave_requests'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
-      const requests = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      const requests = snapshot.docs.map(d => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          userRef: ensureSafeUserRef(data),
+          decidedBy: data.decidedBy ? {
+            id: data.decidedBy.id ?? 'unknown',
+            displayName: data.decidedBy.displayName ?? 'Unknown',
+            role: data.decidedBy.role ?? 'staff',
+          } : null,
+          overriddenBy: data.overriddenBy ? {
+            id: data.overriddenBy.id ?? 'unknown',
+            displayName: data.overriddenBy.displayName ?? 'Unknown',
+            role: data.overriddenBy.role ?? 'staff',
+          } : null,
+        };
+      });
       callback(requests);
     });
   } catch (error) {
