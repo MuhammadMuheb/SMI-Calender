@@ -33,40 +33,15 @@ export default function AdminControlsSection() {
   const renderFullPageView = () => {
     switch (currentView) {
       case 'team':
-        return (
-          <div className="space-y-3">
-            <BackButton label="Team Management" onBack={handleBack} />
-            <StaffManagement onBack={handleBack} />
-          </div>
-        );
+        return <StaffManagement onBack={handleBack} />;
       case 'staffing':
-        return (
-          <div className="space-y-3">
-            <BackButton label="Staffing Rules" onBack={handleBack} />
-            <StaffingRulesPage onBack={handleBack} />
-          </div>
-        );
+        return <StaffingRulesPage onBack={handleBack} />;
       case 'auto':
-        return (
-          <div className="space-y-3">
-            <BackButton label="Auto-Assignment" onBack={handleBack} />
-            <AutoAssignment onBack={handleBack} />
-          </div>
-        );
+        return <AutoAssignment onBack={handleBack} />;
       case 'audit':
-        return (
-          <div className="space-y-3">
-            <BackButton label="Audit Log" onBack={handleBack} />
-            <AuditLogPage onBack={handleBack} />
-          </div>
-        );
+        return <AuditLogPage onBack={handleBack} />;
       case 'vacation':
-        return (
-          <div className="space-y-3">
-            <BackButton label="Vacation Adjustments" onBack={handleBack} />
-            <VacationAdjustment onBack={handleBack} />
-          </div>
-        );
+        return <VacationAdjustment onBack={handleBack} />;
       default:
         return null;
     }
@@ -74,7 +49,13 @@ export default function AdminControlsSection() {
 
   // Show full-page view when admin feature is selected
   if (currentView !== 'menu') {
-    return <>{renderFullPageView()}</>;
+    return (
+      <div style={{ position: 'fixed', inset: 0, top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, backgroundColor: theme.colors.bg, overflow: 'auto' }} className="overflow-y-auto">
+        <div style={{ maxWidth: '100%', padding: '1rem' }}>
+          {renderFullPageView()}
+        </div>
+      </div>
+    );
   }
 
   // Show Management Console menu
