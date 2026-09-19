@@ -38,8 +38,8 @@ export default function SettingsPage() {
   // Detect mobile at runtime (not build time)
   useEffect(() => {
     const checkMobile = () => {
-      // Only show Management Console on actual mobile devices (< 768px)
-      setIsMobile(window.innerWidth < 768);
+      // Only show Management Console on screens 1023px and below (< 1024px)
+      setIsMobile(window.innerWidth < 1024);
     };
 
     checkMobile();
@@ -158,15 +158,15 @@ export default function SettingsPage() {
         <span style={{ color: theme.colors.grayDark }}>{Icons.chevronRight}</span>
       </button>
 
-      {/* Management Console - ONLY visible on MOBILE DEVICES (< 768px) to super_admin */}
-      {/* CSS AND JS-based detection ensures it never shows on desktop */}
+      {/* Management Console - ONLY visible on screens 1023px and below to super_admin */}
+      {/* Dual protection: JS runtime check + CSS media query at 1024px breakpoint */}
       {user.role === ROLES.SUPER_ADMIN && (
         <div
           data-mobile-only="true"
           style={{
             display: isMobile ? 'block' : 'none',
           }}
-          className="hidden lg:hidden"
+          className="lg:hidden"
         >
           <AdminControlsSection />
         </div>
