@@ -159,8 +159,17 @@ export default function SettingsPage() {
       </button>
 
       {/* Management Console - ONLY visible on MOBILE DEVICES (< 768px) to super_admin */}
-      {isMobile && user.role === ROLES.SUPER_ADMIN && (
-        <AdminControlsSection />
+      {/* CSS AND JS-based detection ensures it never shows on desktop */}
+      {user.role === ROLES.SUPER_ADMIN && (
+        <div
+          data-mobile-only="true"
+          style={{
+            display: isMobile ? 'block' : 'none',
+          }}
+          className="hidden lg:hidden"
+        >
+          <AdminControlsSection />
+        </div>
       )}
 
       <Button variant="secondary" fullWidth onClick={logout}>Sign Out</Button>
