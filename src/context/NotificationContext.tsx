@@ -5,9 +5,9 @@ import type { Notification, NotificationType, ConfirmStatus } from '../models/no
 import { subscribeToPush, sendPushToUser } from '../utils/pushManager';
 
 /**
- * STATUS: DISABLED DURING SUPABASE->FIRESTORE MIGRATION
- * Notifications will be stored locally during this migration.
- * TODO: Implement Firestore-based notifications
+ * STATUS: LOCAL-ONLY NOTIFICATIONS
+ * Notifications are stored in local memory during the session.
+ * Push notifications can be enabled for real-time delivery.
  */
 
 interface NotificationContextValue {

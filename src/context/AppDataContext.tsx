@@ -37,9 +37,10 @@ import {
 import { augustSchedules, septemberSchedules } from '../data/scheduleData';
 
 /**
- * STATUS: CONNECTED TO SUPABASE
- * Loads all data from Supabase on mount.
- * All mutations write to both local state AND Supabase.
+ * STATUS: FIREBASE FIRESTORE ONLY
+ * Loads all data from Firestore on mount.
+ * All mutations write to both local state AND Firestore.
+ * Auto-restores job roles from backup if collection is empty.
  */
 
 interface AppDataContextValue {

@@ -5,7 +5,7 @@ import { useAppData } from '../context/AppDataContext';
 import { useNotifications } from '../context/NotificationContext';
 import { getCycleInfo, getUnfilledUsers } from '../services/cycleScheduler';
 import { runAutoAssignment } from '../services/autoAssignService';
-import { insertAuditLog } from '../services/supabaseService';
+import { insertAuditLog } from '../services/firestoreService';
 
 export default function CycleManager() {
   const { user } = useAuth();
