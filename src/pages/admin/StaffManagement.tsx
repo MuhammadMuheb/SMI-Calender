@@ -5,7 +5,7 @@ import { alpha } from '../../utils/themeColor';
 import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES, ROLE_LABELS, ROLE_BADGE_COLOR, type Role } from '../../config/roles';
-import { safeMapUsers, getDisplayName, getUserInitial } from '../../utils/safeFallbacks';
+import { getDisplayName, getUserInitial } from '../../utils/safeFallbacks';
 import type { StaffUser } from '../../models/user';
 
 const ROLE_OPTIONS: Role[] = [ROLES.STAFF, ROLES.MANAGER, ROLES.SUPER_ADMIN, ROLES.SPECTATOR];
