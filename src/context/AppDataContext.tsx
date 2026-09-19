@@ -9,6 +9,7 @@ import type { NotificationSettings } from '../models/notification';
 import type { TourAssignment } from '../models/tourAssignment';
 import type { Schedule } from '../models/schedule';
 import { getSafeUsers, SAFE_EMPTY_USERS } from '../utils/safeFallbacks';
+import { validateUsers } from '../utils/dataValidation';
 import {
   fetchUsers, insertUser, updateUserDb, deleteUserDb,
 } from '../services/firestoreUserService';
@@ -129,8 +130,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         console.error('fetchSchedules error:', err);
         return [];
       });
-      // Use safe fallbacks - GUARANTEED to never be undefined
-      setUsers(getSafeUsers(Array.isArray(u) ? u : SAFE_EMPTY_USERS));
+      // Use bulletproof validation - GUARANTEED to never be undefined
+      const validatedUsers = validateUsers(Array.isArray(u) ? u : SAFE_EMPTY_USERS);
+      setUsers(validatedUsers);
       setJobRoles(Array.isArray(jr) ? jr : []);
       setRoleAssignments(Array.isArray(ra) ? ra : []);
       setStaffingRules(Array.isArray(sr) ? sr : []);

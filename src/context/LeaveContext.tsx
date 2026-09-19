@@ -17,6 +17,7 @@ import {
 import { formatDateLocal } from '../utils/dateUtils';
 import { getCycleForDate as getNewCycle } from '../utils/cycleUtils';
 import { useAppData } from './AppDataContext';
+import { validateLeaveRequests } from '../utils/dataValidation';
 import { checkStaffingBeforeSubmit } from '../services/staffingCheckOnSubmit';
 
 interface LeaveContextValue {
@@ -56,7 +57,13 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     const unsubscribe = listenLeaveRequests(
       (data: any) => {
-        setRequests(data as LeaveRequest[]);
+        try {
+          const validated = validateLeaveRequests(data);
+          setRequests(validated);
+        } catch (err) {
+          console.error('Error validating leave requests:', err);
+          setRequests([]);
+        }
         setLoading(false);
       }
     );

@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo, t
 import { useAuth } from './AuthContext';
 import { useAppData } from './AppDataContext';
 import { useLeave } from './LeaveContext';
+import { validateUsers, safeMapUsers, getDisplayName } from '../utils/dataValidation';
 import { fetchTasksForDate, insertTask, updateTask, completeGroupTasks, markMissedTasks, fetchCategories, fetchTemplates, logActivity, generateDailyTasks, fetchActivity } from '../services/taskService';
 
 export interface Task {
@@ -66,13 +67,35 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     const today = todayStr();
     markMissedTasks(today);
     const offIds = new Set(requests.filter((r: any) => r.date === today && r.status === 'approved').map((r: any) => r.userId));
-    const working = users.filter((u: any) => u.isActive && !offIds.has(u.id)).map((u: any) => ({
-      id: u.id, name: u.displayName ?? u.username ?? 'Unknown', role: u.role, jobRoles: (u as any).jobRole || ['Office'],
-    }));
+
+    // Bulletproof user mapping - NEVER crashes on displayName
+    const working = users
+      .filter((u: any) => u?.isActive && !offIds.has(u?.id))
+      .map((u: any) => ({
+        id: u?.id ?? 'unknown',
+        name: getDisplayName(u) || 'Unknown',
+        role: u?.role ?? 'staff',
+        jobRoles: Array.isArray(u?.jobRole) ? u.jobRole : ['Office'],
+      }))
+      .filter(w => w.id && w.id !== 'unknown'); // Filter out invalid entries
+
     generateDailyTasks(today, working).then(count => { if (count > 0) refreshTasks(); });
   }, [user, users, requests, hasGenerated, refreshTasks]);
 
-  const refreshActivity = useCallback(async () => { setActivity(await fetchActivity(50) as ActivityItem[]); }, []);
+  const refreshActivity = useCallback(async () => {
+    try {
+      const data = await fetchActivity(50);
+      // Validate activity items have actor_name
+      const validated = Array.isArray(data) ? data.map((a: any) => ({
+        ...a,
+        actor_name: getDisplayName(a) || a.actor_name || 'Unknown',
+      })) : [];
+      setActivity(validated as ActivityItem[]);
+    } catch (err) {
+      console.error('Error loading activity:', err);
+      setActivity([]);
+    }
+  }, []);
 
   const createTask = useCallback(async (t: { title: string; description?: string; category_id?: string; date: string; assigned_to: string; assigned_to_name: string; priority?: string; group_id?: string; }) => {
     if (!user) return false;

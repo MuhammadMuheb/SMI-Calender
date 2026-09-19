@@ -93,11 +93,25 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       const data = await fetchNotifications();
       if (!mountedRef.current) return;
-      if (data.length > prevCountRef.current && prevCountRef.current > 0) {
+
+      // Validate notifications - ensure all have required fields
+      const validated = Array.isArray(data) ? data.map((n: any) => ({
+        id: n?.id ?? `notif_${Date.now()}`,
+        userId: n?.userId ?? n?.user_id ?? 'unknown',
+        type: n?.type ?? 'info',
+        title: n?.title ?? '',
+        body: n?.body ?? '',
+        isRead: n?.isRead === true || n?.is_read === true,
+        createdAt: n?.createdAt ?? n?.created_at ?? new Date().toISOString(),
+        entityType: n?.entityType ?? null,
+        entityId: n?.entityId ?? null,
+      })).filter(n => n.id && n.userId) : [];
+
+      if (validated.length > prevCountRef.current && prevCountRef.current > 0) {
         playNotificationSound();
       }
-      prevCountRef.current = data.length;
-      setNotifications(data as Notification[]);
+      prevCountRef.current = validated.length;
+      setNotifications(validated as Notification[]);
     } catch (err) {
       console.error('Failed to load notifications:', err);
     }
