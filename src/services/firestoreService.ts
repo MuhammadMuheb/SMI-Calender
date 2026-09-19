@@ -15,8 +15,10 @@ export async function fetchTourAssignments(): Promise<TourAssignment[]> {
       return {
         id: docSnap.id,
         userId: (data.userId ?? '') as string,
-        tourId: (data.tourId ?? '') as string,
-        assignedDate: (data.assignedDate ?? '') as string,
+        date: (data.date ?? data.assignedDate ?? '') as string,
+        source: (data.source ?? 'manual') as string,
+        note: (data.note ?? '') as string,
+        createdAt: (data.createdAt ?? new Date().toISOString()) as string,
       } as TourAssignment;
     });
   } catch (error) {
@@ -54,14 +56,16 @@ export async function fetchSchedules(): Promise<Schedule[]> {
     const snapshot = await getDocs(collection(db, 'schedules'));
     return snapshot.docs.map(docSnap => {
       const data = docSnap.data();
+      const dateStr = (data.date ?? '') as string;
+      const date = new Date(dateStr + 'T00:00:00');
       return {
         id: docSnap.id,
-        date: (data.date ?? '') as string,
-        staffUserId: (data.staffUserId ?? '') as string,
-        jobRoleId: (data.jobRoleId ?? '') as string,
-        shiftStartTime: (data.shiftStartTime ?? '') as string,
-        shiftEndTime: (data.shiftEndTime ?? '') as string,
-        notes: (data.notes ?? '') as string,
+        date: dateStr,
+        dayOfWeek: (data.dayOfWeek ?? date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase()) as string,
+        guide: (data.guide ?? data.staffUserId ?? '') as string,
+        month: (data.month ?? date.getMonth() + 1) as number,
+        year: (data.year ?? date.getFullYear()) as number,
+        createdAt: data.createdAt ? new Date(data.createdAt) : new Date(),
       } as Schedule;
     });
   } catch (error) {
