@@ -1,12 +1,115 @@
 rules_version = '2';
 
-// Placeholder — deliberately locked down (deny everything) until Phase 5 of
-// the Firebase migration, when real rules get written to match the
-// staff/manager/super_admin capability table enforced in the app's UI.
-// Do not weaken this to "allow read, write: if true" even temporarily —
-// that was exactly the Supabase RLS mistake this migration exists to fix.
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && request.auth.token.role == 'super_admin';
+    }
+
+    function isManager() {
+      return isAuthenticated() && request.auth.token.role in ['manager', 'super_admin'];
+    }
+
+    function isStaff() {
+      return isAuthenticated() && request.auth.token.role in ['staff', 'manager', 'super_admin'];
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ===== Users Collection =====
+    match /users/{userId} {
+      // Any authenticated user can read their own profile
+      allow read: if isOwner(userId);
+      // Super admin can read all users
+      allow read: if isSuperAdmin();
+      // Super admin can update any user
+      allow update, delete: if isSuperAdmin();
+      // Can't create users directly (via Cloud Function only)
+      allow create: if false;
+    }
+
+    // ===== Leave Requests =====
+    match /leave_requests/{requestId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isSuperAdmin() || isManager();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ===== Notifications =====
+    match /notifications/{notificationId} {
+      // Users can only read their own notifications
+      allow read, update: if isOwner(resource.data.userId);
+      allow create: if isSuperAdmin();
+      allow delete: if isOwner(resource.data.userId) || isSuperAdmin();
+    }
+
+    // ===== Swaps =====
+    match /swaps/{swapId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isSuperAdmin() || isManager();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ===== Tasks =====
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated();
+      allow create: if isManager();
+      allow update: if isManager();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ===== Staff Management (Users read with role) =====
+    match /staffing_rules/{ruleId} {
+      allow read: if isManager();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    match /role_assignments/{assignmentId} {
+      allow read: if isManager();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    match /special_days/{dayId} {
+      allow read: if isStaff();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // ===== Vacation Adjustments =====
+    match /vacation_adjustments/{adjustmentId} {
+      allow read: if isSuperAdmin() || isOwner(resource.data.userId);
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    // ===== Audit Log =====
+    match /audit_log/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ===== Check-ins =====
+    match /check_ins/{checkInId} {
+      allow read: if isOwner(resource.data.userId) || isManager();
+      allow create: if isAuthenticated();
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // ===== Push Subscriptions =====
+    match /push_subscriptions/{subscriptionId} {
+      allow read, write: if isOwner(resource.data.userId) || isSuperAdmin();
+      allow create: if isAuthenticated();
+    }
+
+    // ===== Deny everything else =====
     match /{document=**} {
       allow read, write: if false;
     }

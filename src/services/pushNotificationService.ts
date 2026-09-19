@@ -1,10 +1,9 @@
 import { savePushSubscription } from './firestoreService';
+import { VAPID_PUBLIC_KEY } from '../lib/firebase';
 
 /**
  * Initialize and manage web push notifications
  */
-
-const VAPID_PUBLIC_KEY = 'BM2rVmOrn1Lkn0lppCY4GlOq9d8aQ2PkXR1M9ZvLwVG3eNqJz9qJ5eR8mK2pL3sT4uVwxY';
 
 export async function initPushNotifications(userId: string): Promise<void> {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
