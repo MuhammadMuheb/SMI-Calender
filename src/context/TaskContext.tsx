@@ -67,7 +67,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     markMissedTasks(today);
     const offIds = new Set(requests.filter((r: any) => r.date === today && r.status === 'approved').map((r: any) => r.userId));
     const working = users.filter((u: any) => u.isActive && !offIds.has(u.id)).map((u: any) => ({
-      id: u.id, name: u.displayName, role: u.role, jobRoles: (u as any).jobRole || ['Office'],
+      id: u.id, name: u.displayName ?? u.username ?? 'Unknown', role: u.role, jobRoles: (u as any).jobRole || ['Office'],
     }));
     generateDailyTasks(today, working).then(count => { if (count > 0) refreshTasks(); });
   }, [user, users, requests, hasGenerated, refreshTasks]);
@@ -77,15 +77,17 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   const createTask = useCallback(async (t: { title: string; description?: string; category_id?: string; date: string; assigned_to: string; assigned_to_name: string; priority?: string; group_id?: string; }) => {
     if (!user) return false;
     const id = `task_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-    const ok = await insertTask({ id, title: t.title, description: t.description || '', category_id: t.category_id, date: t.date, assigned_to: t.assigned_to, assigned_to_name: t.assigned_to_name, assigned_by: user.id, assigned_by_name: user.displayName, priority: t.priority || 'normal', group_id: t.group_id });
-    if (ok) { await logActivity({ task_id: id, actor_id: user.id, actor_name: user.displayName, action: 'created', detail: `Created "${t.title}" for ${t.assigned_to_name}` }); await refreshTasks(); }
+    const userName = user.displayName ?? user.username ?? 'Unknown';
+    const ok = await insertTask({ id, title: t.title, description: t.description || '', category_id: t.category_id, date: t.date, assigned_to: t.assigned_to, assigned_to_name: t.assigned_to_name, assigned_by: user.id, assigned_by_name: userName, priority: t.priority || 'normal', group_id: t.group_id });
+    if (ok) { await logActivity({ task_id: id, actor_id: user.id, actor_name: userName, action: 'created', detail: `Created "${t.title}" for ${t.assigned_to_name}` }); await refreshTasks(); }
     return ok;
   }, [user, refreshTasks]);
 
   const moveTask = useCallback(async (id: string, status: Task['status']) => {
     if (!user) return;
+    const userName = user.displayName ?? user.username ?? 'Unknown';
     await updateTask(id, { status });
-    await logActivity({ task_id: id, actor_id: user.id, actor_name: user.displayName, action: 'status_changed', detail: `Moved to ${status}` });
+    await logActivity({ task_id: id, actor_id: user.id, actor_name: userName, action: 'status_changed', detail: `Moved to ${status}` });
     setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
   }, [user]);
 
@@ -107,9 +109,10 @@ export function TaskProvider({ children }: { children: ReactNode }) {
 
   const addHandoverNote = useCallback(async (id: string, note: string) => {
     if (!user) return;
+    const userName = user.displayName ?? user.username ?? 'Unknown';
     await updateTask(id, { handover_note: note });
     setTasks(prev => prev.map(t => t.id === id ? { ...t, handover_note: note } : t));
-    await logActivity({ task_id: id, actor_id: user.id, actor_name: user.displayName, action: 'handover', detail: 'Added handover note' });
+    await logActivity({ task_id: id, actor_id: user.id, actor_name: userName, action: 'handover', detail: 'Added handover note' });
   }, [user]);
 
   const updateChecklist = useCallback(async (id: string, items: { text: string; done: boolean }[]) => {

@@ -77,13 +77,15 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
     if (!target) return;
     const wantDate = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     const offerDate = new Date(selectedMyDay + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const userName = user.displayName ?? user.username ?? 'Unknown';
+    const targetName = target.displayName ?? target.username ?? 'Unknown';
     try {
       addNotification(swapTarget, 'new_request_pending', '🔄 Swap Request',
-        `${user.displayName} wants to swap: take your ${wantDate} off, give you ${offerDate} off instead.`);
+        `${userName} wants to swap: take your ${wantDate} off, give you ${offerDate} off instead.`);
       const admins = users.filter((u) => (u.role === 'manager' || u.role === 'super_admin') && u.id !== user.id);
       for (const admin of admins) {
         addNotification(admin.id, 'new_request_pending', '🔄 Swap Request',
-          `${user.displayName} → ${target.displayName}: ${wantDate} ↔ ${offerDate}`);
+          `${userName} → ${targetName}: ${wantDate} ↔ ${offerDate}`);
       }
     } catch (e) { console.error('Swap notification error:', e); }
     setSwapSent(true);
@@ -95,7 +97,9 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
     setAssigning(true); setAssignError('');
     const targetUser = users.find(u => u.id === assignUserId);
     if (!targetUser) { setAssignError('User not found'); setAssigning(false); return; }
-    const err = await directAssign(targetUser.id, targetUser.displayName, targetUser.role as 'staff' | 'manager' | 'super_admin', date, assignType, user.displayName);
+    const targetName = targetUser.displayName ?? targetUser.username ?? 'Unknown';
+    const userName = user.displayName ?? user.username ?? 'Unknown';
+    const err = await directAssign(targetUser.id, targetName, targetUser.role as 'staff' | 'manager' | 'super_admin', date, assignType, userName);
     setAssigning(false);
     if (err) { setAssignError(err); return; }
     setAssignDone(true);
@@ -156,11 +160,11 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold"
                       style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight}}>
-                      {r.userRef.displayName[0]?.toUpperCase()}
+                      {((r.userRef?.displayName ?? r.userRef?.username ?? 'Unknown')[0]?.toUpperCase()) ?? '?'}
                     </div>
                     <div>
                       <p className="text-xs font-medium" style={{ color: theme.colors.white }}>
-                        {r.userRef.displayName}{r.userId === user.id && <span style={{ color: theme.colors.primary }}> (You)</span>}
+                        {r.userRef?.displayName ?? r.userRef?.username ?? 'Unknown'}{r.userId === user.id && <span style={{ color: theme.colors.primary }}> (You)</span>}
                       </p>
                       <p className="text-[9px]" style={{ color: theme.colors.grayDark }}>
                         {canSeeLeaveTypeOf(r) ? LEAVE_TYPE_LABELS[r.leaveType] : 'Off'}
@@ -171,7 +175,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
                     <Badge color="success" size="xs">Off</Badge>
                     {isSuperAdmin && (
                       <button type="button" onClick={(e) => { e.stopPropagation(); cancelRequest(r.id); }}
-                        aria-label={`Remove ${r.userRef.displayName}'s day off`}
+                        aria-label={`Remove ${r.userRef?.displayName ?? r.userRef?.username ?? 'Unknown'}'s day off`}
                         className="px-1.5 py-1 rounded text-[9px] font-bold cursor-pointer"
                         style={{ backgroundColor: alpha(theme.colors.danger, '20'), color: theme.colors.danger }}><span aria-hidden="true">🗑</span></button>
                     )}
@@ -260,7 +264,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
                   style={{ backgroundColor: assignUserId === u.id ? alpha(theme.colors.primary, '20') : theme.colors.bgElevated,
                     color: assignUserId === u.id ? theme.colors.primaryLight : theme.colors.grayDark,
                     border: `1px solid ${assignUserId === u.id ? theme.colors.primary : theme.colors.border}` }}>
-                  {assignUserId === u.id && '✓ '}{u.displayName}
+                  {assignUserId === u.id && '✓ '}{u.displayName ?? u.username ?? 'Unknown'}
                 </button>
               ))}
             </div>

@@ -119,10 +119,11 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     };
     setRequests((prev) => [newRequest, ...prev]);
 
+    const displayName = userRef.displayName ?? userRef.username ?? 'Unknown';
     await insertAuditLog({
-      actorId: userId, actorName: userRef.displayName,
+      actorId: userId, actorName: displayName,
       action: 'leave_requested', entityType: 'leave_request', entityId: id,
-      description: `${userRef.displayName} requested ${LEAVE_TYPE_LABELS[leaveType] ?? leaveType} for ${new Date(normalizedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
+      description: `${displayName} requested ${LEAVE_TYPE_LABELS[leaveType] ?? leaveType} for ${new Date(normalizedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
     });
 
     if (autoApprove) {
@@ -234,15 +235,16 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
         overriddenAt: now, approverNote: note, updatedAt: now,
       } : r,
     ));
+    const adminName = admin.displayName ?? admin.username ?? 'Unknown';
     updateLeaveRequestDb(requestId, {
       status: newStatus, isOverridden: true,
-      overriddenById: admin.id, overriddenByName: admin.displayName,
+      overriddenById: admin.id, overriddenByName: adminName,
       overriddenAt: now, approverNote: note,
     });
     insertAuditLog({
-      actorId: admin.id, actorName: admin.displayName,
+      actorId: admin.id, actorName: adminName,
       action: 'leave_overridden', entityType: 'leave_request', entityId: requestId,
-      description: `${admin.displayName} overrode ${(() => { const r = requests.find((x) => x.id === requestId); return r ? r.userRef.displayName + "'s request" : 'a request'; })()} to ${newStatus}`,
+      description: `${adminName} overrode ${(() => { const r = requests.find((x) => x.id === requestId); return r ? (r.userRef.displayName ?? r.userRef.username ?? 'Unknown') + "'s request" : 'a request'; })()} to ${newStatus}`,
     });
   }, [requests]);
 
