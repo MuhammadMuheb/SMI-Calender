@@ -102,10 +102,11 @@ export default function CalendarPage() {
       </div>
 
       <div className="flex flex-wrap gap-3">
+        <LegendItem color={theme.colors.success} shape="circle" label="Tour guides scheduled" />
         <LegendItem color={theme.colors.success} shape="bar" label="Well staffed" />
         <LegendItem color={theme.colors.warning} shape="bar" label="Exact minimum" />
         <LegendItem color={theme.colors.danger} shape="bar" label="Low staff" />
-        <LegendItem color="#EF4444" shape="text" label="Off" />
+        <LegendItem color="#EF4444" shape="text" label="Staff off" />
         {isRichView && <>
           <LegendItem color={theme.colors.secondary} shape="circle" label="Holiday" />
           <LegendItem color={theme.colors.warning} shape="square" label="Special" />
