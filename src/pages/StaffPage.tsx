@@ -98,7 +98,7 @@ export default function StaffPage() {
   }, [activeUsers, roleAssignments, roleMap, getBalance, getUserRequests, approvedToday, checkInDayCounts, requests, today]);
 
   const filteredRows = rows
-    .filter((r) => r.user.displayName.toLowerCase().includes(search.trim().toLowerCase()))
+    .filter((r) => (r.user.displayName ?? '').toLowerCase().includes(search.trim().toLowerCase()))
     .filter((r) => statusFilter === 'all' || (statusFilter === 'on_leave' ? r.onLeaveToday : !r.onLeaveToday));
 
   const workingTodayCount = activeUsers.length - approvedToday.size;
@@ -160,7 +160,7 @@ export default function StaffPage() {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
                   style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight }}>
-                  {u.displayName[0]?.toUpperCase()}
+                  {(u.displayName ?? '?')[0]?.toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
