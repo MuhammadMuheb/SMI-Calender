@@ -198,7 +198,7 @@ export default function TomorrowDutyModal({
                   {/* Name + role badges */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: c.white }}>{staff.displayName}</span>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: c.white }}>{displayName}</span>
                       {isOff && <Badge color="danger" size="xs">Day Off</Badge>}
                     </div>
                     {!isOff && roles.length > 0 && (
