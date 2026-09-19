@@ -102,11 +102,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       if (scheduleData.length === 0 && (augustSchedules.length > 0 || septemberSchedules.length > 0)) {
         try {
           const allSchedules = [...augustSchedules, ...septemberSchedules];
+          console.log(`Attempting to auto-import ${allSchedules.length} schedule entries...`);
+          console.log('Sample entries:', allSchedules.slice(0, 3));
+
+          if (!allSchedules || allSchedules.length === 0) {
+            console.error('Schedule data is invalid or empty');
+            return;
+          }
+
           await insertSchedulesBatch(allSchedules);
           setSchedules(allSchedules);
-          console.log(`Auto-imported ${allSchedules.length} schedule entries`);
+          console.log(`✓ Successfully auto-imported ${allSchedules.length} schedule entries`);
         } catch (importErr) {
-          console.error('Failed to auto-import schedules:', importErr);
+          console.error('✗ Failed to auto-import schedules:', importErr);
+          // Even if Firestore fails, set local state so display works
+          const fallbackSchedules = [...augustSchedules, ...septemberSchedules];
+          setSchedules(fallbackSchedules);
+          console.warn(`Set ${fallbackSchedules.length} schedules from local data (Firestore save may have failed)`);
         }
       }
     } catch (err) {

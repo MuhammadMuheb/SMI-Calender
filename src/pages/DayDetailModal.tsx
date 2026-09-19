@@ -37,9 +37,14 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
   }, [requests, user, date]);
 
   const scheduledGuides = useMemo(() => {
-    if (!date || !schedules) return [];
+    if (!date || !schedules) {
+      console.log('DayDetailModal: No date or schedules', { date, schedulesCount: schedules?.length });
+      return [];
+    }
     const daySchedules = schedules.filter((s: any) => s.date === date);
-    return [...new Set(daySchedules.map((s: any) => s.guide))].sort();
+    const guides = [...new Set(daySchedules.map((s: any) => s.guide))].sort();
+    console.log(`DayDetailModal: ${date} has ${daySchedules.length} schedule entries, ${guides.length} unique guides:`, guides);
+    return guides;
   }, [date, schedules]);
 
   if (!date || !user) return null;
