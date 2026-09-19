@@ -13,7 +13,6 @@ export const safeUser = (user: StaffUser | null | undefined) => ({
   createdAt: user?.createdAt ?? new Date().toISOString(),
   updatedAt: user?.updatedAt ?? new Date().toISOString(),
   vacationOverride: user?.vacationOverride ?? null,
-  vacationOverrideAt: user?.vacationOverrideAt ?? null,
   regularOverride: user?.regularOverride ?? null,
   jobRole: Array.isArray(user?.jobRole) ? user.jobRole : ['Office'],
 });

@@ -27,7 +27,6 @@ export async function fetchUsers(): Promise<StaffUser[]> {
           createdAt: (data.createdAt ?? new Date().toISOString()) as string,
           updatedAt: (data.updatedAt ?? new Date().toISOString()) as string,
           vacationOverride: (data.vacationOverride as number | null) ?? null,
-          vacationOverrideAt: (data.vacationOverrideAt as string | null) ?? null,
           regularOverride: (data.regularOverride as number | null) ?? null,
           jobRole: (Array.isArray(data.jobRole) ? data.jobRole : ['Office']) as string[],
         } as StaffUser;

@@ -148,7 +148,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     if ((approver?.role ?? 'staff') !== 'super_admin' && (req.userId === approver?.id || (req.userRef?.role ?? 'staff') !== 'staff')) {
       return;
     }
-    const staffName = req?.userRef?.displayName ?? req?.userRef?.name ?? 'Unknown';
+    const staffName = req?.userRef?.displayName ?? 'Unknown';
     const dateLabel = new Date((req?.date ?? '') + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     const typeLabel = LEAVE_TYPE_LABELS[req?.leaveType] ?? req?.leaveType ?? 'Leave';
 
