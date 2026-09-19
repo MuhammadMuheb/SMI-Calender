@@ -29,8 +29,11 @@ supabase-real-data.sql
 # Stray artifact, not meant to be tracked
 =
 
-# Firebase
+# Firebase & Service Account Keys (sensitive credentials)
 functions/lib
 firebase-debug.log
 firebase-debug.*.log
 .firebase
+firebase-service-account.json
+firebase-admin-key.json
+scripts/firebase-admin-key.json
