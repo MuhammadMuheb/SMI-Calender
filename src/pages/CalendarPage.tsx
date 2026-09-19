@@ -127,6 +127,7 @@ export default function CalendarPage() {
             summary={summaryMap.get(tile.dateStr) ?? null}
             isUserOff={userOffDates.has(tile.dateStr)}
             hasLeave={tile.isCurrentMonth && hasLeaveDates.has(tile.dateStr)}
+            hasScheduledGuides={tile.isCurrentMonth && (summaryMap.get(tile.dateStr)?.scheduledGuidesCount ?? 0) > 0}
             staffingLevel={tile.isCurrentMonth ? (staffingMap.get(tile.dateStr) || null) : null}
             onClick={() => {
               if (!tile.isCurrentMonth) return;

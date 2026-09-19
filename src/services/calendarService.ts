@@ -3,6 +3,7 @@ import type { LeaveRequest } from '../models/leave';
 import type { Holiday, SpecialDay } from '../models/holiday';
 import type { StaffingRule } from '../models/staffing';
 import type { StaffRoleAssignment } from '../models/jobRole';
+import type { Schedule } from '../models/schedule';
 import { checkStaffingForDate, wouldCauseShortage } from './staffingService';
 
 /**
@@ -26,6 +27,7 @@ export function buildMonthSummaries(
   staffingRules: StaffingRule[],
   roleAssignments: StaffRoleAssignment[],
   roleNames: Record<string, string>,
+  schedules: Schedule[] = [],
 ): DaySummary[] {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const summaries: DaySummary[] = [];
@@ -40,6 +42,10 @@ export function buildMonthSummaries(
 
     const isHoliday = holidays.some((h) => h.date === dateStr);
     const isSpecialDay = specialDays.some((s) => s.date === dateStr);
+
+    // Get scheduled guides for this date
+    const daySchedules = schedules.filter((s) => s.date === dateStr);
+    const scheduledGuides = [...new Set(daySchedules.map((s) => s.guide))].sort();
 
     const onDuty = totalStaff - approvedLeaves;
 
@@ -62,6 +68,8 @@ export function buildMonthSummaries(
       isHoliday,
       isSpecialDay,
       hasStaffingWarning: hasShortage,
+      scheduledGuides,
+      scheduledGuidesCount: scheduledGuides.length,
     });
   }
 

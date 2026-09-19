@@ -19,7 +19,7 @@ export function useCalendarData(
 ) {
   const {
     users, jobRoles, roleAssignments,
-    staffingRules, holidays, specialDays,
+    staffingRules, holidays, specialDays, schedules,
   } = useAppData();
 
   const roleNames = useMemo(() => {
@@ -47,8 +47,9 @@ export function useCalendarData(
         staffingRules,
         roleAssignments,
         roleNames,
+        schedules,
       ),
-    [year, month, leaveRequests, totalStaff, holidays, specialDays, staffingRules, roleAssignments, roleNames],
+    [year, month, leaveRequests, totalStaff, holidays, specialDays, staffingRules, roleAssignments, roleNames, schedules],
   );
 
   const summaryMap = useMemo(() => {

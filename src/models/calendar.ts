@@ -41,4 +41,6 @@ export interface DaySummary {
   isHoliday: boolean;
   isSpecialDay: boolean;
   hasStaffingWarning: boolean;
+  scheduledGuides: string[];
+  scheduledGuidesCount: number;
 }

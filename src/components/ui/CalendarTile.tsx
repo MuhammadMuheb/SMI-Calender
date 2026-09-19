@@ -12,6 +12,7 @@ interface CalendarTileProps {
   isUserOff?: boolean;
   /** Does anyone (including this user) have approved leave this day? */
   hasLeave?: boolean;
+  hasScheduledGuides?: boolean;
   staffingLevel?: 'good' | 'exact' | 'low' | null;
   onClick?: () => void;
 }
@@ -23,10 +24,11 @@ interface CalendarTileProps {
  */
 export default function CalendarTile({
   day, dateStr, isToday, isCurrentMonth = true, isWeekend,
-  summary, isUserOff = false, hasLeave = false, staffingLevel = null, onClick,
+  summary, isUserOff = false, hasLeave = false, hasScheduledGuides = false, staffingLevel = null, onClick,
 }: CalendarTileProps) {
   const isHoliday = summary?.isHoliday ?? false;
   const isSpecialDay = summary?.isSpecialDay ?? false;
+  const hasDataToShow = hasLeave || hasScheduledGuides;
 
   let bg: string = theme.colors.bgElevated;
   let borderColor: string = theme.colors.border;
@@ -68,6 +70,7 @@ export default function CalendarTile({
     dateLabel,
     isToday ? 'today' : null,
     isUserOff ? 'you are off' : hasLeave ? 'someone is off' : null,
+    hasScheduledGuides ? 'tour guides scheduled' : null,
   ].filter(Boolean).join(', ');
 
   return (
@@ -79,7 +82,9 @@ export default function CalendarTile({
         style={{ color: dateColor, fontWeight: isUserOff && isCurrentMonth ? 800 : 600 }}>
         {day}
       </span>
-      <span aria-hidden="true" className="w-1 h-1 rounded-full" style={{ backgroundColor: isCurrentMonth && hasLeave ? dotColor : 'transparent' }} />
+      <span aria-hidden="true" className="w-1 h-1 rounded-full" style={{
+        backgroundColor: isCurrentMonth && hasDataToShow ? (hasScheduledGuides ? theme.colors.success : dotColor) : 'transparent'
+      }} />
     </button>
   );
 }
