@@ -155,7 +155,34 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const validatedUsers = validateUsers(Array.isArray(u) ? u : SAFE_EMPTY_USERS);
       setUsers(validatedUsers);
       setJobRoles(Array.isArray(jr) ? jr : []);
-      setRoleAssignments(Array.isArray(ra) ? ra : []);
+      let finalRoleAssignments = Array.isArray(ra) ? ra : [];
+
+      // Auto-restore role assignments if empty (migration/recovery)
+      if (finalRoleAssignments.length === 0) {
+        console.log('AppDataContext: No role assignments in Firestore, restoring from backup...');
+        try {
+          const response = await fetch('./role-assignments-from-supabase.json');
+          if (response.ok) {
+            const backupAssignments = await response.json();
+            const insertedCount = await Promise.all(
+              backupAssignments.map(assignment =>
+                insertRoleAssignment(assignment).catch(err => {
+                  console.warn(`Failed to restore role assignment ${assignment.id}:`, err);
+                  return null;
+                })
+              )
+            ).then(results => results.filter(Boolean).length);
+            console.log(`✓ Restored ${insertedCount} role assignments from backup`);
+            finalRoleAssignments = backupAssignments;
+          } else {
+            console.log('Backup file not available, continuing without role assignments');
+          }
+        } catch (err) {
+          console.warn('Could not restore role assignments:', err);
+        }
+      }
+
+      setRoleAssignments(finalRoleAssignments);
       setStaffingRules(Array.isArray(sr) ? sr : []);
       setHolidays(Array.isArray(h) ? h : []);
       setSpecialDays(Array.isArray(sd) ? sd : []);

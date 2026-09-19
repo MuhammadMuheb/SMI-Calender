@@ -1,0 +1,100 @@
+[
+  {
+    "id": "assign_zack_checkin",
+    "userId": "usr_zack",
+    "jobRoleId": "role_checkin",
+    "isPrimary": true,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "assign_michael_office",
+    "userId": "usr_michael",
+    "jobRoleId": "role_office",
+    "isPrimary": true,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "assign_rihab_office",
+    "userId": "usr_rihab",
+    "jobRoleId": "role_office",
+    "isPrimary": true,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "assign_rihab_backoffice",
+    "userId": "usr_rihab",
+    "jobRoleId": "role_backoffice",
+    "isPrimary": false,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "assign_umer_backoffice",
+    "userId": "usr_umer",
+    "jobRoleId": "role_backoffice",
+    "isPrimary": true,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "assign_parnia_backoffice",
+    "userId": "parnia",
+    "jobRoleId": "role_backoffice",
+    "isPrimary": true,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "assign_desiree_backoffice_extra",
+    "userId": "usr_desiree",
+    "jobRoleId": "role_backoffice_extra",
+    "isPrimary": true,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "assign_sherry_backoffice_extra",
+    "userId": "usr_sherry",
+    "jobRoleId": "role_backoffice_extra",
+    "isPrimary": true,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "assign_gunzan_backoffice_extra",
+    "userId": "usr_gunzan",
+    "jobRoleId": "role_backoffice_extra",
+    "isPrimary": true,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "assign_kristina_checkin",
+    "userId": "usr_kristina",
+    "jobRoleId": "role_checkin",
+    "isPrimary": true,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "assign_kristina_backoffice",
+    "userId": "usr_kristina",
+    "jobRoleId": "role_backoffice",
+    "isPrimary": false,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "assign_matteo_checkin",
+    "userId": "matteo",
+    "jobRoleId": "role_checkin",
+    "isPrimary": true,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "assign_giovanni_checkin",
+    "userId": "giovanni",
+    "jobRoleId": "role_checkin",
+    "isPrimary": true,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  },
+  {
+    "id": "assign_raza_checkin",
+    "userId": "usr_raza",
+    "jobRoleId": "role_checkin",
+    "isPrimary": true,
+    "assignedAt": "2026-01-01T00:00:00Z"
+  }
+]
