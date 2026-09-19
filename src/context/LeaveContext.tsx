@@ -59,7 +59,24 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       (data: any) => {
         try {
           const validated = validateLeaveRequests(data);
-          setRequests(validated);
+
+          // Enrich leave requests with actual user data from the users collection
+          const enriched = validated.map((req: LeaveRequest) => {
+            const actualUser = users.find(u => u.id === req.userId);
+            if (actualUser) {
+              return {
+                ...req,
+                userRef: {
+                  id: actualUser.id,
+                  displayName: actualUser.displayName || actualUser.username || 'Unknown User',
+                  role: actualUser.role,
+                },
+              };
+            }
+            return req;
+          });
+
+          setRequests(enriched);
         } catch (err) {
           console.error('Error validating leave requests:', err);
           setRequests([]);
@@ -69,7 +86,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [users]);
 
   const submitRequest = useCallback(async (
     userId: string, userRef: UserRef, date: string, leaveType: LeaveType, note: string = '', autoApprove: boolean = false,
