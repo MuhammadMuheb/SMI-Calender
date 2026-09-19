@@ -1,48 +1,25 @@
 {
-  "name": "Show Me Italy Staff Calendar",
-  "short_name": "SMI Calendar",
-  "description": "Staff scheduling and calendar management for Show Me Italy tours",
+  "name": "SMI Calendar",
+  "short_name": "SMI",
+  "description": "Staff Management and Integrated Calendar System",
   "start_url": "/",
-  "id": "/",
-  "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#138A52",
-  "orientation": "portrait",
   "scope": "/",
-  "categories": ["business", "productivity"],
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/icons/logo.png",
+      "src": "/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
-    },
-    {
-      "src": "/icons/logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/icons/logo.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "SMI Calendar Dashboard"
     }
   ]
 }
