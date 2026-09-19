@@ -44,7 +44,9 @@ export default function WorkingTodayModal({
   return (
     <Modal open={open} onClose={onClose} title={title}>
       <div className="space-y-1.5">
-        {workingList.map((s) => {
+        {(workingList ?? []).map((s) => {
+          if (!s || !s.id) return null;
+          const displayName = s?.displayName ?? s?.username ?? 'Unknown';
           const isMe = s.id === currentUserId;
           const sending = justSent === s.id;
           const roles = getUserRoles?.(s.id);
@@ -54,11 +56,11 @@ export default function WorkingTodayModal({
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
                   style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight }}>
-                  {s.displayName[0]?.toUpperCase()}
+                  {(displayName ?? '?')[0]?.toUpperCase() ?? '?'}
                 </div>
                 <div>
                   <p className="text-xs font-medium" style={{ color: theme.colors.white }}>
-                    {s.displayName}{isMe ? <span style={{ color: theme.colors.primary }}> (You)</span> : ''}
+                    {displayName}{isMe ? <span style={{ color: theme.colors.primary }}> (You)</span> : ''}
                   </p>
                   {roles && roles.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-0.5">

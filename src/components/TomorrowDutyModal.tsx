@@ -149,7 +149,9 @@ export default function TomorrowDutyModal({
 
         {/* Team members */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {team.map((staff) => {
+          {(team ?? []).map((staff) => {
+            if (!staff || !staff.id) return null;
+            const displayName = staff?.displayName ?? staff?.username ?? 'Unknown';
             const isOff = offTomorrowIds.has(staff.id);
             const isSelected = selectedIds.has(staff.id);
             const t = shiftTimes[staff.id] ?? { start: '08:00', end: '17:00' };
@@ -190,7 +192,7 @@ export default function TomorrowDutyModal({
                     fontSize: '11px', fontWeight: 700,
                     backgroundColor: c.primary + '20', color: c.primaryLight,
                   }}>
-                    {staff.displayName[0]?.toUpperCase()}
+                    {(displayName ?? '?')[0]?.toUpperCase() ?? '?'}
                   </div>
 
                   {/* Name + role badges */}
