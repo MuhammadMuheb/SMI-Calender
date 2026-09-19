@@ -78,23 +78,24 @@ export default function StaffPage() {
   const pendingTotal = useMemo(() => requests.filter((r) => r.status === 'pending').length, [requests]);
 
   const rows = useMemo(() => {
-    return activeUsers.map((u) => {
-      const bal = getBalance(u.id);
-      const roles = roleAssignments.filter((a) => a.userId === u.id).map((a) => roleMap[a.jobRoleId]).filter(Boolean);
-      const pendingCount = getUserRequests(u.id).filter((r) => r.status === 'pending').length;
+    return (activeUsers ?? []).map((u) => {
+      if (!u || !u.id) return null;
+      const bal = getBalance(u.id) ?? { regularDaysAllowed: 0, regularDaysUsed: 0, vacationDaysAllowed: 0, vacationDaysUsed: 0, vacationDaysRemaining: 0 };
+      const roles = (roleAssignments ?? []).filter((a) => a?.userId === u.id).map((a) => roleMap[a?.jobRoleId]).filter(Boolean);
+      const pendingCount = (getUserRequests(u.id) ?? []).filter((r) => r?.status === 'pending').length;
       const onLeaveToday = approvedToday.has(u.id);
 
       const checkInDays = checkInDayCounts[u.id] ?? 0;
-      const leaveDaysInWindow = requests.filter((r) => {
-        if (r.userId !== u.id || r.status !== 'approved') return false;
+      const leaveDaysInWindow = (requests ?? []).filter((r) => {
+        if (r?.userId !== u.id || r?.status !== 'approved') return false;
         const since = new Date(); since.setDate(since.getDate() - ATTENDANCE_WINDOW_DAYS);
-        return r.date >= formatDateLocal(since) && r.date <= today;
+        return r?.date >= formatDateLocal(since) && r?.date <= today;
       }).length;
       const expectedDays = Math.max(1, ATTENDANCE_WINDOW_DAYS - leaveDaysInWindow);
       const attendancePct = Math.min(100, Math.round((checkInDays / expectedDays) * 100));
 
       return { user: u, roles, bal, pendingCount, onLeaveToday, attendancePct };
-    });
+    }).filter((r): r is NonNullable<typeof r> => r !== null);
   }, [activeUsers, roleAssignments, roleMap, getBalance, getUserRequests, approvedToday, checkInDayCounts, requests, today]);
 
   const filteredRows = rows
@@ -154,38 +155,40 @@ export default function StaffPage() {
           <Card><p className="text-xs text-center py-4" style={{ color: theme.colors.grayDark }}>No matching team members</p></Card>
         )}
         {filteredRows.map(({ user: u, roles, bal, pendingCount, onLeaveToday, attendancePct }) => {
-          const regularPct = bal.regularDaysAllowed > 0 ? Math.min(100, (bal.regularDaysUsed / bal.regularDaysAllowed) * 100) : 0;
+          const displayName = u?.displayName ?? u?.username ?? 'Unknown';
+          const role = u?.role ?? 'staff';
+          const regularPct = (bal?.regularDaysAllowed ?? 0) > 0 ? Math.min(100, ((bal?.regularDaysUsed ?? 0) / (bal?.regularDaysAllowed ?? 1)) * 100) : 0;
           return (
-            <Card key={u.id}>
+            <Card key={u?.id ?? Math.random()}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
                   style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight }}>
-                  {(u.displayName ?? '?')[0]?.toUpperCase()}
+                  {(displayName ?? '?')[0]?.toUpperCase() ?? '?'}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-xs font-semibold" style={{ color: theme.colors.white }}>{u.displayName}</p>
-                    <Badge color={ROLE_BADGE_COLOR[u.role]} size="xs">{ROLE_LABELS[u.role]}</Badge>
+                    <p className="text-xs font-semibold" style={{ color: theme.colors.white }}>{displayName}</p>
+                    <Badge color={ROLE_BADGE_COLOR[role] ?? theme.colors.primary} size="xs">{ROLE_LABELS[role] ?? role}</Badge>
                     <span className="flex items-center gap-1 text-[9px]" style={{ color: onLeaveToday ? theme.colors.warning : theme.colors.primary }}>
                       <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: onLeaveToday ? theme.colors.warning : theme.colors.primary }} />
                       {onLeaveToday ? 'On Leave' : 'Active'}
                     </span>
                   </div>
-                  {roles.length > 0 && (
-                    <p className="text-[9px] mt-0.5" style={{ color: theme.colors.grayDark }}>{roles.join(', ')}</p>
+                  {(roles?.length ?? 0) > 0 && (
+                    <p className="text-[9px] mt-0.5" style={{ color: theme.colors.grayDark }}>{(roles ?? []).join(', ')}</p>
                   )}
                   <div className="mt-1.5 flex items-center gap-1.5 max-w-[180px]">
                     <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ backgroundColor: theme.colors.secondary }}>
                       <div className="h-full rounded-full ml-auto" style={{ width: `${100 - regularPct}%`, backgroundColor: theme.colors.primary }} />
                     </div>
                     <span className="text-[8px] flex-shrink-0" style={{ color: theme.colors.grayDark }}>
-                      {bal.regularDaysUsed}/{bal.regularDaysAllowed} days off
+                      {bal?.regularDaysUsed ?? 0}/{bal?.regularDaysAllowed ?? 0} days off
                     </span>
                   </div>
                 </div>
                 <div className="flex gap-3 flex-shrink-0 items-center">
                   <div className="text-center">
-                    <p className="text-sm font-bold" style={{ color: theme.colors.warning }}>{bal.vacationDaysRemaining}</p>
+                    <p className="text-sm font-bold" style={{ color: theme.colors.warning }}>{bal?.vacationDaysRemaining ?? 0}</p>
                     <p className="text-[8px]" style={{ color: theme.colors.grayDark }}>vacation</p>
                   </div>
                   <div className="text-center">

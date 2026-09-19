@@ -8,24 +8,31 @@ import type { Role } from '../config/roles';
 export async function fetchUsers(): Promise<StaffUser[]> {
   try {
     const snapshot = await getDocs(collection(db, 'users'));
-    return snapshot.docs.map((docSnap) => {
-      const data = docSnap.data();
-      const username = data.username as string;
-      return {
-        id: data.id as string,
-        username,
-        displayName: (data.displayName as string) || username,
-        pin: data.pinHash as string,
-        role: data.role as Role,
-        isActive: data.isActive as boolean,
-        createdAt: data.createdAt as string,
-        updatedAt: data.updatedAt as string,
-        vacationOverride: (data.vacationOverride as number | null) ?? null,
-        vacationOverrideAt: (data.vacationOverrideAt as string | null) ?? null,
-        regularOverride: (data.regularOverride as number | null) ?? null,
-        jobRole: (data.jobRole ?? ['Office']) as string[],
-      };
-    });
+    return snapshot.docs
+      .map((docSnap) => {
+        const data = docSnap.data();
+        if (!data) return null;
+
+        const username = (data.username ?? docSnap.id) as string;
+        const displayName = (data.displayName ?? data.name ?? username) as string;
+        const id = (data.id ?? docSnap.id) as string;
+
+        return {
+          id,
+          username,
+          displayName,
+          pin: (data.pinHash ?? data.pin ?? '') as string,
+          role: (data.role ?? 'staff') as Role,
+          isActive: data.isActive !== false,
+          createdAt: (data.createdAt ?? new Date().toISOString()) as string,
+          updatedAt: (data.updatedAt ?? new Date().toISOString()) as string,
+          vacationOverride: (data.vacationOverride as number | null) ?? null,
+          vacationOverrideAt: (data.vacationOverrideAt as string | null) ?? null,
+          regularOverride: (data.regularOverride as number | null) ?? null,
+          jobRole: (Array.isArray(data.jobRole) ? data.jobRole : ['Office']) as string[],
+        } as StaffUser;
+      })
+      .filter((u): u is StaffUser => u !== null);
   } catch (err) {
     console.error('fetchUsers:', err);
     return [];

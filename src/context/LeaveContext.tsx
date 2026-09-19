@@ -142,15 +142,15 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   const approve = useCallback((requestId: string, approver: UserRef, note: string = '') => {
     const now = new Date().toISOString();
     const req = requests.find((r) => r.id === requestId);
-    if (!req) return;
+    if (!req || !req.userRef) return;
     // A manager can approve staff requests only — never their own request, and
     // never another manager's. Only super_admin may approve a manager's leave.
-    if (approver.role !== 'super_admin' && (req.userId === approver.id || req.userRef.role !== 'staff')) {
+    if ((approver?.role ?? 'staff') !== 'super_admin' && (req.userId === approver?.id || (req.userRef?.role ?? 'staff') !== 'staff')) {
       return;
     }
-    const staffName = req.userRef.displayName ?? 'Unknown';
-    const dateLabel = new Date(req.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    const typeLabel = LEAVE_TYPE_LABELS[req.leaveType] ?? req.leaveType;
+    const staffName = req?.userRef?.displayName ?? req?.userRef?.name ?? 'Unknown';
+    const dateLabel = new Date((req?.date ?? '') + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const typeLabel = LEAVE_TYPE_LABELS[req?.leaveType] ?? req?.leaveType ?? 'Leave';
 
     setRequests((prev) => {
       let updated = prev.map((r) =>
