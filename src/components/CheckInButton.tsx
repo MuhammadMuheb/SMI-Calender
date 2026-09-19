@@ -33,20 +33,23 @@ export default function CheckInButton({ userId, userName, userJobRoles, userRole
 
   const fetchActiveCheckIn = useCallback(async () => {
     setCheckingDb(true);
+    setActiveCheckIn(null); // Default to no active check-in (Supabase migration)
     try {
       const { data, error } = await supabase
         .from('check_ins').select('id, location_id, check_in_at, is_wfh, work_type, locations(name)')
         .eq('user_id', userId).is('check_out_at', null).order('check_in_at', { ascending: false }).limit(1).single();
       if (!error && data) {
         setActiveCheckIn({ id: data.id, location_id: data.location_id, location_name: (data.locations as any)?.name || 'Unknown', check_in_at: data.check_in_at, is_wfh: data.is_wfh, work_type: data.work_type });
-      } else {
-        setActiveCheckIn(null);
       }
-    } catch (err) {
-      console.warn('CheckIn fetch unavailable (Supabase migration in progress):', err);
-      setActiveCheckIn(null);
+    } catch (err: any) {
+      // Silently fail - this is expected during Supabase→Firestore migration
+      // Don't log 406 errors, they're normal and don't need to surface to user
+      if (err?.status !== 406) {
+        console.debug('CheckIn fetch error (expected during migration):', err?.message);
+      }
+    } finally {
+      setCheckingDb(false);
     }
-    setCheckingDb(false);
   }, [userId]);
 
   useEffect(() => { fetchActiveCheckIn(); }, [fetchActiveCheckIn]);

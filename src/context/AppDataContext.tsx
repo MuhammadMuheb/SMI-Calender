@@ -8,6 +8,7 @@ import type { Holiday, SpecialDay } from '../models/holiday';
 import type { NotificationSettings } from '../models/notification';
 import type { TourAssignment } from '../models/tourAssignment';
 import type { Schedule } from '../models/schedule';
+import { getSafeUsers, SAFE_EMPTY_USERS } from '../utils/safeFallbacks';
 import {
   fetchUsers, insertUser, updateUserDb, deleteUserDb,
 } from '../services/firestoreUserService';
@@ -87,17 +88,49 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const now = () => new Date().toISOString();
 
-  // Load all data from Supabase on mount
+  // Load all data from Firestore on mount
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [u, jr, ra, sr, h, sd, ns, ta, sched] = await Promise.all([
-        fetchUsers(), fetchJobRoles(), fetchRoleAssignments(),
-        fetchStaffingRules(), fetchHolidays(), fetchSpecialDays(),
-        fetchNotificationSettings(), fetchTourAssignments(),
-        fetchSchedules(),
-      ]);
-      setUsers(Array.isArray(u) ? u : []);
+      // Wrap each fetch in its own try-catch to prevent one failure from crashing all
+      const u = await fetchUsers().catch(err => {
+        console.error('fetchUsers error:', err);
+        return [];
+      });
+      const jr = await fetchJobRoles().catch(err => {
+        console.error('fetchJobRoles error:', err);
+        return [];
+      });
+      const ra = await fetchRoleAssignments().catch(err => {
+        console.error('fetchRoleAssignments error:', err);
+        return [];
+      });
+      const sr = await fetchStaffingRules().catch(err => {
+        console.error('fetchStaffingRules error:', err);
+        return [];
+      });
+      const h = await fetchHolidays().catch(err => {
+        console.error('fetchHolidays error:', err);
+        return [];
+      });
+      const sd = await fetchSpecialDays().catch(err => {
+        console.error('fetchSpecialDays error:', err);
+        return [];
+      });
+      const ns = await fetchNotificationSettings().catch(err => {
+        console.error('fetchNotificationSettings error:', err);
+        return { dailyReminderTime: '14:00', dailyReminderEnabled: true, updatedAt: '', updatedBy: '' };
+      });
+      const ta = await fetchTourAssignments().catch(err => {
+        console.error('fetchTourAssignments error:', err);
+        return [];
+      });
+      const sched = await fetchSchedules().catch(err => {
+        console.error('fetchSchedules error:', err);
+        return [];
+      });
+      // Use safe fallbacks - GUARANTEED to never be undefined
+      setUsers(getSafeUsers(Array.isArray(u) ? u : SAFE_EMPTY_USERS));
       setJobRoles(Array.isArray(jr) ? jr : []);
       setRoleAssignments(Array.isArray(ra) ? ra : []);
       setStaffingRules(Array.isArray(sr) ? sr : []);
@@ -107,6 +140,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setTourAssignments(Array.isArray(ta) ? ta : []);
       const scheduleData = Array.isArray(sched) ? sched : [];
       console.log(`AppDataContext: Loaded ${scheduleData.length} schedules from Firestore`);
+      console.log(`AppDataContext: Loaded ${Array.isArray(u) ? u.length : 0} users from Firestore`);
       setSchedules(scheduleData);
 
       // Auto-import schedules if none exist
