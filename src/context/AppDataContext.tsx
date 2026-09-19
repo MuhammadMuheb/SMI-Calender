@@ -165,8 +165,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           if (response.ok) {
             const backupAssignments = await response.json();
             const insertedCount = await Promise.all(
-              backupAssignments.map(assignment =>
-                insertRoleAssignment(assignment).catch(err => {
+              backupAssignments.map((assignment: any) =>
+                insertRoleAssignment(assignment).catch((err: any) => {
                   console.warn(`Failed to restore role assignment ${assignment.id}:`, err);
                   return null;
                 })
