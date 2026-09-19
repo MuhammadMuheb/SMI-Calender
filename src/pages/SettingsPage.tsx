@@ -9,8 +9,6 @@ import { subscribeToPush, sendPushToUser } from '../utils/pushManager';
 import { authenticateUser } from '../services/supabaseService';
 import AdminControlsSection from '../components/AdminControlsSection';
 
-const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 1024;
-
 export default function SettingsPage() {
   const { user, logout } = useAuth();
   const { updateUser } = useAppData();
@@ -27,12 +25,26 @@ export default function SettingsPage() {
   const [pushLoading, setPushLoading] = useState(false);
   const [testResult, setTestResult] = useState('');
 
+  const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
     if (!('Notification' in window)) setPushStatus('unsupported');
     else if (!('PushManager' in window)) setPushStatus('need_pwa');
     else if (Notification.permission === 'granted') setPushStatus('enabled');
     else if (Notification.permission === 'denied') setPushStatus('denied');
     else setPushStatus('not_enabled');
+  }, []);
+
+  // Detect mobile at runtime (not build time)
+  useEffect(() => {
+    const checkMobile = () => {
+      // Only show Management Console on actual mobile devices (< 768px)
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   if (!user) return null;
@@ -146,8 +158,8 @@ export default function SettingsPage() {
         <span style={{ color: theme.colors.grayDark }}>{Icons.chevronRight}</span>
       </button>
 
-      {/* Management Console - Only visible on MOBILE to super_admin */}
-      {IS_MOBILE && user.role === ROLES.SUPER_ADMIN && (
+      {/* Management Console - ONLY visible on MOBILE DEVICES (< 768px) to super_admin */}
+      {isMobile && user.role === ROLES.SUPER_ADMIN && (
         <AdminControlsSection />
       )}
 
