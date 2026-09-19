@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getFunctions } from 'firebase/functions';
 import { getAnalytics } from 'firebase/analytics';
@@ -35,3 +35,8 @@ export { analytics };
 
 // Export VAPID public key for push notifications
 export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || 'BM2rVmOrn1Lkn0lppCY4GlOq9d8aQ2PkXR1M9ZvLwVG3eNqJz9qJ5eR8mK2pL3sT4uVwxY';
+
+// Sign in anonymously for Firestore access (required for Firestore rules that check isSignedIn)
+signInAnonymously(auth).catch((error) => {
+  console.warn('Anonymous sign-in failed:', error.code, error.message);
+});
