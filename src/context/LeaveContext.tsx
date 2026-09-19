@@ -119,7 +119,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     };
     setRequests((prev) => [newRequest, ...prev]);
 
-    const displayName = userRef.displayName ?? userRef.username ?? 'Unknown';
+    const displayName = userRef.displayName ?? 'Unknown';
     await insertAuditLog({
       actorId: userId, actorName: displayName,
       action: 'leave_requested', entityType: 'leave_request', entityId: id,
@@ -235,7 +235,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
         overriddenAt: now, approverNote: note, updatedAt: now,
       } : r,
     ));
-    const adminName = admin.displayName ?? admin.username ?? 'Unknown';
+    const adminName = admin.displayName ?? 'Unknown';
     updateLeaveRequestDb(requestId, {
       status: newStatus, isOverridden: true,
       overriddenById: admin.id, overriddenByName: adminName,
@@ -244,7 +244,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     insertAuditLog({
       actorId: admin.id, actorName: adminName,
       action: 'leave_overridden', entityType: 'leave_request', entityId: requestId,
-      description: `${adminName} overrode ${(() => { const r = requests.find((x) => x.id === requestId); return r ? (r.userRef.displayName ?? r.userRef.username ?? 'Unknown') + "'s request" : 'a request'; })()} to ${newStatus}`,
+      description: `${adminName} overrode ${(() => { const r = requests.find((x) => x.id === requestId); return r ? (r.userRef.displayName ?? 'Unknown') + "'s request" : 'a request'; })()} to ${newStatus}`,
     });
   }, [requests]);
 

@@ -160,11 +160,11 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold"
                       style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight}}>
-                      {((r.userRef?.displayName ?? r.userRef?.username ?? 'Unknown')[0]?.toUpperCase()) ?? '?'}
+                      {((r.userRef?.displayName ?? 'Unknown')[0]?.toUpperCase()) ?? '?'}
                     </div>
                     <div>
                       <p className="text-xs font-medium" style={{ color: theme.colors.white }}>
-                        {r.userRef?.displayName ?? r.userRef?.username ?? 'Unknown'}{r.userId === user.id && <span style={{ color: theme.colors.primary }}> (You)</span>}
+                        {r.userRef?.displayName ?? 'Unknown'}{r.userId === user.id && <span style={{ color: theme.colors.primary }}> (You)</span>}
                       </p>
                       <p className="text-[9px]" style={{ color: theme.colors.grayDark }}>
                         {canSeeLeaveTypeOf(r) ? LEAVE_TYPE_LABELS[r.leaveType] : 'Off'}
@@ -175,7 +175,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
                     <Badge color="success" size="xs">Off</Badge>
                     {isSuperAdmin && (
                       <button type="button" onClick={(e) => { e.stopPropagation(); cancelRequest(r.id); }}
-                        aria-label={`Remove ${r.userRef?.displayName ?? r.userRef?.username ?? 'Unknown'}'s day off`}
+                        aria-label={`Remove ${r.userRef?.displayName ?? 'Unknown'}'s day off`}
                         className="px-1.5 py-1 rounded text-[9px] font-bold cursor-pointer"
                         style={{ backgroundColor: alpha(theme.colors.danger, '20'), color: theme.colors.danger }}><span aria-hidden="true">🗑</span></button>
                     )}
