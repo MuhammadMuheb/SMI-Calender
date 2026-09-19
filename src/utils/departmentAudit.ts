@@ -58,7 +58,7 @@ export function auditAllDepartments(
         return user
           ? {
               id: user.id,
-              displayName: user.displayName,
+              displayName: user.displayName ?? user.username ?? 'Unknown User',
               username: user.username,
               isPrimary: assignment.isPrimary,
             }

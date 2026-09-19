@@ -50,7 +50,7 @@ export function generateTomorrowSummary(
     (r) => r.date === tomorrowStr && r.status === 'approved',
   );
   const staffOff = approvedTomorrow.map((r) => ({
-    name: r.userRef.displayName,
+    name: r.userRef?.displayName ?? 'Unknown User',
     leaveType: LEAVE_TYPE_LABELS[r.leaveType],
   }));
 

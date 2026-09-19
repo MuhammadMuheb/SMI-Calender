@@ -29,7 +29,7 @@ export async function authenticateUser(username: string, pin: string) {
   return {
     id: data.id as string,
     username: data.username as string,
-    displayName: data.display_name as string,
+    displayName: (data.display_name ?? data.username ?? 'Unknown User') as string,
     role: data.role as Role,
     jobRole: (data.job_role ?? ["Office"]) as string[],
   };

@@ -104,7 +104,7 @@ export function runAutoAssignment(
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         };
         assignments.push({
-          userId: user.id, userName: user.displayName,
+          userId: user.id, userName: user.displayName ?? user.username ?? 'Unknown User',
           date: firstSunday, reason: 'First Sunday — all off',
         });
         simulatedRequests.push(mockReq);
@@ -181,7 +181,7 @@ export function runAutoAssignment(
 
       if (candidates.length === 0) {
         if (currentOff < quotaFor(user)) {
-          warnings.push(`${user.displayName}: couldn't place day ${currentOff + 1}/${quotaFor(user)} without breaking staffing`);
+          warnings.push(`${user.displayName ?? user.username ?? 'Unknown User'}: couldn't place day ${currentOff + 1}/${quotaFor(user)} without breaking staffing`);
         }
         continue;
       }
@@ -200,7 +200,7 @@ export function runAutoAssignment(
       };
       simulatedRequests.push(finalReq);
       assignments.push({
-        userId: user.id, userName: user.displayName,
+        userId: user.id, userName: user.displayName ?? user.username ?? 'Unknown User',
         date: picked.date, reason: `Round ${round + 1}`,
       });
       userDaysOff[user.id] = (userDaysOff[user.id] ?? 0) + 1;
@@ -211,7 +211,7 @@ export function runAutoAssignment(
     const total = userDaysOff[u.id] ?? 0;
     const assigned = assignments.filter((a) => a.userId === u.id).length;
     return {
-      userId: u.id, userName: u.displayName,
+      userId: u.id, userName: u.displayName ?? u.username ?? 'Unknown User',
       daysAssigned: assigned, daysRemaining: Math.max(0, quotaFor(u) - total),
     };
   });

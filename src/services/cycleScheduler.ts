@@ -52,7 +52,7 @@ export function getUnfilledUsers(
     ).length;
     const total = used + pending;
     if (total < REGULAR_DAYS_OFF_PER_CYCLE) {
-      result.push({ userId: u.id, name: u.displayName, used: total, remaining: REGULAR_DAYS_OFF_PER_CYCLE - total });
+      result.push({ userId: u.id, name: u.displayName ?? u.username ?? 'Unknown User', used: total, remaining: REGULAR_DAYS_OFF_PER_CYCLE - total });
     }
   }
   return result;
