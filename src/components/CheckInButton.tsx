@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { collection, getDocs, query, where, orderBy, limit, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { useGeolocation, type Location } from '../hooks/useGeolocation';
 import { theme } from '../config/theme';
 
@@ -7,11 +8,11 @@ const WFH_ELIGIBLE_ROLES = ['Office', 'Back Office', 'Back Office Extra'];
 
 interface ActiveCheckIn {
   id: string;
-  location_id: string;
-  location_name: string;
-  check_in_at: string;
-  is_wfh: boolean;
-  work_type: string;
+  locationId: string;
+  locationName: string;
+  checkInAt: string;
+  isWfh: boolean;
+  workType: string;
 }
 
 interface CheckInButtonProps {
@@ -33,20 +34,29 @@ export default function CheckInButton({ userId, userName, userJobRoles, userRole
 
   const fetchActiveCheckIn = useCallback(async () => {
     setCheckingDb(true);
-    setActiveCheckIn(null); // Default to no active check-in (Supabase migration)
+    setActiveCheckIn(null);
     try {
-      const { data, error } = await supabase
-        .from('check_ins').select('id, location_id, check_in_at, is_wfh, work_type, locations(name)')
-        .eq('user_id', userId).is('check_out_at', null).order('check_in_at', { ascending: false }).limit(1).single();
-      if (!error && data) {
-        setActiveCheckIn({ id: data.id, location_id: data.location_id, location_name: (data.locations as any)?.name || 'Unknown', check_in_at: data.check_in_at, is_wfh: data.is_wfh, work_type: data.work_type });
+      const q = query(
+        collection(db, 'checkIns'),
+        where('userId', '==', userId),
+        where('checkOutAt', '==', null),
+        orderBy('checkInAt', 'desc'),
+        limit(1)
+      );
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const data = snapshot.docs[0].data();
+        setActiveCheckIn({
+          id: snapshot.docs[0].id,
+          locationId: data.locationId ?? '',
+          locationName: data.locationName ?? 'Unknown',
+          checkInAt: data.checkInAt ?? new Date().toISOString(),
+          isWfh: data.isWfh ?? false,
+          workType: data.workType ?? 'on_site',
+        });
       }
-    } catch (err: any) {
-      // Silently fail - this is expected during Supabase→Firestore migration
-      // Don't log 406 errors, they're normal and don't need to surface to user
-      if (err?.status !== 406) {
-        console.debug('CheckIn fetch error (expected during migration):', err?.message);
-      }
+    } catch (err) {
+      console.debug('CheckIn fetch (Firestore):', err);
     } finally {
       setCheckingDb(false);
     }
@@ -63,43 +73,142 @@ export default function CheckInButton({ userId, userName, userJobRoles, userRole
 
   async function handleCheckIn(location: Location) {
     if (!latitude || !longitude) return;
-    setActionLoading(true); setMessage(null);
-    const { data, error } = await supabase.from('check_ins').insert({ user_id: userId, location_id: location.id, check_in_lat: latitude, check_in_lng: longitude, is_wfh: false, work_type: 'on_site' }).select('id, location_id, check_in_at, is_wfh, work_type').single();
-    if (error) { setMessage('Check-in failed. Please try again.'); }
-    else if (data) { setActiveCheckIn({ id: data.id, location_id: data.location_id, location_name: location.name, check_in_at: data.check_in_at, is_wfh: false, work_type: 'on_site' }); setMessage(`Checked in at ${location.name}`); notifyManagers('check_in', userName, location.name, false); }
-    setActionLoading(false); setShowWfhChoice(false);
+    setActionLoading(true);
+    setMessage(null);
+    try {
+      const docRef = await addDoc(collection(db, 'checkIns'), {
+        userId,
+        locationId: location.id ?? '',
+        locationName: location.name ?? 'Unknown',
+        checkInLat: latitude,
+        checkInLng: longitude,
+        isWfh: false,
+        workType: 'on_site',
+        checkInAt: new Date().toISOString(),
+        checkOutAt: null,
+        createdAt: new Date().toISOString(),
+      });
+      setActiveCheckIn({
+        id: docRef.id,
+        locationId: location.id ?? '',
+        locationName: location.name ?? 'Unknown',
+        checkInAt: new Date().toISOString(),
+        isWfh: false,
+        workType: 'on_site',
+      });
+      setMessage(`Checked in at ${location.name ?? 'location'}`);
+      notifyManagers('check_in', userName, location.name ?? 'Unknown', false);
+    } catch (error) {
+      console.error('Check-in error:', error);
+      setMessage('Check-in failed. Please try again.');
+    } finally {
+      setActionLoading(false);
+      setShowWfhChoice(false);
+    }
   }
 
   async function handleWfhCheckIn() {
-    setActionLoading(true); setMessage(null);
-    const { data: officeLoc } = await supabase.from('locations').select('id, name').eq('is_active', true).limit(1).single();
-    if (!officeLoc) { setMessage('No location configured.'); setActionLoading(false); return; }
-    const { data, error } = await supabase.from('check_ins').insert({ user_id: userId, location_id: officeLoc.id, check_in_lat: latitude, check_in_lng: longitude, is_wfh: true, work_type: 'wfh' }).select('id, location_id, check_in_at, is_wfh, work_type').single();
-    if (error) { setMessage('Check-in failed. Please try again.'); }
-    else if (data) { setActiveCheckIn({ id: data.id, location_id: data.location_id, location_name: officeLoc.name, check_in_at: data.check_in_at, is_wfh: true, work_type: 'wfh' }); setMessage('Checked in — Working from Home'); notifyManagers('check_in', userName, 'Home (WFH)', true); }
-    setActionLoading(false); setShowWfhChoice(false);
+    setActionLoading(true);
+    setMessage(null);
+    try {
+      const q = query(collection(db, 'locations'), where('isActive', '==', true), limit(1));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        setMessage('No location configured.');
+        return;
+      }
+      const officeLoc = snapshot.docs[0].data();
+      const officeName = officeLoc.name ?? 'Office';
+
+      const docRef = await addDoc(collection(db, 'checkIns'), {
+        userId,
+        locationId: snapshot.docs[0].id,
+        locationName: officeName,
+        checkInLat: latitude,
+        checkInLng: longitude,
+        isWfh: true,
+        workType: 'wfh',
+        checkInAt: new Date().toISOString(),
+        checkOutAt: null,
+        createdAt: new Date().toISOString(),
+      });
+      setActiveCheckIn({
+        id: docRef.id,
+        locationId: snapshot.docs[0].id,
+        locationName: officeName,
+        checkInAt: new Date().toISOString(),
+        isWfh: true,
+        workType: 'wfh',
+      });
+      setMessage('Checked in — Working from Home');
+      notifyManagers('check_in', userName, 'Home (WFH)', true);
+    } catch (error) {
+      console.error('WFH check-in error:', error);
+      setMessage('Check-in failed. Please try again.');
+    } finally {
+      setActionLoading(false);
+      setShowWfhChoice(false);
+    }
   }
 
   async function handleCheckOut() {
     if (!activeCheckIn) return;
-    setActionLoading(true); setMessage(null);
-    const updateData: Record<string, any> = { check_out_at: new Date().toISOString() };
-    if (latitude && longitude) { updateData.check_out_lat = latitude; updateData.check_out_lng = longitude; }
-    const { error } = await supabase.from('check_ins').update(updateData).eq('id', activeCheckIn.id);
-    if (error) { setMessage('Check-out failed. Please try again.'); }
-    else { const label = activeCheckIn.is_wfh ? 'WFH' : activeCheckIn.location_name; setMessage(`Checked out from ${label}`); notifyManagers('check_out', userName, label, activeCheckIn.is_wfh); setActiveCheckIn(null); }
-    setActionLoading(false);
+    setActionLoading(true);
+    setMessage(null);
+    try {
+      const updateData: Record<string, any> = { checkOutAt: new Date().toISOString() };
+      if (latitude && longitude) {
+        updateData.checkOutLat = latitude;
+        updateData.checkOutLng = longitude;
+      }
+      const checkInRef = doc(db, 'checkIns', activeCheckIn.id);
+      await updateDoc(checkInRef, updateData);
+      const label = activeCheckIn.isWfh ? 'WFH' : activeCheckIn.locationName;
+      setMessage(`Checked out from ${label}`);
+      notifyManagers('check_out', userName, label, activeCheckIn.isWfh);
+      setActiveCheckIn(null);
+    } catch (error) {
+      console.error('Check-out error:', error);
+      setMessage('Check-out failed. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
   }
 
   async function notifyManagers(type: 'check_in' | 'check_out', name: string, location: string, isWfh: boolean) {
     try {
-      const { data: managers } = await supabase.from('users').select('id, push_subscription').in('role', ['super_admin', 'manager']).not('push_subscription', 'is', null);
-      if (!managers || managers.length === 0) return;
+      const q = query(
+        collection(db, 'users'),
+        where('role', 'in', ['super_admin', 'manager']),
+        where('pushSubscription', '!=', null)
+      );
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) return;
+
       const wfhTag = isWfh ? ' 🏠' : '';
       const title = type === 'check_in' ? `📍 Staff Arrived${wfhTag}` : `👋 Staff Left${wfhTag}`;
       const body = type === 'check_in' ? `${name} checked in at ${location}` : `${name} checked out from ${location}`;
-      for (const mgr of managers) { try { await fetch('/api/send-push', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: mgr.push_subscription, title, body }) }); } catch {} }
-    } catch {}
+
+      for (const doc of snapshot.docs) {
+        const manager = doc.data();
+        if (!manager.pushSubscription) continue;
+        try {
+          await fetch('/api/send-push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscription: manager.pushSubscription,
+              title,
+              body,
+            }),
+          });
+        } catch {
+          // Silently fail on individual notification
+        }
+      }
+    } catch (error) {
+      console.debug('Manager notification error:', error);
+    }
   }
 
   const isLoading = geoLoading || checkingDb;
@@ -131,147 +240,86 @@ export default function CheckInButton({ userId, userName, userJobRoles, userRole
 
   // ===== CHECKED IN =====
   if (activeCheckIn) {
-    const accent = activeCheckIn.is_wfh ? c.warning : c.primary;
+    const accent = activeCheckIn.isWfh ? c.warning : c.primary;
     return (
       <div style={card(accent + '40')}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
           <div style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: accent }} />
           <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: accent }}>
-            {activeCheckIn.is_wfh ? '🏠 Working from Home' : '✅ Checked In'}
+            {activeCheckIn.isWfh ? '🏠 Working from Home' : '✅ Checked In'}
           </span>
         </div>
-        {!activeCheckIn.is_wfh && (
-          <p style={{ fontSize: '15px', fontWeight: 700, color: c.white, marginBottom: '4px' }}>{activeCheckIn.location_name}</p>
+        {!activeCheckIn.isWfh && (
+          <p style={{ fontSize: '15px', fontWeight: 700, color: c.white, marginBottom: '4px' }}>{activeCheckIn.locationName}</p>
         )}
         <p style={{ fontSize: '11px', color: c.grayDark, marginBottom: '14px' }}>
-          Since {new Date(activeCheckIn.check_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {formatElapsed(activeCheckIn.check_in_at)}
+          Since {new Date(activeCheckIn.checkInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {formatElapsed(activeCheckIn.checkInAt)}
         </p>
         <button onClick={handleCheckOut} disabled={actionLoading} style={btn(c.secondary)}>
           {actionLoading ? 'Checking out...' : '👋 Check Out'}
         </button>
-        {message && <p style={{ marginTop: '10px', fontSize: '11px', textAlign: 'center', color: accent }}>{message}</p>}
+        {message && <p style={{ fontSize: '11px', color: c.success, marginTop: '10px', textAlign: 'center' }}>{message}</p>}
       </div>
     );
   }
 
-  // ===== LOADING =====
-  if (isLoading) {
-    return (
-      <div style={card(c.border)}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '12px 0' }}>
-          <span style={{ fontSize: '12px', color: c.grayDark }}>📍 Detecting your location...</span>
-        </div>
-      </div>
-    );
-  }
-
-  // ===== WFH CHOICE =====
-  if (showWfhChoice) {
-    return (
-      <div style={card(c.border)}>
-        <p style={{ fontSize: '14px', fontWeight: 700, color: c.white, textAlign: 'center', marginBottom: '14px' }}>
-          How are you working today?
-        </p>
-        {nearbyLocations.map((loc) => (
-          <button key={loc.id} onClick={() => handleCheckIn(loc)} disabled={actionLoading} style={{ ...btn(c.primary), marginBottom: '8px' }}>
-            📍 On Site — {loc.name}
-          </button>
-        ))}
-        <button onClick={handleWfhCheckIn} disabled={actionLoading} style={{ ...btn(c.primaryDark), marginBottom: '8px' }}>
-          {actionLoading ? 'Checking in...' : '🏠 Work from Home'}
-        </button>
-        <button onClick={() => setShowWfhChoice(false)} style={{ width: '100%', padding: '8px', background: 'none', border: 'none', color: c.grayDark, fontSize: '11px', cursor: 'pointer' }}>
-          Cancel
-        </button>
-      </div>
-    );
-  }
-
-  // ===== GPS ERROR (no WFH) =====
-  if (geoError && !canWfh) {
-    return (
-      <div style={card(c.warning + '30')}>
-        <p style={{ fontSize: '11px', color: c.warning, marginBottom: '10px' }}>📍 {geoError}</p>
-        <button onClick={requestPosition} style={btn(c.warning)}>Try Again</button>
-      </div>
-    );
-  }
-
-  // ===== GPS ERROR (can WFH) =====
-  if (geoError && canWfh) {
-    return (
-      <div style={card(c.warning + '30')}>
-        <p style={{ fontSize: '11px', color: c.warning, marginBottom: '10px' }}>📍 {geoError}</p>
-        <button onClick={requestPosition} style={{ ...btn(c.grayDarker), marginBottom: '8px', color: c.gray }}>
-          Retry GPS for On-Site
-        </button>
-        <button onClick={handleWfhCheckIn} disabled={actionLoading} style={btn(c.primaryDark)}>
-          {actionLoading ? 'Checking in...' : '🏠 Work from Home'}
-        </button>
-      </div>
-    );
-  }
-
-  // ===== NEAR LOCATION =====
-  if (nearbyLocations.length > 0) {
-    return (
-      <div style={card(c.primary + '40')}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-          <span style={{ fontSize: '20px' }}>📍</span>
-          <div>
-            <p style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: c.primaryLight }}>
-              {nearbyLocations.length === 1 ? "You're at" : 'Nearby locations'}
-            </p>
-            {nearbyLocations.length === 1 && (
-              <p style={{ fontSize: '15px', fontWeight: 700, color: c.white }}>{nearbyLocations[0].name}</p>
-            )}
-          </div>
-        </div>
-        {distanceToNearest !== null && (
-          <p style={{ fontSize: '10px', color: c.grayDark, marginBottom: '12px' }}>
-            {distanceToNearest}m away · GPS ±{accuracy ? Math.round(accuracy) : '?'}m
-          </p>
-        )}
-        {nearbyLocations.length > 1 ? (
-          nearbyLocations.map((loc) => (
-            <button key={loc.id} onClick={() => handleCheckIn(loc)} disabled={actionLoading} style={{ ...btn(c.primary), marginBottom: '8px' }}>
-              ✅ Check In — {loc.name}
-            </button>
-          ))
-        ) : (
-          <button onClick={() => { if (canWfh) { setShowWfhChoice(true); } else { handleCheckIn(nearbyLocations[0]); } }} disabled={actionLoading} style={btn(c.primary)}>
-            {actionLoading ? 'Checking in...' : '✅ Check In'}
-          </button>
-        )}
-        {canWfh && nearbyLocations.length > 1 && (
-          <button onClick={handleWfhCheckIn} disabled={actionLoading} style={{ ...btn(c.primaryDark), marginTop: '8px' }}>
-            🏠 Work from Home Instead
-          </button>
-        )}
-        {message && <p style={{ marginTop: '10px', fontSize: '11px', textAlign: 'center', color: c.primaryLight }}>{message}</p>}
-      </div>
-    );
-  }
-
-  // ===== NOT NEAR ANY LOCATION =====
+  // ===== NOT CHECKED IN =====
   return (
     <div style={card(c.border)}>
-      <div style={{ textAlign: 'center', padding: '8px 0' }}>
-        <p style={{ fontSize: '11px', color: c.grayDark, marginBottom: '6px' }}>📍 Not at a check-in location</p>
-        {distanceToNearest !== null && (
-          <p style={{ fontSize: '10px', color: c.grayDarker, marginBottom: '8px' }}>
-            Nearest: {distanceToNearest >= 1000 ? `${(distanceToNearest / 1000).toFixed(1)}km` : `${distanceToNearest}m`} away
-          </p>
-        )}
-        <button onClick={requestPosition} style={{ background: 'none', border: 'none', color: c.primaryLight, fontSize: '11px', fontWeight: 500, cursor: 'pointer', marginBottom: canWfh ? '10px' : '0' }}>
-          Refresh location
+      {isLoading ? (
+        <div style={{ textAlign: 'center', color: c.grayDark, fontSize: '12px' }}>Loading check-in status...</div>
+      ) : nearbyLocations?.length === 0 ? (
+        <button onClick={requestPosition} disabled={geoLoading} style={btn(c.primary)}>
+          {geoLoading ? 'Getting location...' : '📍 Enable Location'}
         </button>
-        {canWfh && (
-          <button onClick={handleWfhCheckIn} disabled={actionLoading} style={btn(c.primaryDark)}>
-            {actionLoading ? 'Checking in...' : '🏠 Work from Home'}
-          </button>
-        )}
-      </div>
+      ) : (
+        <>
+          <div style={{ marginBottom: '12px' }}>
+            <p style={{ fontSize: '12px', color: c.grayDark, marginBottom: '8px' }}>Nearby locations:</p>
+            {nearbyLocations?.map((loc) => (
+              <button
+                key={loc.id}
+                onClick={() => handleCheckIn(loc)}
+                disabled={actionLoading || !latitude || !longitude}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  marginBottom: '6px',
+                  backgroundColor: c.bgElevated,
+                  color: c.white,
+                  border: `1px solid ${c.border}`,
+                  borderRadius: '8px',
+                  cursor: actionLoading ? 'not-allowed' : 'pointer',
+                  opacity: actionLoading ? 0.6 : 1,
+                  fontSize: '13px',
+                  fontWeight: 500,
+                }}
+              >
+                {actionLoading ? 'Checking in...' : `📍 ${loc.name ?? 'Location'}`}
+              </button>
+            ))}
+          </div>
+          {canWfh && (
+            <>
+              <button onClick={() => setShowWfhChoice(!showWfhChoice)} style={btn(c.warning)}>
+                {showWfhChoice ? '✖ Cancel' : '🏠 Work from Home'}
+              </button>
+              {showWfhChoice && (
+                <>
+                  <button onClick={handleWfhCheckIn} disabled={actionLoading} style={btn(c.success)} >
+                    {actionLoading ? 'Checking in...' : '✓ Confirm WFH'}
+                  </button>
+                </>
+              )}
+            </>
+          )}
+        </>
+      )}
+      {message && (
+        <p style={{ fontSize: '11px', marginTop: '10px', textAlign: 'center', color: message.includes('failed') ? c.danger : c.success }}>
+          {message}
+        </p>
+      )}
     </div>
   );
 }

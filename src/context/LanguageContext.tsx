@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
 import translations, { type Lang } from '../i18n/translations';
-import { supabase } from '../lib/supabase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface LanguageContextValue {
   lang: Lang;
@@ -22,7 +23,10 @@ export function LanguageProvider({ children, userId }: { children: ReactNode; us
     setLangState(newLang);
     localStorage.setItem(STORAGE_KEY, newLang);
     if (userId) {
-      supabase.from('users').update({ lang: newLang }).eq('id', userId).then(() => {});
+      const userRef = doc(db, 'users', userId);
+      updateDoc(userRef, { lang: newLang }).catch((err) => {
+        console.warn('Failed to update language preference:', err);
+      });
     }
   }, [userId]);
 

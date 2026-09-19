@@ -1,153 +1,341 @@
-import { supabase } from '../lib/supabase';
+import {
+  collection, getDocs, query, where, orderBy, addDoc, doc, updateDoc, writeBatch,
+} from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export async function fetchTasksForDate(date: string) {
-  const { data, error } = await supabase.from('tasks').select('*').eq('date', date)
-    .order('priority').order('created_at');
-  if (error) console.error('fetchTasksForDate:', error);
-  return data || [];
+  try {
+    const q = query(
+      collection(db, 'tasks'),
+      where('date', '==', date),
+      orderBy('priority'),
+      orderBy('createdAt')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error('fetchTasksForDate:', error);
+    return [];
+  }
 }
 
 export async function fetchTasksForUser(userId: string, startDate: string, endDate: string) {
-  const { data, error } = await supabase.from('tasks').select('*').eq('assigned_to', userId)
-    .gte('date', startDate).lte('date', endDate).order('date', { ascending: false }).order('priority');
-  if (error) console.error('fetchTasksForUser:', error);
-  return data || [];
+  try {
+    const q = query(
+      collection(db, 'tasks'),
+      where('assignedTo', '==', userId),
+      where('date', '>=', startDate),
+      where('date', '<=', endDate),
+      orderBy('date', 'desc'),
+      orderBy('priority')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error('fetchTasksForUser:', error);
+    return [];
+  }
 }
 
 export async function fetchAllTasks(startDate: string, endDate: string) {
-  const { data, error } = await supabase.from('tasks').select('*')
-    .gte('date', startDate).lte('date', endDate).order('date', { ascending: false }).order('priority');
-  if (error) console.error('fetchAllTasks:', error);
-  return data || [];
+  try {
+    const q = query(
+      collection(db, 'tasks'),
+      where('date', '>=', startDate),
+      where('date', '<=', endDate),
+      orderBy('date', 'desc'),
+      orderBy('priority')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error('fetchAllTasks:', error);
+    return [];
+  }
 }
 
 export async function insertTask(task: Record<string, any>) {
-  const { error } = await supabase.from('tasks').insert(task);
-  if (error) console.error('insertTask:', error);
-  return !error;
+  try {
+    await addDoc(collection(db, 'tasks'), {
+      ...task,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    return true;
+  } catch (error) {
+    console.error('insertTask:', error);
+    return false;
+  }
 }
 
 export async function updateTask(id: string, updates: Record<string, any>) {
-  const { error } = await supabase.from('tasks').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
-  if (error) console.error('updateTask:', error);
-  return !error;
+  try {
+    const taskRef = doc(db, 'tasks', id);
+    await updateDoc(taskRef, {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
+    return true;
+  } catch (error) {
+    console.error('updateTask:', error);
+    return false;
+  }
 }
 
 export async function completeGroupTasks(groupId: string, completedBy: string, completedByName: string) {
-  const now = new Date().toISOString();
-  const { error } = await supabase.from('tasks').update({
-    status: 'done', completed_at: now, completed_by: completedBy,
-    completed_by_name: completedByName, updated_at: now,
-  }).eq('group_id', groupId).neq('status', 'done');
-  if (error) console.error('completeGroupTasks:', error);
-  return !error;
+  try {
+    const q = query(
+      collection(db, 'tasks'),
+      where('groupId', '==', groupId),
+      where('status', '!=', 'done')
+    );
+    const snapshot = await getDocs(q);
+    const now = new Date().toISOString();
+    const batch = writeBatch(db);
+
+    snapshot.docs.forEach(docSnap => {
+      batch.update(docSnap.ref, {
+        status: 'done',
+        completedAt: now,
+        completedBy,
+        completedByName,
+        updatedAt: now,
+      });
+    });
+
+    await batch.commit();
+    return true;
+  } catch (error) {
+    console.error('completeGroupTasks:', error);
+    return false;
+  }
 }
 
 export async function markMissedTasks(beforeDate: string) {
-  const { error } = await supabase.from('tasks').update({
-    status: 'missed', updated_at: new Date().toISOString(),
-  }).lt('date', beforeDate).in('status', ['pending', 'in_progress']);
-  if (error) console.error('markMissedTasks:', error);
+  try {
+    const q = query(
+      collection(db, 'tasks'),
+      where('date', '<', beforeDate),
+      where('status', 'in', ['pending', 'in_progress'])
+    );
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+    const now = new Date().toISOString();
+
+    snapshot.docs.forEach(docSnap => {
+      batch.update(docSnap.ref, {
+        status: 'missed',
+        updatedAt: now,
+      });
+    });
+
+    await batch.commit();
+  } catch (error) {
+    console.error('markMissedTasks:', error);
+  }
 }
 
 export async function fetchTemplates() {
-  const { data, error } = await supabase.from('task_templates').select('*').order('created_at');
-  if (error) console.error('fetchTemplates:', error);
-  return data || [];
+  try {
+    const q = query(collection(db, 'task_templates'), orderBy('createdAt'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error('fetchTemplates:', error);
+    return [];
+  }
 }
 
 export async function insertTemplate(t: Record<string, any>) {
-  const { error } = await supabase.from('task_templates').insert(t);
-  if (error) console.error('insertTemplate:', error);
-  return !error;
+  try {
+    await addDoc(collection(db, 'task_templates'), {
+      ...t,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    return true;
+  } catch (error) {
+    console.error('insertTemplate:', error);
+    return false;
+  }
 }
 
 export async function updateTemplate(id: string, updates: Record<string, any>) {
-  const { error } = await supabase.from('task_templates').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
-  if (error) console.error('updateTemplate:', error);
-  return !error;
+  try {
+    const ref = doc(db, 'task_templates', id);
+    await updateDoc(ref, {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    });
+    return true;
+  } catch (error) {
+    console.error('updateTemplate:', error);
+    return false;
+  }
 }
 
 export async function fetchCategories() {
-  const { data, error } = await supabase.from('task_categories').select('*').order('sort_order');
-  if (error) console.error('fetchCategories:', error);
-  return data || [];
+  try {
+    const q = query(collection(db, 'task_categories'), orderBy('sortOrder'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error('fetchCategories:', error);
+    return [];
+  }
 }
 
 export async function fetchComments(taskId: string) {
-  const { data, error } = await supabase.from('task_comments').select('*').eq('task_id', taskId).order('created_at');
-  if (error) console.error('fetchComments:', error);
-  return data || [];
+  try {
+    const q = query(
+      collection(db, 'task_comments'),
+      where('taskId', '==', taskId),
+      orderBy('createdAt')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error('fetchComments:', error);
+    return [];
+  }
 }
 
 export async function insertComment(c: Record<string, any>) {
-  const { error } = await supabase.from('task_comments').insert(c);
-  if (error) console.error('insertComment:', error);
-  return !error;
+  try {
+    await addDoc(collection(db, 'task_comments'), {
+      ...c,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    return true;
+  } catch (error) {
+    console.error('insertComment:', error);
+    return false;
+  }
 }
 
 export async function addReaction(commentId: string, reaction: string) {
-  await supabase.from('task_comments').update({ reaction }).eq('id', commentId);
+  try {
+    const ref = doc(db, 'task_comments', commentId);
+    await updateDoc(ref, { reaction });
+  } catch (error) {
+    console.error('addReaction:', error);
+  }
 }
 
 export async function fetchActivity(limit = 50) {
-  const { data, error } = await supabase.from('task_activity').select('*').order('created_at', { ascending: false }).limit(limit);
-  if (error) console.error('fetchActivity:', error);
-  return data || [];
+  try {
+    const q = query(
+      collection(db, 'task_activity'),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.slice(0, limit).map(d => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error('fetchActivity:', error);
+    return [];
+  }
 }
 
 export async function logActivity(a: Record<string, any>) {
-  await supabase.from('task_activity').insert({ id: `act_${Date.now()}_${Math.random().toString(36).slice(2,6)}`, ...a });
+  try {
+    await addDoc(collection(db, 'task_activity'), {
+      id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      ...a,
+      createdAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('logActivity:', error);
+  }
 }
 
 export async function fetchAttachments(taskId: string) {
-  const { data, error } = await supabase.from('task_attachments').select('*').eq('task_id', taskId).order('created_at');
-  if (error) console.error('fetchAttachments:', error);
-  return data || [];
+  try {
+    const q = query(
+      collection(db, 'task_attachments'),
+      where('taskId', '==', taskId),
+      orderBy('createdAt')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error('fetchAttachments:', error);
+    return [];
+  }
 }
 
 export async function insertAttachment(a: Record<string, any>) {
-  const { error } = await supabase.from('task_attachments').insert(a);
-  if (error) console.error('insertAttachment:', error);
-  return !error;
+  try {
+    await addDoc(collection(db, 'task_attachments'), {
+      ...a,
+      createdAt: new Date().toISOString(),
+    });
+    return true;
+  } catch (error) {
+    console.error('insertAttachment:', error);
+    return false;
+  }
 }
 
 export async function generateDailyTasks(
   date: string,
   workingUsers: { id: string; name: string; role: string; jobRoles: string[] }[],
 ) {
-  const templates = await fetchTemplates();
-  const active = templates.filter((t: any) => t.is_active);
-  const dow = new Date(date + 'T00:00:00').getDay();
-  const dayNames = ['sun','mon','tue','wed','thu','fri','sat'];
-  const dayName = dayNames[dow];
-  const dom = new Date(date + 'T00:00:00').getDate();
-  const existing = await fetchTasksForDate(date);
-  const existKeys = new Set(existing.map((t: any) => `${t.template_id}_${t.assigned_to}`));
-  const toInsert: any[] = [];
-  for (const tmpl of active) {
-    let gen = false;
-    if (tmpl.recurrence === 'daily') gen = true;
-    else if (tmpl.recurrence === 'weekdays') gen = dow >= 1 && dow <= 5;
-    else if (tmpl.recurrence === `weekly_${dayName}`) gen = true;
-    else if (tmpl.recurrence === 'monthly' && dom === 1) gen = true;
-    if (!gen) continue;
-    const targets = workingUsers.filter(u => !tmpl.assigned_role || u.jobRoles.includes(tmpl.assigned_role));
-    for (const u of targets) {
-      if (existKeys.has(`${tmpl.id}_${u.id}`)) continue;
-      toInsert.push({
-        id: `task_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
-        template_id: tmpl.id, title: tmpl.title, description: tmpl.description || '',
-        category_id: tmpl.category_id, date, assigned_to: u.id, assigned_to_name: u.name,
-        assigned_by: 'system', assigned_by_name: 'Auto-generated',
-        priority: tmpl.priority || 'normal', has_checklist: tmpl.has_checklist || false,
-        checklist_items: tmpl.checklist_items || [], status: 'pending',
-      });
+  try {
+    const templates = await fetchTemplates();
+    const active = templates.filter((t: any) => t.isActive);
+    const dow = new Date(date + 'T00:00:00').getDay();
+    const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const dayName = dayNames[dow];
+    const dom = new Date(date + 'T00:00:00').getDate();
+    const existing = await fetchTasksForDate(date);
+    const existKeys = new Set(existing.map((t: any) => `${t.templateId}_${t.assignedTo}`));
+    const toInsert: any[] = [];
+
+    for (const tmpl of active) {
+      let gen = false;
+      if (tmpl.recurrence === 'daily') gen = true;
+      else if (tmpl.recurrence === 'weekdays') gen = dow >= 1 && dow <= 5;
+      else if (tmpl.recurrence === `weekly_${dayName}`) gen = true;
+      else if (tmpl.recurrence === 'monthly' && dom === 1) gen = true;
+      if (!gen) continue;
+
+      const targets = workingUsers.filter(u => !tmpl.assignedRole || u.jobRoles.includes(tmpl.assignedRole));
+      for (const u of targets) {
+        if (existKeys.has(`${tmpl.id}_${u.id}`)) continue;
+        toInsert.push({
+          id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          templateId: tmpl.id,
+          title: tmpl.title ?? 'Task',
+          description: tmpl.description ?? '',
+          categoryId: tmpl.categoryId ?? '',
+          date,
+          assignedTo: u.id,
+          assignedToName: u.name ?? 'Unknown',
+          assignedBy: 'system',
+          assignedByName: 'Auto-generated',
+          priority: tmpl.priority ?? 'normal',
+          hasChecklist: tmpl.hasChecklist ?? false,
+          checklistItems: tmpl.checklistItems ?? [],
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
     }
+
+    if (toInsert.length > 0) {
+      const batch = writeBatch(db);
+      for (const task of toInsert) {
+        const docRef = doc(collection(db, 'tasks'));
+        batch.set(docRef, task);
+      }
+      await batch.commit();
+    }
+
+    return toInsert.length;
+  } catch (error) {
+    console.error('generateDailyTasks:', error);
+    return 0;
   }
-  if (toInsert.length > 0) {
-    const { error } = await supabase.from('tasks').insert(toInsert);
-    if (error) console.error('generateDailyTasks:', error);
-  }
-  return toInsert.length;
 }
