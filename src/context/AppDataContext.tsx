@@ -10,14 +10,24 @@ import type { TourAssignment } from '../models/tourAssignment';
 import type { Schedule } from '../models/schedule';
 import {
   fetchUsers, insertUser, updateUserDb, deleteUserDb,
+} from '../services/firestoreUserService';
+import {
   fetchJobRoles, insertJobRole, updateJobRoleDb, deleteJobRoleDb,
-  fetchRoleAssignments,
+  fetchRoleAssignments, insertRoleAssignment, deleteRoleAssignmentDb,
+} from '../services/firestoreRoleService';
+import {
   fetchStaffingRules, insertStaffingRule, updateStaffingRuleDb, deleteStaffingRuleDb,
+} from '../services/firestoreStaffingService';
+import {
   fetchHolidays, fetchSpecialDays, insertSpecialDay, deleteSpecialDayDb,
   fetchNotificationSettings, updateNotificationSettingsDb,
+} from '../services/firestoreSettingsService';
+import {
   fetchTourAssignments,
+} from '../services/firestoreService';
+import {
   insertAuditLog,
-} from '../services/supabaseService';
+} from '../services/firestoreService';
 import {
   fetchSchedules,
   insertSchedulesBatch,
@@ -41,8 +51,8 @@ interface AppDataContextValue {
   updateJobRole: (id: string, updates: Partial<JobRole>, actorName: string) => void;
   deleteJobRole: (id: string, actorName: string) => void;
   roleAssignments: StaffRoleAssignment[];
-  assignRole: (userId: string, jobRoleId: string, isPrimary: boolean) => void;
-  removeRoleAssignment: (id: string) => void;
+  assignRole: (userId: string, jobRoleId: string, isPrimary: boolean, actorName: string) => void;
+  removeRoleAssignment: (id: string, actorName: string) => void;
   staffingRules: StaffingRule[];
   addStaffingRule: (rule: Omit<StaffingRule, 'id' | 'createdAt' | 'updatedAt'>, actorName: string) => void;
   updateStaffingRule: (id: string, updates: Partial<StaffingRule>, actorName: string) => void;
@@ -184,16 +194,24 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ─── Role Assignments ────────────────────────────────
-  const assignRole = useCallback((userId: string, jobRoleId: string, isPrimary: boolean) => {
+  const assignRole = useCallback(async (userId: string, jobRoleId: string, isPrimary: boolean, actorName: string) => {
     const existing = roleAssignments.find((a) => a.userId === userId && a.jobRoleId === jobRoleId);
     if (existing) return;
-    const newAssign = { id: `assign_${Date.now()}`, userId, jobRoleId, isPrimary, assignedAt: now() };
+    const id = `assign_${Date.now()}`;
+    const newAssign = { id, userId, jobRoleId, isPrimary, assignedAt: now() };
     setRoleAssignments((prev) => [...prev, newAssign]);
+    await insertRoleAssignment({ id, userId, jobRoleId, isPrimary });
+    await insertAuditLog({ actorId: 'admin', actorName, action: 'role_assigned', entityType: 'role_assignment', entityId: id, description: `Assigned role ${jobRoleId} to user ${userId}` });
   }, [roleAssignments]);
 
-  const removeRoleAssignment = useCallback((id: string) => {
+  const removeRoleAssignment = useCallback(async (id: string, actorName: string) => {
+    const assignment = roleAssignments.find((a) => a.id === id);
     setRoleAssignments((prev) => prev.filter((a) => a.id !== id));
-  }, []);
+    if (assignment) {
+      await deleteRoleAssignmentDb(id);
+      await insertAuditLog({ actorId: 'admin', actorName, action: 'role_unassigned', entityType: 'role_assignment', entityId: id, description: `Removed role assignment ${id}` });
+    }
+  }, [roleAssignments]);
 
   // ─── Staffing Rules ──────────────────────────────────
   const addStaffingRule = useCallback(async (rule: Omit<StaffingRule, 'id' | 'createdAt' | 'updatedAt'>, actorName: string) => {
