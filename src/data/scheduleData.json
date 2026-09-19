@@ -1,0 +1,443 @@
+[
+  {
+    "date": "2026-08-03",
+    "dayOfWeek": "MONDAY",
+    "guide": "Tiziano",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-03",
+    "dayOfWeek": "TUESDAY",
+    "guide": "Tiziano",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-03",
+    "dayOfWeek": "MONDAY",
+    "guide": "Gunzan",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-10",
+    "dayOfWeek": "MONDAY",
+    "guide": "Desiree",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-10",
+    "dayOfWeek": "WEDNESDAY",
+    "guide": "Desiree",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-10",
+    "dayOfWeek": "MONDAY",
+    "guide": "Gunzan",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-10",
+    "dayOfWeek": "TUESDAY",
+    "guide": "Gunzan",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-10",
+    "dayOfWeek": "MONDAY",
+    "guide": "Rihab",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-10",
+    "dayOfWeek": "TUESDAY",
+    "guide": "Rihab",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-10",
+    "dayOfWeek": "WEDNESDAY",
+    "guide": "Rihab",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-10",
+    "dayOfWeek": "THURSDAY",
+    "guide": "Rihab",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "MONDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "TUESDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "WEDNESDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "THURSDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "FRIDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "SATURDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "SUNDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "MONDAY",
+    "guide": "Gunzan",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "SUNDAY",
+    "guide": "Gunzan",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "MONDAY",
+    "guide": "JO",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "TUESDAY",
+    "guide": "JO",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "WEDNESDAY",
+    "guide": "JO",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "THURSDAY",
+    "guide": "JO",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "FRIDAY",
+    "guide": "JO",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "SATURDAY",
+    "guide": "JO",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "MONDAY",
+    "guide": "Kristina",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "TUESDAY",
+    "guide": "Kristina",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "WEDNESDAY",
+    "guide": "Kristina",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "THURSDAY",
+    "guide": "Kristina",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "FRIDAY",
+    "guide": "Kristina",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "SATURDAY",
+    "guide": "Kristina",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-17",
+    "dayOfWeek": "SUNDAY",
+    "guide": "Kristina",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-24",
+    "dayOfWeek": "MONDAY",
+    "guide": "Desiree",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-24",
+    "dayOfWeek": "WEDNESDAY",
+    "guide": "Desiree",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-24",
+    "dayOfWeek": "MONDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-24",
+    "dayOfWeek": "TUESDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-24",
+    "dayOfWeek": "WEDNESDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-24",
+    "dayOfWeek": "THURSDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-24",
+    "dayOfWeek": "FRIDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-24",
+    "dayOfWeek": "SATURDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-24",
+    "dayOfWeek": "SUNDAY",
+    "guide": "Michael",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-24",
+    "dayOfWeek": "MONDAY",
+    "guide": "Raza",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-24",
+    "dayOfWeek": "TUESDAY",
+    "guide": "Raza",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-24",
+    "dayOfWeek": "THURSDAY",
+    "guide": "Raza",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-08-24",
+    "dayOfWeek": "MONDAY",
+    "guide": "Gunzan",
+    "month": 8,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-07",
+    "dayOfWeek": "MONDAY",
+    "guide": "Desiree",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-07",
+    "dayOfWeek": "WEDNESDAY",
+    "guide": "Desiree",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-07",
+    "dayOfWeek": "MONDAY",
+    "guide": "Tiziano",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-07",
+    "dayOfWeek": "MONDAY",
+    "guide": "Gunzan",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-07",
+    "dayOfWeek": "MONDAY",
+    "guide": "Rihab",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-07",
+    "dayOfWeek": "TUESDAY",
+    "guide": "Rihab",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-14",
+    "dayOfWeek": "MONDAY",
+    "guide": "Tiziano",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-14",
+    "dayOfWeek": "TUESDAY",
+    "guide": "Tiziano",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-14",
+    "dayOfWeek": "MONDAY",
+    "guide": "Gunzan",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-14",
+    "dayOfWeek": "SUNDAY",
+    "guide": "Gunzan",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-14",
+    "dayOfWeek": "MONDAY",
+    "guide": "Zack",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-14",
+    "dayOfWeek": "TUESDAY",
+    "guide": "Zack",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-14",
+    "dayOfWeek": "WEDNESDAY",
+    "guide": "Zack",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-14",
+    "dayOfWeek": "THURSDAY",
+    "guide": "Zack",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-14",
+    "dayOfWeek": "FRIDAY",
+    "guide": "Zack",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-21",
+    "dayOfWeek": "MONDAY",
+    "guide": "Michael",
+    "month": 9,
+    "year": 2026
+  },
+  {
+    "date": "2026-09-21",
+    "dayOfWeek": "MONDAY",
+    "guide": "Gunzan",
+    "month": 9,
+    "year": 2026
+  }
+]

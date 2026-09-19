@@ -515,3 +515,123 @@ export async function fetchCheckIns(userId: string, date: string) {
     return [];
   }
 }
+
+// ─── Schedules ────────────────────────────────────────────────
+
+export async function fetchSchedules(month?: number, year?: number) {
+  try {
+    let q;
+    if (month && year) {
+      q = query(
+        collection(db, 'schedules'),
+        where('month', '==', month),
+        where('year', '==', year),
+        orderBy('date', 'asc')
+      );
+    } else {
+      q = query(
+        collection(db, 'schedules'),
+        orderBy('date', 'asc')
+      );
+    }
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (err) {
+    console.error('fetchSchedules:', err);
+    return [];
+  }
+}
+
+export async function fetchSchedulesByDate(date: string) {
+  try {
+    const q = query(
+      collection(db, 'schedules'),
+      where('date', '==', date),
+      orderBy('guide', 'asc')
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (err) {
+    console.error('fetchSchedulesByDate:', err);
+    return [];
+  }
+}
+
+export async function insertSchedule(data: {
+  date: string;
+  dayOfWeek: string;
+  guide: string;
+  month: number;
+  year: number;
+}) {
+  try {
+    const schedulesRef = collection(db, 'schedules');
+    const docRef = doc(schedulesRef);
+    await setDoc(docRef, {
+      ...data,
+      createdAt: Timestamp.now(),
+    });
+    return docRef.id;
+  } catch (err) {
+    console.error('insertSchedule:', err);
+    throw err;
+  }
+}
+
+export async function insertSchedulesBatch(schedules: Array<{
+  date: string;
+  dayOfWeek: string;
+  guide: string;
+  month: number;
+  year: number;
+}>) {
+  try {
+    const batch = writeBatch(db);
+    const schedulesRef = collection(db, 'schedules');
+
+    for (const schedule of schedules) {
+      const docRef = doc(schedulesRef);
+      batch.set(docRef, {
+        ...schedule,
+        createdAt: Timestamp.now(),
+      });
+    }
+
+    await batch.commit();
+    return true;
+  } catch (err) {
+    console.error('insertSchedulesBatch:', err);
+    throw err;
+  }
+}
+
+export async function deleteSchedule(scheduleId: string) {
+  try {
+    const docRef = doc(db, 'schedules', scheduleId);
+    await deleteDoc(docRef);
+  } catch (err) {
+    console.error('deleteSchedule:', err);
+  }
+}
+
+export async function clearSchedules() {
+  try {
+    const q = query(collection(db, 'schedules'));
+    const snapshot = await getDocs(q);
+    const batch = writeBatch(db);
+
+    snapshot.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+  } catch (err) {
+    console.error('clearSchedules:', err);
+  }
+}

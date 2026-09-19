@@ -24,3 +24,4 @@ export type {
   NotificationType,
   NotificationSettings,
 } from './notification';
+export type { Schedule } from './schedule';

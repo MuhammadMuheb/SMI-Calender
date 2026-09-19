@@ -7,6 +7,7 @@ import type { StaffingRule } from '../models/staffing';
 import type { Holiday, SpecialDay } from '../models/holiday';
 import type { NotificationSettings } from '../models/notification';
 import type { TourAssignment } from '../models/tourAssignment';
+import type { Schedule } from '../models/schedule';
 import {
   fetchUsers, insertUser, updateUserDb, deleteUserDb,
   fetchJobRoles, insertJobRole, updateJobRoleDb, deleteJobRoleDb,
@@ -17,6 +18,10 @@ import {
   fetchTourAssignments,
   insertAuditLog,
 } from '../services/supabaseService';
+import {
+  fetchSchedules,
+  insertSchedulesBatch,
+} from '../services/firestoreService';
 
 /**
  * STATUS: CONNECTED TO SUPABASE
@@ -46,9 +51,11 @@ interface AppDataContextValue {
   tourAssignments: TourAssignment[];
   addSpecialDay: (day: Omit<SpecialDay, 'id' | 'createdAt'>, actorName: string) => void;
   deleteSpecialDay: (id: string, actorName: string) => void;
+  schedules: Schedule[];
   notificationSettings: NotificationSettings;
   updateNotificationSettings: (updates: Partial<NotificationSettings>, actorId: string, actorName: string) => void;
   refreshData: () => void;
+  seedSchedules: (schedules: Schedule[]) => Promise<void>;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -62,6 +69,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [specialDays, setSpecialDays] = useState<SpecialDay[]>([]);
   const [tourAssignments, setTourAssignments] = useState<TourAssignment[]>([]);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
     dailyReminderTime: '14:00', dailyReminderEnabled: true, updatedAt: '', updatedBy: '',
   });
@@ -72,10 +80,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [u, jr, ra, sr, h, sd, ns, ta] = await Promise.all([
+      const [u, jr, ra, sr, h, sd, ns, ta, sched] = await Promise.all([
         fetchUsers(), fetchJobRoles(), fetchRoleAssignments(),
         fetchStaffingRules(), fetchHolidays(), fetchSpecialDays(),
         fetchNotificationSettings(), fetchTourAssignments(),
+        fetchSchedules(),
       ]);
       setUsers(u as StaffUser[]);
       setJobRoles(jr as JobRole[]);
@@ -85,6 +94,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setSpecialDays(sd as SpecialDay[]);
       setNotificationSettings(ns as NotificationSettings);
       setTourAssignments(ta as TourAssignment[]);
+      setSchedules(sched as Schedule[]);
     } catch (err) {
       console.error('Failed to load app data:', err);
     }
@@ -194,6 +204,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     await insertAuditLog({ actorId, actorName, action: 'notification_setting_changed', entityType: 'notification_setting', entityId: 'global', description: `Updated notification settings` });
   }, []);
 
+  // ─── Schedules ───────────────────────────────────
+  const seedSchedules = useCallback(async (schedulesList: Schedule[]) => {
+    try {
+      await insertSchedulesBatch(schedulesList);
+      setSchedules(schedulesList);
+      await insertAuditLog({ actorId: 'system', actorName: 'System', action: 'schedules_seeded', entityType: 'schedule', entityId: 'bulk', description: `Seeded ${schedulesList.length} schedule entries` });
+    } catch (err) {
+      console.error('Failed to seed schedules:', err);
+      throw err;
+    }
+  }, []);
+
   const value = useMemo(() => ({
     loading, users, addUser, updateUser, deleteUser,
     jobRoles, addJobRole, updateJobRole, deleteJobRole,
@@ -201,6 +223,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     staffingRules, addStaffingRule, updateStaffingRule, deleteStaffingRule,
     holidays, specialDays, addSpecialDay, deleteSpecialDay,
     tourAssignments,
+    schedules, seedSchedules,
     notificationSettings, updateNotificationSettings: updateNotificationSettingsHandler,
     refreshData: loadData,
   }), [
@@ -210,6 +233,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     staffingRules, addStaffingRule, updateStaffingRule, deleteStaffingRule,
     holidays, specialDays, addSpecialDay, deleteSpecialDay,
     tourAssignments,
+    schedules, seedSchedules,
     notificationSettings, updateNotificationSettingsHandler, loadData,
   ]);
 
