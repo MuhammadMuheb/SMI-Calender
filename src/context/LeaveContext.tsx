@@ -7,8 +7,9 @@ import type { LeaveBalance } from '../models/balance';
 import type { UserRef } from '../models/user';
 import { computeBalance } from '../services/balanceService';
 import {
-  fetchLeaveRequests, insertLeaveRequest, updateLeaveRequestDb, insertAuditLog, insertNotification,
-} from '../services/supabaseService';
+  insertLeaveRequest, updateLeaveRequestDb, insertAuditLog, insertNotification,
+  listenLeaveRequests, cancelLeaveRequest, approveLeaveRequest, rejectLeaveRequest,
+} from '../services/firestoreService';
 import {
   CYCLE_LENGTH_DAYS as _CYCLE_LENGTH_DAYS, VACATION_ACCRUAL_PER_MONTH,
   isFirstSundayOfMonth, normalizeDateStr,
@@ -52,16 +53,19 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   const { users, staffingRules, roleAssignments, jobRoles } = useAppData();
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const data = await fetchLeaveRequests();
+    setLoading(true);
+    const unsubscribe = listenLeaveRequests(
+      (data) => {
         setRequests(data as LeaveRequest[]);
-      } catch (err) {
+        setLoading(false);
+      },
+      (err) => {
         console.error('Failed to load leave requests:', err);
+        setLoading(false);
       }
-      setLoading(false);
-    })();
+    );
+
+    return () => unsubscribe();
   }, []);
 
   const submitRequest = useCallback(async (
@@ -98,8 +102,12 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     let id: string;
     try {
       id = await insertLeaveRequest({
-        userId, userDisplayName: userRef.displayName, userRole: userRef.role,
-        date: normalizedDate, leaveType, status: autoApprove ? 'approved' : 'pending', staffNote: note,
+        userId,
+        userDisplayName: userRef.displayName,
+        userRole: userRef.role,
+        type: leaveType,
+        date: normalizedDate,
+        reason: note,
       });
     } catch (err) {
       console.error('Failed to save leave request:', err);
@@ -130,10 +138,9 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   }, [requests, users, staffingRules, roleAssignments, jobRoles]);
 
   const cancelRequest = useCallback((requestId: string) => {
-    setRequests((prev) => prev.map((r) =>
-      r.id === requestId ? { ...r, status: 'cancelled' as LeaveStatus, updatedAt: new Date().toISOString() } : r,
-    ));
-    updateLeaveRequestDb(requestId, { status: 'cancelled' });
+    cancelLeaveRequest(requestId).catch((err) => {
+      console.error('Failed to cancel request:', err);
+    });
   }, []);
 
   const approve = useCallback((requestId: string, approver: UserRef, note: string = '') => {
@@ -186,9 +193,8 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       return updated;
     });
 
-    updateLeaveRequestDb(requestId, {
-      status: 'approved', decidedById: approver.id, decidedByName: approver.displayName,
-      decidedAt: now, approverNote: note,
+    approveLeaveRequest(requestId, note).catch((err) => {
+      console.error('Failed to approve request:', err);
     });
     insertAuditLog({
       actorId: approver.id, actorName: approver.displayName,
@@ -214,9 +220,8 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
         decidedAt: now, approverNote: note, updatedAt: now,
       } : r,
     ));
-    updateLeaveRequestDb(requestId, {
-      status: 'rejected', decidedById: approver.id, decidedByName: approver.displayName,
-      decidedAt: now, approverNote: note,
+    rejectLeaveRequest(requestId, note).catch((err) => {
+      console.error('Failed to reject request:', err);
     });
     insertAuditLog({
       actorId: approver.id, actorName: approver.displayName,
@@ -260,9 +265,12 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     }
 
     const id = await insertLeaveRequest({
-      userId: targetUserId, userDisplayName: targetUserName, userRole: targetUserRole,
-      date: normalizedDate, leaveType, status: 'approved',
-      approverNote: `Directly assigned by ${adminName} (admin bypass)`,
+      userId: targetUserId,
+      userDisplayName: targetUserName,
+      userRole: targetUserRole,
+      type: leaveType,
+      date: normalizedDate,
+      reason: `Directly assigned by ${adminName} (admin bypass)`,
     });
 
     const nowIso = new Date().toISOString();
@@ -385,9 +393,15 @@ async function notifyManagersOfDeduction(
     try {
       await insertNotification({
         id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        userId: r.id, type: 'leave_approved', title, body,
-        entityType: 'leave_request', entityId: req.userId,
-        createdBy: excludeActorId ?? 'system',
+        userId: r.id,
+        type: 'leave_approved',
+        title,
+        body,
+        data: {
+          entityType: 'leave_request',
+          entityId: req.userId,
+          createdBy: excludeActorId ?? 'system',
+        },
       });
     } catch (e) {
       console.error('notifyManagersOfDeduction error:', e);

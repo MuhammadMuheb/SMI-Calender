@@ -1,4 +1,5 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
@@ -281,6 +282,7 @@ export const submitLeaveRequest = onCall<{
 
 /**
  * Manager/Admin approves or rejects a leave request.
+ * Only super_admin can approve manager requests.
  */
 export const decideLeaveRequest = onCall<{
   requestId: string;
@@ -291,6 +293,7 @@ export const decideLeaveRequest = onCall<{
   async (request) => {
     const { requestId, decision, note } = request.data;
     const approverId = request.auth?.uid;
+    const approverRole = request.auth?.token?.role as string;
 
     if (!requestId || !decision) {
       throw new HttpsError('invalid-argument', 'requestId and decision required');
@@ -307,6 +310,24 @@ export const decideLeaveRequest = onCall<{
 
     if (!leaveSnap.exists) {
       throw new HttpsError('not-found', 'Leave request not found');
+    }
+
+    const leave = leaveSnap.data() as LeaveRequestDoc;
+
+    // Get requester's role to enforce super_admin approval for manager requests
+    const requesterSnap = await db.collection('users').doc(leave.userId).get();
+    const requester = requesterSnap.data() as UserDoc;
+
+    if (requester.role === 'manager' && approverRole !== 'super_admin') {
+      throw new HttpsError(
+        'permission-denied',
+        'Only super_admin can approve manager requests'
+      );
+    }
+
+    // Only manager+ can approve
+    if (!['manager', 'super_admin'].includes(approverRole)) {
+      throw new HttpsError('permission-denied', 'Only managers can approve requests');
     }
 
     await leaveRef.update({
@@ -355,4 +376,252 @@ export const cancelLeaveRequest = onCall<{ requestId: string }>(
 
     return { id: requestId, status: 'cancelled' };
   },
+);
+
+// ============ Swap & Leave Integration ============
+
+interface SwapRequest {
+  id: string;
+  proposerId: string;
+  receiverId: string;
+  proposerDate: string;
+  receiverDate: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: FieldValue;
+}
+
+/**
+ * When a swap is accepted, automatically:
+ * 1. Create leave request for proposer's received date
+ * 2. Create leave request for receiver's received date
+ * 3. Cancel or modify original requests if needed
+ */
+export const acceptSwap = onCall<{ swapId: string }>(
+  { region: 'us-central1' },
+  async (request) => {
+    const { swapId } = request.data;
+    const receiverId = request.auth?.uid;
+
+    if (!swapId || !receiverId) {
+      throw new HttpsError('invalid-argument', 'swapId required and must be logged in');
+    }
+
+    const db = getFirestore();
+    const batch = db.batch();
+
+    // Get swap request
+    const swapRef = db.collection('swaps').doc(swapId);
+    const swapSnap = await swapRef.get();
+
+    if (!swapSnap.exists) {
+      throw new HttpsError('not-found', 'Swap not found');
+    }
+
+    const swap = swapSnap.data() as SwapRequest;
+
+    if (swap.receiverId !== receiverId) {
+      throw new HttpsError('permission-denied', 'Only receiver can accept swap');
+    }
+
+    if (swap.status !== 'pending') {
+      throw new HttpsError('failed-precondition', 'Swap is not pending');
+    }
+
+    // Create leave request for proposer on proposer's original date (they get receiver's date off)
+    const proposerLeaveRef = db.collection('leave_requests').doc();
+    batch.set(proposerLeaveRef, {
+      id: proposerLeaveRef.id,
+      userId: swap.proposerId,
+      type: 'day_off',
+      date: swap.receiverDate,
+      status: 'approved',
+      reason: `Swapped with ${receiverId}`,
+      approvedBy: 'system',
+      approvedAt: Timestamp.now(),
+      createdAt: Timestamp.now(),
+    });
+
+    // Create leave request for receiver on receiver's original date (they get proposer's date off)
+    const receiverLeaveRef = db.collection('leave_requests').doc();
+    batch.set(receiverLeaveRef, {
+      id: receiverLeaveRef.id,
+      userId: swap.receiverId,
+      type: 'day_off',
+      date: swap.proposerDate,
+      status: 'approved',
+      reason: `Swapped with ${swap.proposerId}`,
+      approvedBy: 'system',
+      approvedAt: Timestamp.now(),
+      createdAt: Timestamp.now(),
+    });
+
+    // Mark swap as accepted
+    batch.update(swapRef, { status: 'accepted' });
+
+    await batch.commit();
+
+    return {
+      swapId,
+      status: 'accepted',
+      proposerLeave: proposerLeaveRef.id,
+      receiverLeave: receiverLeaveRef.id,
+    };
+  },
+);
+
+/**
+ * Adjusts vacation balance for a user (admin only).
+ * Updates the user's vacation balance directly.
+ */
+export const adjustVacationBalance = onCall<{
+  userId: string;
+  adjustment: number;
+  reason: string;
+}>(
+  { region: 'us-central1' },
+  async (request) => {
+    const { userId, adjustment, reason } = request.data;
+    const adminId = request.auth?.uid;
+    const adminRole = request.auth?.token?.role as string;
+
+    if (!userId || !adjustment || !reason) {
+      throw new HttpsError('invalid-argument', 'userId, adjustment, and reason required');
+    }
+
+    if (adminRole !== 'super_admin') {
+      throw new HttpsError('permission-denied', 'Only super_admin can adjust balances');
+    }
+
+    const db = getFirestore();
+
+    // Get user's current vacation balance
+    const balanceSnap = await db
+      .collection('vacation_adjustments')
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
+
+    let currentBalance = 0;
+    if (!balanceSnap.empty) {
+      const lastAdjustment = balanceSnap.docs[0].data();
+      currentBalance = lastAdjustment.balanceAfter;
+    } else {
+      // Calculate from leave requests
+      const monthsSinceStart = Math.floor(Date.now() / (1000 * 60 * 60 * 24 * 30));
+      const leaveSnap = await db
+        .collection('leave_requests')
+        .where('userId', '==', userId)
+        .where('type', '==', 'vacation')
+        .where('status', '==', 'approved')
+        .get();
+      currentBalance = monthsSinceStart * 2 - leaveSnap.size;
+    }
+
+    const newBalance = currentBalance + adjustment;
+
+    // Record adjustment
+    const adjustmentRef = db.collection('vacation_adjustments').doc();
+    await adjustmentRef.set({
+      id: adjustmentRef.id,
+      userId,
+      adjustment,
+      reason,
+      balanceBefore: currentBalance,
+      balanceAfter: newBalance,
+      adjustedBy: adminId,
+      createdAt: Timestamp.now(),
+    });
+
+    // Audit log
+    const auditRef = db.collection('audit_log').doc();
+    await auditRef.set({
+      id: auditRef.id,
+      action: 'vacation_adjustment',
+      entityType: 'user',
+      entityId: userId,
+      changes: {
+        vacationBalance: { before: currentBalance, after: newBalance },
+      },
+      reason,
+      performedBy: adminId,
+      createdAt: Timestamp.now(),
+    });
+
+    return {
+      userId,
+      balanceBefore: currentBalance,
+      balanceAfter: newBalance,
+      adjustment,
+    };
+  },
+);
+
+// ============ Scheduled Tasks ============
+
+/**
+ * Runs daily at configured time (14:00 UTC by default).
+ * Generates tomorrow's absence summary and sends notifications to managers.
+ */
+export const dailyReminderScheduler = onSchedule(
+  'every day 14:00',
+  async () => {
+    const db = getFirestore();
+
+    // Get tomorrow's date
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    // Get all approved leave for tomorrow
+    const leaveSnap = await db
+      .collection('leave_requests')
+      .where('date', '==', tomorrowStr)
+      .where('status', '==', 'approved')
+      .get();
+
+    if (leaveSnap.empty) {
+      console.log(`[${new Date().toISOString()}] No absences for ${tomorrowStr}`);
+      return;
+    }
+
+    // Group by type
+    const dayOffCount = leaveSnap.docs.filter((d) => d.data().type === 'day_off').length;
+    const vacationCount = leaveSnap.docs.filter((d) => d.data().type === 'vacation').length;
+
+    // Get all managers and super admins
+    const managersSnap = await db
+      .collection('users')
+      .where('role', 'in', ['manager', 'super_admin'])
+      .where('isActive', '==', true)
+      .get();
+
+    // Create notification for each manager
+    const batch = db.batch();
+    const now = Timestamp.now();
+
+    managersSnap.docs.forEach((managerDoc) => {
+      const notificationRef = db.collection('notifications').doc();
+      batch.set(notificationRef, {
+        id: notificationRef.id,
+        userId: managerDoc.id,
+        type: 'daily_reminder',
+        title: `Tomorrow's Absences`,
+        body: `${dayOffCount} day-offs, ${vacationCount} vacations`,
+        data: {
+          date: tomorrowStr,
+          dayOffCount,
+          vacationCount,
+          staffAbsent: leaveSnap.docs.map((d) => d.data().userId),
+        },
+        read: false,
+        createdAt: now,
+      });
+    });
+
+    await batch.commit();
+    console.log(
+      `[${new Date().toISOString()}] Daily reminder created for ${managersSnap.size} managers`
+    );
+  }
 );
