@@ -25,7 +25,7 @@ export function DepartmentMembersExport() {
           return user
             ? {
                 id: user.id,
-                displayName: user.displayName,
+                displayName: user.displayName ?? user.username ?? 'Unknown',
                 username: user.username,
                 isPrimary: assignment.isPrimary,
               }

@@ -35,7 +35,8 @@ export default function CreateTaskModal({ open, onClose }: Props) {
     for (const uid of assignedIds) {
       const u = activeUsers.find(x => x.id === uid);
       if (!u) continue;
-      const ok = await createTask({ title: title.trim(), description: description.trim(), category_id: categoryId || undefined, date, assigned_to: uid, assigned_to_name: u.displayName, priority, group_id: groupId });
+      const displayName = u.displayName ?? u.username ?? 'Unknown';
+      const ok = await createTask({ title: title.trim(), description: description.trim(), category_id: categoryId || undefined, date, assigned_to: uid, assigned_to_name: displayName, priority, group_id: groupId });
       if (!ok) allOk = false;
     }
     setSubmitting(false);
@@ -72,7 +73,7 @@ export default function CreateTaskModal({ open, onClose }: Props) {
         <div>
           <label className="block text-xs font-medium mb-1" style={{ color: theme.colors.gray }}>Assign to {assignedIds.length > 1 && <span style={{ color: theme.colors.primaryLight }}>— Group ({assignedIds.length})</span>}</label>
           <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
-            {activeUsers.map(u => { const sel = assignedIds.includes(u.id); return (<button key={u.id} onClick={() => toggleUser(u.id)} className="px-2 py-1 rounded-lg text-[10px] font-medium cursor-pointer" style={{ backgroundColor: sel ? theme.colors.primary+'20' : theme.colors.bgCard, color: sel ? theme.colors.primaryLight : theme.colors.grayDark, border: `1px solid ${sel ? theme.colors.primary : theme.colors.border}` }}>{sel && '✓ '}{u.displayName}</button>); })}
+            {activeUsers.map(u => { const sel = assignedIds.includes(u.id); const displayName = u.displayName ?? u.username ?? 'Unknown'; return (<button key={u.id} onClick={() => toggleUser(u.id)} className="px-2 py-1 rounded-lg text-[10px] font-medium cursor-pointer" style={{ backgroundColor: sel ? theme.colors.primary+'20' : theme.colors.bgCard, color: sel ? theme.colors.primaryLight : theme.colors.grayDark, border: `1px solid ${sel ? theme.colors.primary : theme.colors.border}` }}>{sel && '✓ '}{displayName}</button>); })}
           </div>
           <button onClick={() => setAssignedIds([user.id])} className="text-[9px] mt-1 cursor-pointer" style={{ color: theme.colors.primary }}>Assign to myself</button>
         </div>
