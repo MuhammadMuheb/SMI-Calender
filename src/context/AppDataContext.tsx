@@ -97,15 +97,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         fetchNotificationSettings(), fetchTourAssignments(),
         fetchSchedules(),
       ]);
-      setUsers(u as StaffUser[]);
-      setJobRoles(jr as JobRole[]);
-      setRoleAssignments(ra as StaffRoleAssignment[]);
-      setStaffingRules(sr as StaffingRule[]);
-      setHolidays(h as Holiday[]);
-      setSpecialDays(sd as SpecialDay[]);
-      setNotificationSettings(ns as NotificationSettings);
-      setTourAssignments(ta as TourAssignment[]);
-      const scheduleData = sched as Schedule[];
+      setUsers(Array.isArray(u) ? u : []);
+      setJobRoles(Array.isArray(jr) ? jr : []);
+      setRoleAssignments(Array.isArray(ra) ? ra : []);
+      setStaffingRules(Array.isArray(sr) ? sr : []);
+      setHolidays(Array.isArray(h) ? h : []);
+      setSpecialDays(Array.isArray(sd) ? sd : []);
+      setNotificationSettings(ns || { dailyReminderTime: '14:00', dailyReminderEnabled: true, updatedAt: '', updatedBy: '' });
+      setTourAssignments(Array.isArray(ta) ? ta : []);
+      const scheduleData = Array.isArray(sched) ? sched : [];
       console.log(`AppDataContext: Loaded ${scheduleData.length} schedules from Firestore`);
       setSchedules(scheduleData);
 
