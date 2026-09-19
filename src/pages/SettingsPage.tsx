@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useAppData } from '../context/AppDataContext';
-import { ROLE_LABELS, ROLE_BADGE_COLOR } from '../config/roles';
+import { ROLE_LABELS, ROLE_BADGE_COLOR, ROLES } from '../config/roles';
 import { theme } from '../config/theme';
 import { alpha } from '../utils/themeColor';
 import { Card, Badge, Button, Modal, FormInput, Icons } from '../components/ui';
 import { subscribeToPush, sendPushToUser } from '../utils/pushManager';
 import { authenticateUser } from '../services/supabaseService';
+import AdminControlsSection from '../components/AdminControlsSection';
+
+const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth < 1024;
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
@@ -142,6 +145,11 @@ export default function SettingsPage() {
         <span className="text-xs font-medium" style={{ color: theme.colors.white }}>Change PIN</span>
         <span style={{ color: theme.colors.grayDark }}>{Icons.chevronRight}</span>
       </button>
+
+      {/* Management Console - Only visible on MOBILE to super_admin */}
+      {IS_MOBILE && user.role === ROLES.SUPER_ADMIN && (
+        <AdminControlsSection />
+      )}
 
       <Button variant="secondary" fullWidth onClick={logout}>Sign Out</Button>
 
