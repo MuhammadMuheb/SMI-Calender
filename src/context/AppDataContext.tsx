@@ -98,24 +98,24 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         console.error('fetchUsers error:', err);
         return [];
       });
-      let jr = await fetchJobRoles().catch(err => {
+      let jr: JobRole[] = await fetchJobRoles().catch(err => {
         console.error('fetchJobRoles error:', err);
-        return [];
+        return [] as JobRole[];
       });
 
       // Seed default job roles if empty
       if (jr.length === 0) {
         console.log('No job roles found in Firestore, seeding defaults...');
-        const defaultRoles = [
-          { id: 'role_checkin', name: 'Check In', color: '#3B82F6', isHidden: false, shiftStart: '08:00', shiftEnd: '17:00' },
-          { id: 'role_backoffice', name: 'Back Office', color: '#F59E0B', isHidden: false, shiftStart: '09:00', shiftEnd: '18:00' },
-          { id: 'role_backoffice_extra', name: 'Back Office Extra', color: '#EA580C', isHidden: false, shiftStart: '09:00', shiftEnd: '18:00' },
-          { id: 'role_office', name: 'Office', color: '#8B5CF6', isHidden: false, shiftStart: '08:00', shiftEnd: '17:00' },
+        const defaultRoles: JobRole[] = [
+          { id: 'role_checkin', name: 'Check In', color: '#3B82F6', isHidden: false, shiftStartTime: '08:00', shiftEndTime: '17:00', createdAt: now(), updatedAt: now() },
+          { id: 'role_backoffice', name: 'Back Office', color: '#F59E0B', isHidden: false, shiftStartTime: '09:00', shiftEndTime: '18:00', createdAt: now(), updatedAt: now() },
+          { id: 'role_backoffice_extra', name: 'Back Office Extra', color: '#EA580C', isHidden: false, shiftStartTime: '09:00', shiftEndTime: '18:00', createdAt: now(), updatedAt: now() },
+          { id: 'role_office', name: 'Office', color: '#8B5CF6', isHidden: false, shiftStartTime: '08:00', shiftEndTime: '17:00', createdAt: now(), updatedAt: now() },
         ];
 
         try {
           for (const role of defaultRoles) {
-            await insertJobRole(role).catch(err => console.warn(`Failed to insert role ${role.id}:`, err));
+            await insertJobRole({ id: role.id, name: role.name, color: role.color, isHidden: role.isHidden, shiftStart: role.shiftStartTime, shiftEnd: role.shiftEndTime }).catch(err => console.warn(`Failed to insert role ${role.id}:`, err));
           }
           jr = defaultRoles;
           console.log('✓ Successfully seeded default job roles');
