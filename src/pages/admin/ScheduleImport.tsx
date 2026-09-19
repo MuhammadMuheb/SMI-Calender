@@ -23,7 +23,14 @@ export default function ScheduleImport({ onBack }: ScheduleImportProps) {
   const handleImportAugust = async () => {
     setImporting(true);
     try {
-      await seedSchedules(augustSchedules);
+      const existingSet = new Set(schedules.map(s => `${s.date}:${s.guide}`));
+      const toImport = augustSchedules.filter(s => !existingSet.has(`${s.date}:${s.guide}`));
+      if (toImport.length < augustSchedules.length) {
+        console.warn(`Skipping ${augustSchedules.length - toImport.length} duplicate entries`);
+      }
+      if (toImport.length > 0) {
+        await seedSchedules(toImport);
+      }
       setPreview([]);
     } catch (err) {
       console.error('Import error:', err);
@@ -35,7 +42,14 @@ export default function ScheduleImport({ onBack }: ScheduleImportProps) {
   const handleImportSeptember = async () => {
     setImporting(true);
     try {
-      await seedSchedules(septemberSchedules);
+      const existingSet = new Set(schedules.map(s => `${s.date}:${s.guide}`));
+      const toImport = septemberSchedules.filter(s => !existingSet.has(`${s.date}:${s.guide}`));
+      if (toImport.length < septemberSchedules.length) {
+        console.warn(`Skipping ${septemberSchedules.length - toImport.length} duplicate entries`);
+      }
+      if (toImport.length > 0) {
+        await seedSchedules(toImport);
+      }
       setPreview([]);
     } catch (err) {
       console.error('Import error:', err);

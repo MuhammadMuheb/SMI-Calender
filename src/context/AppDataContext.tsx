@@ -208,7 +208,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const seedSchedules = useCallback(async (schedulesList: Schedule[]) => {
     try {
       await insertSchedulesBatch(schedulesList);
-      setSchedules(schedulesList);
+      setSchedules((prev) => [...prev, ...schedulesList]);
       await insertAuditLog({ actorId: 'system', actorName: 'System', action: 'schedules_seeded', entityType: 'schedule', entityId: 'bulk', description: `Seeded ${schedulesList.length} schedule entries` });
     } catch (err) {
       console.error('Failed to seed schedules:', err);
