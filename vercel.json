@@ -2,6 +2,7 @@
   "buildCommand": "npm run build",
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1" },
+    { "src": "/manifest.json", "dest": "/manifest.json", "headers": { "Content-Type": "application/manifest+json", "Cache-Control": "no-cache, no-store, must-revalidate" } },
     { "src": "/sw.js", "dest": "/sw.js", "headers": { "Cache-Control": "no-cache, no-store, must-revalidate", "Service-Worker-Allowed": "/" } },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }

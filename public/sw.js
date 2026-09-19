@@ -13,8 +13,29 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network first, no caching
-  event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+  // Skip manifest.json - let browser handle it
+  if (event.request.url.includes('manifest.json')) {
+    return;
+  }
+
+  // Network first, with fallback to cache
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        // Only cache successful responses
+        if (response && response.status === 200) {
+          const responseClone = response.clone();
+          caches.open(CACHE_VERSION).then(cache => {
+            cache.put(event.request, responseClone);
+          });
+        }
+        return response;
+      })
+      .catch(() => {
+        // Fallback to cache on network error
+        return caches.match(event.request) || new Response('Offline', { status: 503 });
+      })
+  );
 });
 
 self.addEventListener('push', (event) => {
