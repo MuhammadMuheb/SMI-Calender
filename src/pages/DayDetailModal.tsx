@@ -14,7 +14,7 @@ interface DayDetailModalProps { date: string | null; open: boolean; onClose: () 
 export default function DayDetailModal({ date, open, onClose }: DayDetailModalProps) {
   const { user } = useAuth();
   const { requests, cancelRequest, directAssign } = useLeave();
-  const { holidays, specialDays, users, roleAssignments } = useAppData();
+  const { holidays, specialDays, users, roleAssignments, schedules } = useAppData();
   const { addNotification } = useNotifications();
   const [swapTarget, setSwapTarget] = useState<string | null>(null);
   const [showMyDays, setShowMyDays] = useState(false);
@@ -35,6 +35,12 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
     return requests.filter((r: any) => r.userId === user.id && r.date.startsWith(month) && r.status === 'approved' && r.date !== date)
       .sort((a: any, b: any) => a.date.localeCompare(b.date));
   }, [requests, user, date]);
+
+  const scheduledGuides = useMemo(() => {
+    if (!date || !schedules) return [];
+    const daySchedules = schedules.filter((s: any) => s.date === date);
+    return [...new Set(daySchedules.map((s: any) => s.guide))].sort();
+  }, [date, schedules]);
 
   if (!date || !user) return null;
 
@@ -114,6 +120,23 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
           style={{ backgroundColor: alpha(theme.colors.warning, '15'), border: `1px solid ${alpha(theme.colors.warning, '30')}` }}>
           <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: theme.colors.warning }} />
           <span className="text-xs font-medium" style={{ color: theme.colors.warning }}>{special.name}</span>
+        </div>
+      )}
+
+      {scheduledGuides.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: theme.colors.grayDark }}>📍 Tour Guides Scheduled ({scheduledGuides.length})</p>
+          <div className="space-y-1.5">
+            {scheduledGuides.map((guide: string) => (
+              <div key={guide} className="flex items-center gap-2 py-2 px-3 rounded-lg" style={{ backgroundColor: alpha(theme.colors.primary, '10'), border: `1px solid ${alpha(theme.colors.primary, '20')}` }}>
+                <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold"
+                  style={{ backgroundColor: alpha(theme.colors.primary, '30'), color: theme.colors.primaryLight }}>
+                  {guide[0]?.toUpperCase()}
+                </div>
+                <p className="text-xs font-medium" style={{ color: theme.colors.white }}>{guide}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
