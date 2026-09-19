@@ -22,6 +22,7 @@ import {
   fetchSchedules,
   insertSchedulesBatch,
 } from '../services/firestoreService';
+import { augustSchedules, septemberSchedules } from '../data/scheduleData';
 
 /**
  * STATUS: CONNECTED TO SUPABASE
@@ -94,7 +95,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setSpecialDays(sd as SpecialDay[]);
       setNotificationSettings(ns as NotificationSettings);
       setTourAssignments(ta as TourAssignment[]);
-      setSchedules(sched as Schedule[]);
+      const scheduleData = sched as Schedule[];
+      setSchedules(scheduleData);
+
+      // Auto-import schedules if none exist
+      if (scheduleData.length === 0 && (augustSchedules.length > 0 || septemberSchedules.length > 0)) {
+        try {
+          const allSchedules = [...augustSchedules, ...septemberSchedules];
+          await insertSchedulesBatch(allSchedules);
+          setSchedules(allSchedules);
+          console.log(`Auto-imported ${allSchedules.length} schedule entries`);
+        } catch (importErr) {
+          console.error('Failed to auto-import schedules:', importErr);
+        }
+      }
     } catch (err) {
       console.error('Failed to load app data:', err);
     }
