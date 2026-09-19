@@ -12,8 +12,9 @@ import AutoAssignment from './AutoAssignment';
 import AuditLogPage from './AuditLogPage';
 import CoffeeLeaderboard from './CoffeeLeaderboard';
 import LocationManager from '../../components/LocationManager';
+import ScheduleImport from './ScheduleImport';
 
-type AdminView = 'menu' | 'roles' | 'staffing' | 'special' | 'vacation' | 'notifications' | 'auto' | 'audit' | 'coffee' | 'locations';
+type AdminView = 'menu' | 'roles' | 'staffing' | 'special' | 'vacation' | 'notifications' | 'auto' | 'audit' | 'coffee' | 'locations' | 'schedules';
 
 interface MenuItem { id: AdminView; label: string; description: string; superAdminOnly?: boolean }
 
@@ -21,6 +22,7 @@ const MENU_ITEMS: MenuItem[] = [
   { id: 'roles', label: 'Role Management', description: 'Job roles including hidden roles', superAdminOnly: true },
   { id: 'staffing', label: 'Staffing Rules', description: 'Minimum coverage per role per day', superAdminOnly: true },
   { id: 'locations', label: '📍 Check-In Locations', description: 'Manage GPS check-in locations and role access', superAdminOnly: true },
+  { id: 'schedules', label: '📅 Import Schedules', description: 'Import tour guide schedules from PDF', superAdminOnly: true },
   { id: 'special', label: 'Special Days', description: 'Create special days (consume or extra)' },
   { id: 'vacation', label: 'Vacation Adjustments', description: 'Manually adjust staff balances' },
   { id: 'notifications', label: 'Notification Settings', description: 'Daily reminder time and toggles' },
@@ -47,6 +49,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     menu: null,
     roles: <RoleManagement onBack={() => setView('menu')} />,
     staffing: <StaffingRulesPage onBack={() => setView('menu')} />,
+    schedules: <ScheduleImport onBack={() => setView('menu')} />,
     special: <SpecialDayEditor onBack={() => setView('menu')} />,
     vacation: <VacationAdjustment onBack={() => setView('menu')} />,
     notifications: <NotificationSettingsPage onBack={() => setView('menu')} />,

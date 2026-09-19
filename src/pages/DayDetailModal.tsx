@@ -227,7 +227,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
         </div>
       )}
 
-      {approvedOff.length === 0 && pending.length === 0 && !holiday && !special && (
+      {scheduledGuides.length === 0 && approvedOff.length === 0 && pending.length === 0 && !holiday && !special && (
         <div className="h-16 flex items-center justify-center rounded-lg" style={{ border: `1px dashed ${theme.colors.border}` }}>
           <p className="text-xs" style={{ color: theme.colors.grayDark }}>Everyone is working this day</p>
         </div>
