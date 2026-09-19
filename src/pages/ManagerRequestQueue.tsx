@@ -4,6 +4,7 @@ import { theme } from '../config/theme';
 import { alpha } from '../utils/themeColor';
 import { useAuth } from '../context/AuthContext';
 import { useLeave } from '../context/LeaveContext';
+import { safeSort } from '../utils/safeData';
 import type { LeaveRequest, LeaveStatus } from '../models/leave';
 import { LEAVE_TYPE_LABELS, LEAVE_STATUS_LABELS, LEAVE_STATUS_COLORS } from '../models/leave';
 import RequestDetailModal from './RequestDetailModal';
@@ -35,14 +36,17 @@ export default function ManagerRequestQueue({ onBack }: ManagerRequestQueueProps
 
   // Managers see only staff requests (not their own, not other managers')
   // Super admin sees everything
-  const allRequests = requests
-    .filter((r) => r.leaveType !== 'auto_sunday')
-    .filter((r) => {
-      if (isAdmin) return true; // Admin sees all
-      // Manager: only see staff requests, never own requests
-      return r.userRef.role === 'staff' && r.userId !== user?.id;
-    })
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const allRequests = safeSort(
+    requests
+      .filter((r) => r.leaveType !== 'auto_sunday')
+      .filter((r) => {
+        if (isAdmin) return true; // Admin sees all
+        // Manager: only see staff requests, never own requests
+        return r.userRef.role === 'staff' && r.userId !== user?.id;
+      }),
+    'createdAt',
+    true
+  );
 
   const filtered =
     activeTab === 'all'

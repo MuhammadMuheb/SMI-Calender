@@ -4,6 +4,7 @@ import { theme } from '../config/theme';
 import { alpha } from '../utils/themeColor';
 import { useAuth } from '../context/AuthContext';
 import { useLeave } from '../context/LeaveContext';
+import { safeSort } from '../utils/safeData';
 import MoveDayOffModal from '../components/MoveDayOffModal';
 import RequestFormModal from './RequestFormModal';
 import {
@@ -33,9 +34,12 @@ export default function RequestHistory({ onBack }: RequestHistoryProps) {
 
   if (!user) return null;
 
-  const allRequests = getUserRequests(user.id)
-    .filter((r) => r.leaveType !== 'auto_sunday')
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const allRequests = safeSort(
+    getUserRequests(user.id)
+      .filter((r) => r.leaveType !== 'auto_sunday'),
+    'createdAt',
+    true
+  );
 
   const filtered = activeTab === 'all' ? allRequests : allRequests.filter((r) => r.status === activeTab);
   const balance = getBalance(user.id);

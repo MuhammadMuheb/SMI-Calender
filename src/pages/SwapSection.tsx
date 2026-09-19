@@ -2,6 +2,7 @@ import { Card, Badge, Button } from '../components/ui';
 import { theme } from '../config/theme';
 import { useAuth } from '../context/AuthContext';
 import { useSwap } from '../context/SwapContext';
+import { safeSort } from '../utils/safeData';
 
 /**
  * Shows incoming swap proposals for the current user.
@@ -15,10 +16,12 @@ export default function SwapSection() {
   if (!user) return null;
 
   const pendingIncoming = getPendingSwapsForUser(user.id);
-  const allMySwaps = getSwapsForUser(user.id)
-    .filter((s) => s.status !== 'pending' || s.proposerId === user.id)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 3);
+  const allMySwaps = safeSort(
+    getSwapsForUser(user.id)
+      .filter((s) => s.status !== 'pending' || s.proposerId === user.id),
+    'createdAt',
+    true
+  ).slice(0, 3);
 
   if (pendingIncoming.length === 0 && allMySwaps.length === 0) return null;
 

@@ -9,6 +9,7 @@ import { LEAVE_TYPE_LABELS, LEAVE_STATUS_COLORS, LEAVE_STATUS_LABELS } from '../
 
 import { todayStr, formatDateLocal } from '../../utils/dateUtils';
 import { getCurrentCycle, getWeekNumberInCycle } from '../../utils/cycleUtils';
+import { safeSort } from '../../utils/safeData';
 import RequestFormModal from '../RequestFormModal';
 import RequestHistory from '../RequestHistory';
 import SwapSection from '../SwapSection';
@@ -51,10 +52,12 @@ export default function StaffDashboard() {
   const regularRemainingAfterBooked = Math.max(0, balance.regularDaysAllowed - balance.regularDaysUsed - regularBooked);
   const vacationRemainingAfterBooked = Math.max(0, balance.vacationDaysTotal - balance.vacationDaysUsed - vacationBooked);
   const pendingCount = myRequests.filter((r) => r.status === 'pending').length;
-  const recentRequests = myRequests
-    .filter((r) => r.leaveType !== 'auto_sunday')
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 3);
+  const recentRequests = safeSort(
+    myRequests
+      .filter((r) => r.leaveType !== 'auto_sunday'),
+    'createdAt',
+    true
+  ).slice(0, 3);
 
   // Working today
   const activeStaff = users.filter((u) => u.isActive);

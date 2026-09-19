@@ -24,3 +24,29 @@ export const safeFind = <T>(arr: T[] | null | undefined, fn: (item: T) => boolea
 export const safeFilter = <T>(arr: T[] | null | undefined, fn: (item: T) => boolean): T[] => {
   return safeArray(arr).filter(fn);
 };
+
+export const safeSort = <T extends Record<string, any>>(arr: T[] | null | undefined, key: keyof T, descending = true): T[] => {
+  return safeArray(arr).sort((a, b) => {
+    const aVal = a[key];
+    const bVal = b[key];
+
+    // Handle null/undefined
+    if (!aVal && !bVal) return 0;
+    if (!aVal) return descending ? 1 : -1;
+    if (!bVal) return descending ? -1 : 1;
+
+    // String comparison
+    if (typeof aVal === 'string' && typeof bVal === 'string') {
+      const comp = aVal.localeCompare(bVal);
+      return descending ? -comp : comp;
+    }
+
+    // Number comparison
+    if (typeof aVal === 'number' && typeof bVal === 'number') {
+      return descending ? bVal - aVal : aVal - bVal;
+    }
+
+    // Fallback
+    return 0;
+  });
+};

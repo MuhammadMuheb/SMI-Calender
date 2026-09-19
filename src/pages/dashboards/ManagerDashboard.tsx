@@ -7,6 +7,7 @@ import { useLeave } from '../../context/LeaveContext';
 import { useAppData } from '../../context/AppDataContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { LEAVE_STATUS_LABELS, LEAVE_TYPE_LABELS } from '../../models/leave';
+import { safeSort } from '../../utils/safeData';
 import ManagerRequestQueue from '../ManagerRequestQueue';
 import RequestDetailModal from '../RequestDetailModal';
 import RequestFormModal from '../RequestFormModal';
@@ -93,9 +94,11 @@ export default function ManagerDashboard() {
     }
   };
 
-  const recentPending = pendingRequests
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 5);
+  const recentPending = safeSort(
+    pendingRequests,
+    'createdAt',
+    true
+  ).slice(0, 5);
 
   return (
     <div className="space-y-4">
