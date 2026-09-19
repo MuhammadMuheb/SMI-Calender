@@ -18,15 +18,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network first, with fallback to cache
+  // Network first, with fallback to cache (only GET requests)
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Only cache successful responses
-        if (response && response.status === 200) {
+        // Only cache GET requests with successful responses
+        if (response && response.status === 200 && event.request.method === 'GET') {
           const responseClone = response.clone();
           caches.open(CACHE_VERSION).then(cache => {
-            cache.put(event.request, responseClone);
+            cache.put(event.request, responseClone).catch(() => {
+              // Silently ignore cache errors
+            });
           });
         }
         return response;
