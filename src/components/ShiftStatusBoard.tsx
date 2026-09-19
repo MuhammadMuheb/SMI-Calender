@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
 import { Button, Modal } from './ui';
 import { theme } from '../config/theme';
 import { useNotifications } from '../context/NotificationContext';

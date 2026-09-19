@@ -7,7 +7,6 @@ import { useLeave } from '../context/LeaveContext';
 import { ROLE_LABELS, ROLE_BADGE_COLOR } from '../config/roles';
 import { getCurrentCycle, getWeekNumberInCycle } from '../utils/cycleUtils';
 import { todayStr, formatDateLocal } from '../utils/dateUtils';
-import { supabase } from '../lib/supabase';
 
 const ATTENDANCE_WINDOW_DAYS = 30;
 

@@ -1,4 +1,3 @@
-import { supabase } from '../lib/supabase';
 
 /**
  * Schedule check-in reminder notifications.

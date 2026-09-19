@@ -1,4 +1,3 @@
-import { supabase } from '../lib/supabase';
 
 const BREAK_MINUTES: Record<string, number> = { 'Check In': 60, 'Back Office': 30, 'Back Office Extra': 30, 'Office': 30 };
 

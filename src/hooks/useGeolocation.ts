@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '../lib/supabase';
 
 export interface Location {
   id: string;
@@ -44,7 +43,7 @@ export function useGeolocation(userJobRoles: string[], autoWatch = true) {
 
   useEffect(() => {
     async function fetchLocations() {
-      const { data, error } = await supabase.from('locations').select('*').eq('is_active', true);
+    // TODO: Migrate to Firestore
       if (!error && data) {
         locationsRef.current = data;
         setState((prev) => ({ ...prev, allLocations: data }));

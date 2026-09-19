@@ -22,6 +22,10 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Caught an error:', error, errorInfo);
+    // Log to external service if available
+    if (typeof window !== 'undefined' && window.navigator) {
+      console.error('Stack:', error.stack);
+    }
   }
 
   private reset = () => {

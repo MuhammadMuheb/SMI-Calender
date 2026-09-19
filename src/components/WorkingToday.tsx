@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
 
 interface WorkingPerson {
   id: string;
@@ -21,7 +20,7 @@ export default function WorkingToday() {
   const [loading, setLoading] = useState(true);
 
   const fetchWorking = useCallback(async () => {
-    const { data, error } = await supabase.from('working_today').select('*');
+    // TODO: Migrate to Firestore
     if (!error && data) setPeople(data as WorkingPerson[]);
     setLoading(false);
   }, []);
@@ -33,10 +32,10 @@ export default function WorkingToday() {
   }, [fetchWorking]);
 
   useEffect(() => {
-    const channel = supabase.channel('working_today_updates')
+    // TODO: Migrate to Firestore
       .on('postgres_changes', { event: '*', schema: 'public', table: 'check_ins' }, () => fetchWorking())
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    // TODO: Clean up listener
   }, [fetchWorking]);
 
   const working = people.filter((p) => p.status === 'working');

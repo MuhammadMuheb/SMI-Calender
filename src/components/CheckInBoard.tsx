@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
 import { Button, Badge as _Badge, Modal } from './ui';
 import { theme } from '../config/theme';
 
@@ -78,17 +77,17 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
 
   // Realtime
   useEffect(() => {
-    const channel = supabase.channel('checkin_board')
+    // TODO: Migrate to Firestore
       .on('postgres_changes', { event: '*', schema: 'public', table: 'check_ins' }, () => fetchRecords())
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    // TODO: Clean up listener
   }, [fetchRecords]);
 
   // Fetch users for manual entry dropdown
   useEffect(() => {
     if (!isSuperAdmin) return;
     async function load() {
-      const { data } = await supabase.from('users').select('id, display_name, job_role').eq('is_active', true).order('display_name');
+    // TODO: Migrate to Firestore
       if (data) setAllUsers(data);
     }
     load();
@@ -140,10 +139,10 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
       updates.is_wfh = manualIsWfh;
       updates.work_type = manualIsWfh ? 'wfh' : 'on_site';
 
-      await supabase.from('check_ins').update(updates).eq('id', editRecord.id);
+    // TODO: Migrate to Firestore
     } else {
       // Get first active location
-      const { data: loc } = await supabase.from('locations').select('id').eq('is_active', true).limit(1).single();
+    // TODO: Migrate to Firestore
       if (!loc) { setSaving(false); return; }
 
       const row: Record<string, any> = {
@@ -157,7 +156,7 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
         row.check_out_at = `${selectedDate}T${manualCheckOut}:00`;
       }
 
-      await supabase.from('check_ins').insert(row);
+    // TODO: Migrate to Firestore
     }
 
     setSaving(false);
@@ -167,7 +166,7 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this check-in record?')) return;
-    await supabase.from('check_ins').delete().eq('id', id);
+    // TODO: Migrate to Firestore
     fetchRecords();
   }
 

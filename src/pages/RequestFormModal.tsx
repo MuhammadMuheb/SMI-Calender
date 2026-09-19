@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext';
 import { useLeave } from '../context/LeaveContext';
 import type { LeaveType } from '../models/leave';
 import { LEAVE_TYPE_LABELS } from '../models/leave';
-import { supabase } from '../lib/supabase';
 import { getPickableDateRange, getNextCycle, getCycleLabel, getRemainingQuota, isInLastWeek } from '../utils/cycleUtils';
 
 interface RequestFormModalProps { open: boolean; onClose: () => void; }
@@ -103,11 +102,11 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
       setUploading(true);
       const ext = attachment.name.split('.').pop() ?? 'jpg';
       const path = `sick-certificates/${user.id}/${Date.now()}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from('attachments').upload(path, attachment);
+    // TODO: Migrate to Firestore
       if (uploadErr) {
         attachmentUrl = `[File: ${attachment.name}]`;
       } else {
-        const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(path);
+    // TODO: Migrate to Firestore
         attachmentUrl = urlData?.publicUrl || `[File: ${attachment.name}]`;
       }
       setUploading(false);

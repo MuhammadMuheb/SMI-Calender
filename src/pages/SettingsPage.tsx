@@ -5,7 +5,6 @@ import { ROLE_LABELS, ROLE_BADGE_COLOR } from '../config/roles';
 import { theme } from '../config/theme';
 import { alpha } from '../utils/themeColor';
 import { Card, Badge, Button, Modal, FormInput, Icons } from '../components/ui';
-import { authenticateUser } from '../services/supabaseService';
 import { subscribeToPush, sendPushToUser } from '../utils/pushManager';
 
 export default function SettingsPage() {

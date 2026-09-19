@@ -8,7 +8,6 @@ import { useLeave } from '../context/LeaveContext';
 import { useAppData } from '../context/AppDataContext';
 import { useCalendarData } from '../hooks/useCalendarData';
 import { checkStaffingForDate } from '../services/staffingService';
-import { supabase } from '../lib/supabase';
 import DayDetailModal from './DayDetailModal';
 import RequestFormModal from './RequestFormModal';
 import type { LeaveRequest, LeaveType } from '../models/leave';

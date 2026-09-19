@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
 import { exportAttendanceCSV } from '../utils/attendanceUtils';
 
 const BREAK_MINUTES: Record<string, number> = { 'Check In': 60, 'Back Office': 30, 'Back Office Extra': 30, 'Office': 30 };
@@ -45,27 +44,14 @@ export default function AttendanceSummary({ currentUserId, currentUserRole, curr
 
   useEffect(() => {
     if (!isAdmin) return;
-    async function fetchStaff() { const { data } = await supabase.from('users').select('id, display_name, job_role').order('display_name'); if (data) setStaffList(data); }
-    fetchStaff();
+    // TODO: Migrate to Firestore
+    setStaffList([]);
   }, [isAdmin]);
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
-    const [year, month] = selectedMonth.split('-').map(Number);
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
-    let query = supabase.from('check_ins').select('id, user_id, check_in_at, check_out_at, is_wfh, work_type, auto_checked_out, users(display_name, role, job_role), locations(name)')
-      .gte('check_in_at', startDate.toISOString()).lte('check_in_at', endDate.toISOString()).order('check_in_at', { ascending: true });
-    if (!isAdmin) { query = query.eq('user_id', currentUserId); } else if (selectedStaffId) { query = query.eq('user_id', selectedStaffId); }
-    const { data } = await query;
-    if (data) {
-      const mapped: AttendanceRow[] = data.map((r: any) => ({
-        id: r.id, user_id: r.user_id, user_name: r.users?.display_name || 'Unknown', role: r.users?.role || 'staff',
-        job_role: r.users?.job_role || ['Office'], location_name: r.locations?.name || 'Unknown',
-        check_in_at: r.check_in_at, check_out_at: r.check_out_at, is_wfh: r.is_wfh, work_type: r.work_type || 'on_site', auto_checked_out: r.auto_checked_out || false,
-      }));
-      setRecords(mapped);
-    }
+    // TODO: Migrate to Firestore check-ins collection
+    setRecords([]);
     setLoading(false);
   }, [selectedMonth, selectedStaffId, isAdmin, currentUserId]);
 

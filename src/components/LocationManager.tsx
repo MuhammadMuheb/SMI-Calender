@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 
 const ALL_JOB_ROLES = ['Check In', 'Back Office', 'Back Office Extra', 'Office'];
 
@@ -131,9 +130,9 @@ export default function LocationManager() {
     };
 
     if (editingId) {
-      await supabase.from('locations').update(payload).eq('id', editingId);
+    // TODO: Migrate to Firestore
     } else {
-      await supabase.from('locations').insert(payload);
+    // TODO: Migrate to Firestore
     }
 
     setSaving(false);
@@ -142,13 +141,13 @@ export default function LocationManager() {
   }
 
   async function toggleActive(loc: Location) {
-    await supabase.from('locations').update({ is_active: !loc.is_active }).eq('id', loc.id);
+    // TODO: Migrate to Firestore
     fetchLocations();
   }
 
   async function deleteLocation(id: string) {
     if (!confirm('Delete this location? Existing check-in records will be preserved.')) return;
-    await supabase.from('locations').delete().eq('id', id);
+    // TODO: Migrate to Firestore
     fetchLocations();
   }
 
