@@ -5,6 +5,7 @@ import { alpha } from '../../utils/themeColor';
 import { useAppData } from '../../context/AppDataContext';
 import { useAuth } from '../../context/AuthContext';
 import { ROLES, ROLE_LABELS, ROLE_BADGE_COLOR, type Role } from '../../config/roles';
+import { safeMapUsers, getDisplayName, getUserInitial } from '../../utils/safeFallbacks';
 import type { StaffUser } from '../../models/user';
 
 const ROLE_OPTIONS: Role[] = [ROLES.STAFF, ROLES.MANAGER, ROLES.SUPER_ADMIN, ROLES.SPECTATOR];
@@ -279,17 +280,20 @@ export default function StaffManagement({ onBack }: Props) {
               </tr>
             </thead>
             <tbody>
-              {users.map((staff) => {
+              {(users || []).map((staff) => {
+                if (!staff || !staff.id) return null;
                 const staffJobRoles = getJobRoleNames(staff.id);
+                const displayName = getDisplayName(staff);
+                const initial = getUserInitial(staff);
                 return (
                   <tr key={staff.id} style={{ borderBottom: `1px solid ${theme.colors.border}` }}>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
                           style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight }}>
-                          {staff.displayName[0]?.toUpperCase()}
+                          {initial}
                         </div>
-                        <span className="text-xs font-medium" style={{ color: theme.colors.white }}>{staff.displayName}</span>
+                        <span className="text-xs font-medium" style={{ color: theme.colors.white }}>{displayName}</span>
                       </div>
                     </td>
                     <td className="px-4 py-2.5 text-xs" style={{ color: theme.colors.grayDark }}>{staff.username}</td>

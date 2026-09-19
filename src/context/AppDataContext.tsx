@@ -187,20 +187,23 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const addUser = useCallback(async (user: Omit<StaffUser, 'id' | 'createdAt' | 'updatedAt'>, actorName: string) => {
     const id = `usr_${Date.now()}`;
     const newUser: StaffUser = { ...user, id, createdAt: now(), updatedAt: now() };
-    setUsers((prev) => [...prev, newUser]);
+    // CRITICAL: Always filter through getSafeUsers
+    setUsers((prev) => getSafeUsers([...prev, newUser]));
     await insertUser({ id, username: user.username, displayName: user.displayName, pin: user.pin, role: user.role });
     await insertAuditLog({ actorId: 'admin', actorName, action: 'user_created', entityType: 'user', entityId: id, description: `Created user ${newUser.displayName}` });
     return id;
   }, []);
 
   const updateUser = useCallback(async (id: string, updates: Partial<StaffUser>, actorName: string) => {
-    setUsers((prev) => prev.map((u) => u.id === id ? { ...u, ...updates, updatedAt: now() } : u));
+    // CRITICAL: Always filter through getSafeUsers
+    setUsers((prev) => getSafeUsers(prev.map((u) => u.id === id ? { ...u, ...updates, updatedAt: now() } : u)));
     await updateUserDb(id, updates);
     await insertAuditLog({ actorId: 'admin', actorName, action: 'user_updated', entityType: 'user', entityId: id, description: `Updated user ${id}` });
   }, []);
 
   const deleteUser = useCallback(async (id: string, actorName: string) => {
-    setUsers((prev) => prev.filter((u) => u.id !== id));
+    // CRITICAL: Always filter through getSafeUsers
+    setUsers((prev) => getSafeUsers(prev.filter((u) => u.id !== id)));
     await deleteUserDb(id);
     await insertAuditLog({ actorId: 'admin', actorName, action: 'user_deleted', entityType: 'user', entityId: id, description: `Deleted user ${id}` });
   }, []);
