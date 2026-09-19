@@ -20,22 +20,10 @@ function useCheckInDayCounts(userIds: string[]) {
     const since = new Date();
     since.setDate(since.getDate() - ATTENDANCE_WINDOW_DAYS);
 
-    supabase
-      .from('check_ins')
-      .select('user_id, check_in_at')
-      .in('user_id', userIds)
-      .gte('check_in_at', since.toISOString())
-      .then(({ data, error }) => {
-        if (cancelled || error || !data) return;
-        const daysByUser: Record<string, Set<string>> = {};
-        for (const row of data as { user_id: string; check_in_at: string }[]) {
-          const day = row.check_in_at.slice(0, 10);
-          (daysByUser[row.user_id] ??= new Set()).add(day);
-        }
-        const result: Record<string, number> = {};
-        for (const id of userIds) result[id] = daysByUser[id]?.size ?? 0;
-        setCounts(result);
-      });
+    // TODO: Migrate to Firestore check-ins query
+    const result: Record<string, number> = {};
+    for (const id of userIds) result[id] = 0;
+    setCounts(result);
 
     return () => { cancelled = true; };
   }, [userIds.join(',')]);

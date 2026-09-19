@@ -2,16 +2,12 @@ import {
   createContext, useContext, useState, useCallback, useMemo, useEffect, useRef, type ReactNode,
 } from 'react';
 import type { Notification, NotificationType, ConfirmStatus } from '../models/notification';
-import {
-  fetchNotifications, insertNotification, updateNotificationDb,
-  markAllNotificationsRead as markAllReadDb,
-} from '../services/supabaseService';
 import { subscribeToPush, sendPushToUser } from '../utils/pushManager';
 
 /**
- * STATUS: CONNECTED TO SUPABASE + WEB PUSH
- * Notifications stored in DB. Real push via Vercel API.
- * Polls every 30s as fallback. Graceful error handling.
+ * STATUS: DISABLED DURING SUPABASE->FIRESTORE MIGRATION
+ * Notifications will be stored locally during this migration.
+ * TODO: Implement Firestore-based notifications
  */
 
 interface NotificationContextValue {
@@ -54,13 +50,13 @@ function playNotificationSound() {
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const prevCountRef = useRef(0);
   const mountedRef = useRef(true);
   const userIdRef = useRef<string | null>(null);
 
-  // Set user ID from session (avoid useAuth circular dep)
+  // Set user ID from session
   useEffect(() => {
     try {
       const session = localStorage.getItem('smi_session');
@@ -84,54 +80,22 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       subscribeToPush(userId).then((result) => {
         if (mountedRef.current) setPushEnabled(result.ok);
       }).catch(() => {});
-    }, 2000); // delay 2s to not block app load
+    }, 2000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Load notifications
+  // Load notifications (stub - local only for now)
   const loadNotifications = useCallback(async () => {
-    try {
-      const data = await fetchNotifications();
-      if (!mountedRef.current) return;
-
-      // Validate notifications - ensure all have required fields
-      const validated = Array.isArray(data) ? data.map((n: any) => ({
-        id: n?.id ?? `notif_${Date.now()}`,
-        userId: n?.userId ?? n?.user_id ?? 'unknown',
-        type: n?.type ?? 'info',
-        title: n?.title ?? '',
-        body: n?.body ?? '',
-        isRead: n?.isRead === true || n?.is_read === true,
-        createdAt: n?.createdAt ?? n?.created_at ?? new Date().toISOString(),
-        entityType: n?.entityType ?? null,
-        entityId: n?.entityId ?? null,
-      })).filter(n => n.id && n.userId) : [];
-
-      if (validated.length > prevCountRef.current && prevCountRef.current > 0) {
-        playNotificationSound();
-      }
-      prevCountRef.current = validated.length;
-      setNotifications(validated as Notification[]);
-    } catch (err) {
-      console.error('Failed to load notifications:', err);
-    }
-    if (mountedRef.current) setLoading(false);
+    if (!mountedRef.current) return;
+    setLoading(false);
   }, []);
 
-  // Initial load
   useEffect(() => { loadNotifications(); }, [loadNotifications]);
-
-  // Poll every 30s
-  useEffect(() => {
-    const interval = setInterval(loadNotifications, 30000);
-    return () => clearInterval(interval);
-  }, [loadNotifications]);
 
   const addNotification = useCallback(async (
     userId: string, type: NotificationType,
     title: string, body: string,
     entityType?: string, entityId?: string,
-    createdBy?: string,
   ) => {
     const id = `notif_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const notif: Notification = {
@@ -140,12 +104,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       entityType, entityId, createdAt: new Date().toISOString(),
     };
 
-    try {
-      await insertNotification({ id, userId, type, title, body, createdBy, entityType, entityId });
-    } catch (err) {
-      console.error('Failed to insert notification:', err);
-    }
-
     setNotifications((prev) => [notif, ...prev]);
     playNotificationSound();
 
@@ -153,30 +111,26 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     sendPushToUser(userId, title, body, id).catch(() => {});
   }, []);
 
-  const markAsRead = useCallback(async (id: string) => {
+  const markAsRead = useCallback((id: string) => {
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
-    try { await updateNotificationDb(id, { isRead: true }); } catch { /* ignore */ }
   }, []);
 
-  const markAllAsRead = useCallback(async (userId: string) => {
+  const markAllAsRead = useCallback((userId: string) => {
     setNotifications((prev) => prev.map((n) => n.userId === userId ? { ...n, isRead: true } : n));
-    try { await markAllReadDb(userId); } catch { /* ignore */ }
   }, []);
 
-  const confirmNotification = useCallback(async (id: string) => {
+  const confirmNotification = useCallback((id: string) => {
     setNotifications((prev) =>
       prev.map((n) => n.id === id ? { ...n, isRead: true, confirmStatus: 'confirmed' as ConfirmStatus } : n),
     );
-    try { await updateNotificationDb(id, { isRead: true, confirmStatus: 'confirmed' }); } catch { /* ignore */ }
   }, []);
 
-  const rejectNotification = useCallback(async (id: string, reason: string) => {
+  const rejectNotification = useCallback((id: string, reason: string) => {
     setNotifications((prev) =>
       prev.map((n) => n.id === id ? {
         ...n, isRead: true, confirmStatus: 'rejected' as ConfirmStatus, rejectReason: reason,
       } : n),
     );
-    try { await updateNotificationDb(id, { isRead: true, confirmStatus: 'rejected', rejectReason: reason }); } catch { /* ignore */ }
     playNotificationSound();
   }, []);
 

@@ -1,18 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
+import { fetchCheckInsForDate } from '../services/firestoreCheckInsService';
+import { getDisplayName } from '../utils/dataValidation';
 
 interface WorkingPerson {
   id: string;
-  user_id: string;
-  user_name: string;
+  userId: string;
+  userName: string;
   role: string;
-  job_role: string[];
-  location_name: string;
-  check_in_at: string;
-  check_out_at: string | null;
-  is_wfh: boolean;
-  work_type: string;
+  jobRole: string[];
+  locationName: string;
+  checkInAt: string;
+  checkOutAt: string | null;
+  isWfh: boolean;
+  workType: string;
   status: 'working' | 'done';
-  hours_so_far: number;
+  hoursSoFar: number;
 }
 
 export default function WorkingToday() {
@@ -20,8 +22,39 @@ export default function WorkingToday() {
   const [loading, setLoading] = useState(true);
 
   const fetchWorking = useCallback(async () => {
-    // TODO: Migrate to Firestore
-    if (!error && data) setPeople(data as WorkingPerson[]);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const data = await fetchCheckInsForDate(today);
+
+      const mapped = data
+        .map((p: any) => {
+          const checkIn = new Date(p.checkInAt).getTime();
+          const checkOut = p.checkOutAt ? new Date(p.checkOutAt).getTime() : Date.now();
+          const hours = (checkOut - checkIn) / 3600000;
+
+          const status: 'working' | 'done' = p.checkOutAt ? 'done' : 'working';
+          return {
+            id: p.id,
+            userId: p.userId,
+            userName: getDisplayName(p) || 'Unknown',
+            role: p.role || 'staff',
+            jobRole: Array.isArray(p.jobRole) ? p.jobRole : ['Office'],
+            locationName: p.locationName || 'Unknown',
+            checkInAt: p.checkInAt,
+            checkOutAt: p.checkOutAt || null,
+            isWfh: p.isWfh || false,
+            workType: p.workType || 'on_site',
+            status,
+            hoursSoFar: hours,
+          };
+        })
+        .sort((a: any, b: any) => new Date(b.checkInAt).getTime() - new Date(a.checkInAt).getTime());
+
+      setPeople(mapped as WorkingPerson[]);
+    } catch (err) {
+      console.error('Error fetching working people:', err);
+      setPeople([]);
+    }
     setLoading(false);
   }, []);
 
@@ -29,13 +62,6 @@ export default function WorkingToday() {
     fetchWorking();
     const interval = setInterval(fetchWorking, 20000);
     return () => clearInterval(interval);
-  }, [fetchWorking]);
-
-  useEffect(() => {
-    // TODO: Migrate to Firestore
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'check_ins' }, () => fetchWorking())
-      .subscribe();
-    // TODO: Clean up listener
   }, [fetchWorking]);
 
   const working = people.filter((p) => p.status === 'working');
@@ -77,22 +103,22 @@ export default function WorkingToday() {
           {working.length > 0 && (
             <div className="space-y-2">
               {working.map((p) => (
-                <div key={p.id} className={`flex items-center justify-between rounded-xl px-4 py-3 ${p.is_wfh ? 'bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800' : 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800'}`}>
+                <div key={p.id} className={`flex items-center justify-between rounded-xl px-4 py-3 ${p.isWfh ? 'bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800' : 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800'}`}>
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${p.is_wfh ? 'bg-purple-500' : 'bg-emerald-500'}`} />
+                    <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${p.isWfh ? 'bg-purple-500' : 'bg-emerald-500'}`} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{p.user_name}</p>
-                        {getRoleBadges(p.job_role)}
+                        <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{p.userName}</p>
+                        {getRoleBadges(p.jobRole)}
                       </div>
                       <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                        {p.is_wfh ? <><span>🏠</span> Working from Home</> : <><span>📍</span> {p.location_name}</>}
+                        {p.isWfh ? <><span>🏠</span> Working from Home</> : <><span>📍</span> {p.locationName}</>}
                       </p>
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-3">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{formatTime(p.check_in_at)}</p>
-                    <p className={`text-xs font-semibold ${p.is_wfh ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{formatHours(p.hours_so_far)}</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{formatTime(p.checkInAt)}</p>
+                    <p className={`text-xs font-semibold ${p.isWfh ? 'text-purple-600 dark:text-purple-400' : 'text-emerald-600 dark:text-emerald-400'}`}>{formatHours(p.hoursSoFar)}</p>
                   </div>
                 </div>
               ))}
@@ -106,11 +132,11 @@ export default function WorkingToday() {
                   <div key={p.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/30 rounded-lg px-4 py-2.5">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full" />
-                      <div className="flex items-center gap-2"><p className="font-medium text-gray-600 dark:text-gray-300 text-sm truncate">{p.user_name}</p>{p.is_wfh && <span className="text-xs">🏠</span>}</div>
+                      <div className="flex items-center gap-2"><p className="font-medium text-gray-600 dark:text-gray-300 text-sm truncate">{p.userName}</p>{p.isWfh && <span className="text-xs">🏠</span>}</div>
                     </div>
                     <div className="text-right shrink-0 ml-3">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{formatTime(p.check_in_at)} – {p.check_out_at ? formatTime(p.check_out_at) : '—'}</p>
-                      <p className="text-xs text-gray-400">{formatHours(p.hours_so_far)}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{formatTime(p.checkInAt)} – {p.checkOutAt ? formatTime(p.checkOutAt) : '—'}</p>
+                      <p className="text-xs text-gray-400">{formatHours(p.hoursSoFar)}</p>
                     </div>
                   </div>
                 ))}

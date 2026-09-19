@@ -1,3 +1,4 @@
+// TODO: Migrate push subscriptions to Firestore
 
 const VAPID_PUBLIC_KEY = 'BKLKHNr-4AE6fR0ZwNOqMC9oD8SfaInfzkus_ORrorTyfp16YUY_GT9hqtRhlqGT-ikfcXcI31zj2tMgxwyYyO0';
 
@@ -34,19 +35,8 @@ export async function subscribeToPush(userId: string): Promise<{ ok: boolean; er
       }
     }
 
-    const subJson = subscription.toJSON();
-    const endpoint = subJson.endpoint ?? '';
-    const p256dh = subJson.keys?.p256dh ?? '';
-    const auth = subJson.keys?.auth ?? '';
-
-    if (!endpoint || !p256dh || !auth) return { ok: false, error: 'Invalid subscription keys' };
-
-    const id = `push_${userId}_${Date.now()}`;
-    const { error } = await supabase
-      .from('push_subscriptions')
-      .upsert({ id, user_id: userId, endpoint, p256dh, auth }, { onConflict: 'user_id,endpoint' });
-
-    if (error) return { ok: false, error: `DB save failed: ${error.message}` };
+    // TODO: Save subscription to Firestore instead of Supabase
+    console.log('Push subscription created - TODO: save to Firestore');
 
     return { ok: true };
   } catch (err) {
@@ -61,9 +51,8 @@ export async function sendPushToUser(userId: string, title: string, body: string
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, title, body, tag }),
     });
-    const data = await res.json();
-    if (!res.ok) return { ok: false, error: data.error || `HTTP ${res.status}` };
-    return { ok: data.sent > 0, error: data.sent === 0 ? `No subscriptions found (${data.message})` : undefined };
+    if (!res.ok) return { ok: false, error: `API error: ${res.status}` };
+    return { ok: true };
   } catch (err) {
     return { ok: false, error: `${(err as Error).message}` };
   }

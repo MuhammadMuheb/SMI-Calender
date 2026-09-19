@@ -135,11 +135,11 @@ export async function markMissedTasks(beforeDate: string) {
   }
 }
 
-export async function fetchTemplates() {
+export async function fetchTemplates(): Promise<any[]> {
   try {
     const q = query(collection(db, 'task_templates'), orderBy('createdAt'));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
   } catch (error) {
     console.error('fetchTemplates:', error);
     return [];
@@ -174,11 +174,11 @@ export async function updateTemplate(id: string, updates: Record<string, any>) {
   }
 }
 
-export async function fetchCategories() {
+export async function fetchCategories(): Promise<any[]> {
   try {
     const q = query(collection(db, 'task_categories'), orderBy('sortOrder'));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
   } catch (error) {
     console.error('fetchCategories:', error);
     return [];

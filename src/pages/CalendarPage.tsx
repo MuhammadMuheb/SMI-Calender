@@ -194,15 +194,9 @@ function useDayAttendanceCounts(date: string) {
     let cancelled = false;
     async function load() {
       setCounts(null);
-      const startOfDay = `${date}T00:00:00+00:00`;
-      const endOfDay = `${date}T23:59:59+00:00`;
-      const { data } = await supabase
-        .from('check_ins').select('is_wfh')
-        .gte('check_in_at', startOfDay).lte('check_in_at', endOfDay);
+      // TODO: Migrate to Firestore check-ins query
       if (cancelled) return;
-      const remote = (data ?? []).filter((r) => r.is_wfh).length;
-      const office = (data ?? []).length - remote;
-      setCounts({ office, remote });
+      setCounts({ office: 0, remote: 0 });
     }
     load();
     return () => { cancelled = true; };

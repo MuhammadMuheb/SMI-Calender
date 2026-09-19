@@ -6,6 +6,7 @@ import { theme } from '../config/theme';
 import { alpha } from '../utils/themeColor';
 import { Card, Badge, Button, Modal, FormInput, Icons } from '../components/ui';
 import { subscribeToPush, sendPushToUser } from '../utils/pushManager';
+import { authenticateUser } from '../services/supabaseService';
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();

@@ -43,11 +43,8 @@ export function useGeolocation(userJobRoles: string[], autoWatch = true) {
 
   useEffect(() => {
     async function fetchLocations() {
-    // TODO: Migrate to Firestore
-      if (!error && data) {
-        locationsRef.current = data;
-        setState((prev) => ({ ...prev, allLocations: data }));
-      }
+      // TODO: Migrate to Firestore
+      locationsRef.current = [];
     }
     fetchLocations();
   }, []);

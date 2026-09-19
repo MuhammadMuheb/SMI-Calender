@@ -100,15 +100,8 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
     let attachmentUrl: string | null = null;
     if (attachment && leaveType === 'sick_day') {
       setUploading(true);
-      const ext = attachment.name.split('.').pop() ?? 'jpg';
-      const path = `sick-certificates/${user.id}/${Date.now()}.${ext}`;
-    // TODO: Migrate to Firestore
-      if (uploadErr) {
-        attachmentUrl = `[File: ${attachment.name}]`;
-      } else {
-    // TODO: Migrate to Firestore
-        attachmentUrl = urlData?.publicUrl || `[File: ${attachment.name}]`;
-      }
+      // TODO: Migrate to Firestore file uploads
+      attachmentUrl = `[File: ${attachment.name}]`;
       setUploading(false);
     }
 

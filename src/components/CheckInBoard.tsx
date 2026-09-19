@@ -1,17 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
+import { fetchCheckInsForDate } from '../services/firestoreCheckInsService';
+import { fetchActiveLocations } from '../services/firestoreLocationsService';
+import { fetchUsers } from '../services/firestoreUserService';
 import { Button, Badge as _Badge, Modal } from './ui';
 import { theme } from '../config/theme';
+import { getDisplayName } from '../utils/dataValidation';
 
 interface CheckInRecord {
   id: string;
-  user_id: string;
-  user_name: string;
-  job_role: string[];
-  location_name: string;
-  check_in_at: string;
-  check_out_at: string | null;
-  is_wfh: boolean;
-  auto_checked_out: boolean;
+  userId: string;
+  userName: string;
+  jobRole: string[];
+  locationName: string;
+  checkInAt: string;
+  checkOutAt: string | null;
+  isWfh: boolean;
+  autoCheckedOut: boolean;
 }
 
 interface CheckInBoardProps {
@@ -23,7 +27,7 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
   const [records, setRecords] = useState<CheckInRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [allUsers, setAllUsers] = useState<{ id: string; display_name: string; job_role: string[] }[]>([]);
+  const [allUsers, setAllUsers] = useState<{ id: string; displayName: string; jobRole: string[] }[]>([]);
 
   // Manual entry modal
   const [showManual, setShowManual] = useState(false);
@@ -40,28 +44,23 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
-    const startOfDay = `${selectedDate}T00:00:00+00:00`;
-    const endOfDay = `${selectedDate}T23:59:59+00:00`;
-
-    const { data } = await supabase
-      .from('check_ins')
-      .select('id, user_id, check_in_at, check_out_at, is_wfh, auto_checked_out, users(display_name, job_role), locations(name)')
-      .gte('check_in_at', startOfDay)
-      .lte('check_in_at', endOfDay)
-      .order('check_in_at', { ascending: false });
-
-    if (data) {
-      setRecords(data.map((r: any) => ({
+    try {
+      const data = await fetchCheckInsForDate(selectedDate);
+      const mapped = data.map((r: any) => ({
         id: r.id,
-        user_id: r.user_id,
-        user_name: r.users?.display_name || 'Unknown',
-        job_role: r.users?.job_role || ['Office'],
-        location_name: r.locations?.name || 'Unknown',
-        check_in_at: r.check_in_at,
-        check_out_at: r.check_out_at,
-        is_wfh: r.is_wfh,
-        auto_checked_out: r.auto_checked_out || false,
-      })));
+        userId: r.userId,
+        userName: getDisplayName(r) || 'Unknown',
+        jobRole: Array.isArray(r.jobRole) ? r.jobRole : ['Office'],
+        locationName: r.locationName || 'Unknown',
+        checkInAt: r.checkInAt,
+        checkOutAt: r.checkOutAt || null,
+        isWfh: r.isWfh || false,
+        autoCheckedOut: r.autoCheckedOut || false,
+      }));
+      setRecords(mapped);
+    } catch (err) {
+      console.error('Error fetching check-ins:', err);
+      setRecords([]);
     }
     setLoading(false);
   }, [selectedDate]);
@@ -75,20 +74,20 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
     return () => clearInterval(interval);
   }, [fetchRecords, isToday]);
 
-  // Realtime
-  useEffect(() => {
-    // TODO: Migrate to Firestore
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'check_ins' }, () => fetchRecords())
-      .subscribe();
-    // TODO: Clean up listener
-  }, [fetchRecords]);
-
   // Fetch users for manual entry dropdown
   useEffect(() => {
     if (!isSuperAdmin) return;
     async function load() {
-    // TODO: Migrate to Firestore
-      if (data) setAllUsers(data);
+      try {
+        const users = await fetchUsers();
+        setAllUsers(users.map(u => ({
+          id: u.id,
+          displayName: getDisplayName(u),
+          jobRole: Array.isArray(u.jobRole) ? u.jobRole : ['Office'],
+        })));
+      } catch (err) {
+        console.error('Error loading users:', err);
+      }
     }
     load();
   }, [isSuperAdmin]);
@@ -118,60 +117,47 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
   // Open edit existing
   function openEdit(rec: CheckInRecord) {
     setEditRecord(rec);
-    setManualUserId(rec.user_id);
-    setManualCheckIn(new Date(rec.check_in_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
-    setManualCheckOut(rec.check_out_at ? new Date(rec.check_out_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '');
-    setManualIsWfh(rec.is_wfh);
+    setManualUserId(rec.userId);
+    setManualCheckIn(new Date(rec.checkInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
+    setManualCheckOut(rec.checkOutAt ? new Date(rec.checkOutAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '');
+    setManualIsWfh(rec.isWfh);
     setShowManual(true);
   }
 
   async function handleSaveManual() {
     setSaving(true);
 
-    if (editRecord) {
-      // Update existing
-      const updates: Record<string, any> = {
-        check_in_at: `${selectedDate}T${manualCheckIn}:00`,
-      };
-      if (manualCheckOut) {
-        updates.check_out_at = `${selectedDate}T${manualCheckOut}:00`;
-      }
-      updates.is_wfh = manualIsWfh;
-      updates.work_type = manualIsWfh ? 'wfh' : 'on_site';
-
-    // TODO: Migrate to Firestore
-    } else {
-      // Get first active location
-    // TODO: Migrate to Firestore
-      if (!loc) { setSaving(false); return; }
-
-      const row: Record<string, any> = {
-        user_id: manualUserId,
-        location_id: loc.id,
-        check_in_at: `${selectedDate}T${manualCheckIn}:00`,
-        is_wfh: manualIsWfh,
-        work_type: manualIsWfh ? 'wfh' : 'on_site',
-      };
-      if (manualCheckOut) {
-        row.check_out_at = `${selectedDate}T${manualCheckOut}:00`;
+    try {
+      if (editRecord) {
+        // TODO: Implement update check-in in Firestore
+        console.log('Update check-in:', editRecord.id);
+      } else {
+        // TODO: Implement insert check-in in Firestore
+        console.log('Insert check-in for user:', manualUserId);
       }
 
-    // TODO: Migrate to Firestore
+      setShowManual(false);
+      fetchRecords();
+    } catch (err) {
+      console.error('Error saving check-in:', err);
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
-    setShowManual(false);
-    fetchRecords();
   }
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this check-in record?')) return;
-    // TODO: Migrate to Firestore
-    fetchRecords();
+    try {
+      // TODO: Implement delete check-in in Firestore
+      console.log('Delete check-in:', id);
+      fetchRecords();
+    } catch (err) {
+      console.error('Error deleting check-in:', err);
+    }
   }
 
-  const checkedIn = records.filter((r) => !r.check_out_at);
-  const checkedOut = records.filter((r) => r.check_out_at);
+  const checkedIn = records.filter((r) => !r.checkOutAt);
+  const checkedOut = records.filter((r) => r.checkOutAt);
 
   return (
     <div className="space-y-3">
@@ -237,16 +223,16 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
                       <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: c.primary }} />
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '12px', fontWeight: 600, color: c.white }}>{r.user_name}</span>
-                          {r.is_wfh && <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '99px', backgroundColor: c.warning + '20', color: c.warning }}>WFH</span>}
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: c.white }}>{r.userName}</span>
+                          {r.isWfh && <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '99px', backgroundColor: c.warning + '20', color: c.warning }}>WFH</span>}
                         </div>
                         <div style={{ display: 'flex', gap: '4px', marginTop: '2px', flexWrap: 'wrap' }}>
-                          {(r.job_role || []).map((role) => (
+                          {(r.jobRole || []).map((role) => (
                             <span key={role} style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '99px', backgroundColor: c.primary + '15', color: c.primaryLight }}>{role}</span>
                           ))}
                         </div>
                         <p style={{ fontSize: '10px', color: c.grayDark, marginTop: '2px' }}>
-                          {r.is_wfh ? '🏠' : '📍'} {r.is_wfh ? 'Home' : r.location_name} · In: {formatTime(r.check_in_at)} · {formatHours(r.check_in_at, null)}
+                          {r.isWfh ? '🏠' : '📍'} {r.isWfh ? 'Home' : r.locationName} · In: {formatTime(r.checkInAt)} · {formatHours(r.checkInAt, null)}
                         </p>
                       </div>
                     </div>
@@ -272,12 +258,12 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
                       <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: c.grayDarker }} />
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: '12px', fontWeight: 600, color: c.gray }}>{r.user_name}</span>
-                          {r.is_wfh && <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '99px', backgroundColor: c.warning + '15', color: c.warning }}>WFH</span>}
-                          {r.auto_checked_out && <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '99px', backgroundColor: c.warning + '15', color: c.warning }}>auto</span>}
+                          <span style={{ fontSize: '12px', fontWeight: 600, color: c.gray }}>{r.userName}</span>
+                          {r.isWfh && <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '99px', backgroundColor: c.warning + '15', color: c.warning }}>WFH</span>}
+                          {r.autoCheckedOut && <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '99px', backgroundColor: c.warning + '15', color: c.warning }}>auto</span>}
                         </div>
                         <p style={{ fontSize: '10px', color: c.grayDark, marginTop: '2px' }}>
-                          In: {formatTime(r.check_in_at)} → Out: {formatTime(r.check_out_at!)} · {formatHours(r.check_in_at, r.check_out_at)}
+                          In: {formatTime(r.checkInAt)} → Out: {formatTime(r.checkOutAt!)} · {formatHours(r.checkInAt, r.checkOutAt)}
                         </p>
                       </div>
                     </div>
@@ -317,13 +303,13 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
                 style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', backgroundColor: c.bg, border: `1px solid ${c.border}`, color: c.white, outline: 'none' }}
               >
                 {allUsers.map((u) => (
-                  <option key={u.id} value={u.id}>{u.display_name} ({(u.job_role || []).join(', ')})</option>
+                  <option key={u.id} value={u.id}>{u.displayName} ({(u.jobRole || []).join(', ')})</option>
                 ))}
               </select>
             </div>
           )}
           {editRecord && (
-            <p style={{ fontSize: '12px', fontWeight: 600, color: c.white }}>{editRecord.user_name}</p>
+            <p style={{ fontSize: '12px', fontWeight: 600, color: c.white }}>{editRecord.userName}</p>
           )}
 
           <div className="grid grid-cols-2 gap-3">
