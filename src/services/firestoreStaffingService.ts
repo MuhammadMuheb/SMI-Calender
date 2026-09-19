@@ -2,7 +2,7 @@ import {
   collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import type { StaffingRule } from '../models/staffing';
+import type { StaffingRule, StaffingEnforcement } from '../models/staffing';
 
 export async function fetchStaffingRules(): Promise<StaffingRule[]> {
   try {
@@ -14,7 +14,7 @@ export async function fetchStaffingRules(): Promise<StaffingRule[]> {
         jobRoleId: data.jobRoleId as string,
         dayOfWeek: (data.dayOfWeek as number | null) ?? null,
         minimumRequired: data.minimumRequired as number,
-        enforcement: data.enforcement as string,
+        enforcement: data.enforcement as StaffingEnforcement,
         createdAt: data.createdAt as string,
         updatedAt: data.updatedAt as string,
       };

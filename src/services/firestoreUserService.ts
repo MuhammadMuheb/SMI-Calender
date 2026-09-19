@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDocs, setDoc, updateDoc, deleteDoc, query, where, orderBy,
+  collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { StaffUser } from '../models/user';

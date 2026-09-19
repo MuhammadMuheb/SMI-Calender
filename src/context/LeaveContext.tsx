@@ -55,12 +55,8 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setLoading(true);
     const unsubscribe = listenLeaveRequests(
-      (data) => {
+      (data: any) => {
         setRequests(data as LeaveRequest[]);
-        setLoading(false);
-      },
-      (err) => {
-        console.error('Failed to load leave requests:', err);
         setLoading(false);
       }
     );
@@ -138,7 +134,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   }, [requests, users, staffingRules, roleAssignments, jobRoles]);
 
   const cancelRequest = useCallback((requestId: string) => {
-    cancelLeaveRequest(requestId).catch((err) => {
+    cancelLeaveRequest(requestId).catch((err: any) => {
       console.error('Failed to cancel request:', err);
     });
   }, []);
@@ -193,7 +189,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       return updated;
     });
 
-    approveLeaveRequest(requestId, note).catch((err) => {
+    approveLeaveRequest(requestId, note).catch((err: any) => {
       console.error('Failed to approve request:', err);
     });
     insertAuditLog({
@@ -220,7 +216,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
         decidedAt: now, approverNote: note, updatedAt: now,
       } : r,
     ));
-    rejectLeaveRequest(requestId, note).catch((err) => {
+    rejectLeaveRequest(requestId, note).catch((err: any) => {
       console.error('Failed to reject request:', err);
     });
     insertAuditLog({

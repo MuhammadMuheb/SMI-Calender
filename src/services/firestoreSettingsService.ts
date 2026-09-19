@@ -91,7 +91,6 @@ export async function deleteSpecialDayDb(id: string): Promise<void> {
 
 export async function fetchNotificationSettings(): Promise<NotificationSettings> {
   try {
-    const docRef = doc(db, 'notificationSettings', 'global');
     const docSnap = await getDocs(collection(db, 'notificationSettings'));
 
     if (docSnap.empty) {

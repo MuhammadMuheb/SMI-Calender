@@ -130,7 +130,7 @@ export default function StaffManagement({ onBack }: Props) {
       isActive: true,
     }, actorName);
 
-    for (const roleId of formJobRoles) assignRole(newId, roleId, roleId === formPrimaryRole);
+    for (const roleId of formJobRoles) assignRole(newId, roleId, roleId === formPrimaryRole, actorName);
 
     resetForm();
     setShowAdd(false);
@@ -151,11 +151,11 @@ export default function StaffManagement({ onBack }: Props) {
 
     const currentAssignments = roleAssignments.filter((a) => a.userId === editingStaff.id);
     for (const a of currentAssignments) {
-      if (!formJobRoles.has(a.jobRoleId)) removeRoleAssignment(a.id);
+      if (!formJobRoles.has(a.jobRoleId)) removeRoleAssignment(a.id, actorName);
     }
     for (const roleId of formJobRoles) {
       const existing = currentAssignments.find((a) => a.jobRoleId === roleId);
-      if (!existing) assignRole(editingStaff.id, roleId, roleId === formPrimaryRole);
+      if (!existing) assignRole(editingStaff.id, roleId, roleId === formPrimaryRole, actorName);
     }
 
     resetForm();
@@ -163,7 +163,7 @@ export default function StaffManagement({ onBack }: Props) {
   };
 
   const handleDelete = async (staff: StaffUser) => {
-    roleAssignments.filter((a) => a.userId === staff.id).forEach((a) => removeRoleAssignment(a.id));
+    roleAssignments.filter((a) => a.userId === staff.id).forEach((a) => removeRoleAssignment(a.id, actorName));
     await deleteUser(staff.id, actorName);
     setConfirmDelete(null);
   };

@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDocs, setDoc, updateDoc, deleteDoc, query, where,
+  collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { JobRole, StaffRoleAssignment } from '../models/jobRole';
