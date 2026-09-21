@@ -3,6 +3,7 @@ import { Modal, Button, FormInput, Badge } from '../components/ui';
 import { theme } from '../config/theme';
 import { useAuth } from '../context/AuthContext';
 import { useLeave } from '../context/LeaveContext';
+import { useAppData } from '../context/AppDataContext';
 import type { LeaveType } from '../models/leave';
 import { LEAVE_TYPE_LABELS } from '../models/leave';
 import { getPickableDateRange, getCurrentCycle, getCycleLabel, getRemainingQuota } from '../utils/cycleUtils';
@@ -21,6 +22,7 @@ function getYearEnd(): string {
 export default function RequestFormModal({ open, onClose }: RequestFormModalProps) {
   const { user } = useAuth();
   const { submitRequest, requests } = useLeave();
+  const { roleAssignments, jobRoles } = useAppData();
   const [date, setDate] = useState('');
   const [leaveType, setLeaveType] = useState<LeaveType>('regular_day_off');
   const [note, setNote] = useState('');
@@ -31,6 +33,45 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!user) return null;
+
+  // CRITICAL FIX: Calculate locked dates based on staffing constraints
+  // Rule 1: Roles with < 3 total staff are entirely locked
+  // Rule 2: Dates with 2+ already on approved leave are locked
+  const staffingConstraints = useMemo(() => {
+    const userRoles = roleAssignments.filter((a) => a.userId === user.id).map((a) => a.jobRoleId);
+    const isRoleTooSmall = userRoles.some((roleId) => {
+      const totalInRole = roleAssignments.filter((a) => a.jobRoleId === roleId).length;
+      return totalInRole < 3;
+    });
+
+    const lockedDates = new Set<string>();
+    if (!isRoleTooSmall) {
+      // Calculate which dates are locked (2+ staff already approved for leave)
+      for (const roleId of userRoles) {
+        // Get all approved leave requests for this role
+        const approvedForRole = requests.filter(
+          (r) =>
+            r.status === 'approved' &&
+            roleAssignments.some((a) => a.userId === r.userId && a.jobRoleId === roleId)
+        );
+
+        // Group by date and find dates with 2+ on leave
+        const dateCount = new Map<string, number>();
+        for (const req of approvedForRole) {
+          dateCount.set(req.date, (dateCount.get(req.date) ?? 0) + 1);
+        }
+
+        // Lock dates that already have 2 or more staff on leave
+        for (const [d, count] of dateCount.entries()) {
+          if (count >= 2) {
+            lockedDates.add(d);
+          }
+        }
+      }
+    }
+
+    return { isRoleTooSmall, lockedDates };
+  }, [user.id, roleAssignments, requests]);
   // ── Cycle-aware date range for regular day off ──
   // ONLY allow requests for CURRENT cycle (remaining dates), never future cycles
   const cycleRange = useMemo(() => getPickableDateRange(user.role), [user.role]);
@@ -76,6 +117,9 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
   const isRegularLocked = leaveType === 'regular_day_off' && (!cycleRange || cycleRange.locked);
   const isOverQuota = leaveType === 'regular_day_off' && effectiveRemaining <= 0;
 
+  // CRITICAL FIX: Disable date input entirely if role has < 3 staff
+  const isDateInputDisabled = staffingConstraints.isRoleTooSmall;
+
   const REQUEST_TYPES: { type: LeaveType; label: string; description: string }[] = [
     { type: 'regular_day_off', label: LEAVE_TYPE_LABELS.regular_day_off, description: currentCycle ? `${getCycleLabel(currentCycle)} (remaining dates only)` : 'Current cycle' },
     { type: 'paid_vacation', label: LEAVE_TYPE_LABELS.paid_vacation, description: 'Any remaining date this year — uses vacation days' },
@@ -86,6 +130,16 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
     setError(''); setSuccess(false);
 
     if (!date) { setError('Please select a date'); return; }
+
+    // CRITICAL FIX: Validate against locked dates
+    if (staffingConstraints.isRoleTooSmall) {
+      setError('❌ This role has fewer than 3 staff members. Date requests are locked for compliance.');
+      return;
+    }
+    if (staffingConstraints.lockedDates.has(date)) {
+      setError('❌ This date is locked — maximum 2 staff in this role already approved for leave. Request denied.');
+      return;
+    }
 
     if (leaveType === 'regular_day_off') {
       if (isRegularLocked) { setError('Day off requests are locked — contact super admin.'); return; }
@@ -166,12 +220,19 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
         <input type="date" value={date}
           onChange={(e) => setDate(e.target.value)}
           min={minDate} max={maxDate || undefined}
-          disabled={isRegularLocked && leaveType === 'regular_day_off'}
+          disabled={isDateInputDisabled || (isRegularLocked && leaveType === 'regular_day_off')}
           className="w-full rounded-lg text-sm outline-none px-3 py-2.5"
           style={{ backgroundColor: c.bgCard, border: `1px solid ${c.border}`, color: c.white, colorScheme: 'dark' }} />
-        <p className="text-[9px] mt-1" style={{ color: c.grayDark }}>
-          {dateLabel}
-        </p>
+        {isDateInputDisabled && (
+          <p className="text-[9px] mt-1" style={{ color: c.danger }}>
+            ❌ This role has fewer than 3 staff members. Date requests are locked for compliance.
+          </p>
+        )}
+        {!isDateInputDisabled && (
+          <p className="text-[9px] mt-1" style={{ color: c.grayDark }}>
+            {dateLabel}
+          </p>
+        )}
       </div>
 
       {/* Attachment for sick day */}

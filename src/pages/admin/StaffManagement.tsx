@@ -184,10 +184,25 @@ export default function StaffManagement({ onBack }: Props) {
     }
   };
 
-  const getJobRoleNames = (userId: string) =>
-    roleAssignments
-      .filter((a) => a.userId === userId)
-      .map((a) => ({ ...a, roleName: jobRoles.find((r) => r.id === a.jobRoleId)?.name ?? a.jobRoleId, roleColor: jobRoles.find((r) => r.id === a.jobRoleId)?.color ?? '#666' }));
+  const getJobRoleNames = (userId: string) => {
+    const userAssignments = roleAssignments.filter((a) => a.userId === userId);
+    // CRITICAL FIX: Deduplicate by jobRoleId - keep only one per unique role
+    // If a role is assigned as primary, prioritize it; otherwise keep the first
+    const uniqueRoles = new Map<string, typeof userAssignments[0]>();
+    for (const a of userAssignments) {
+      const existing = uniqueRoles.get(a.jobRoleId);
+      // Replace if this is primary and the existing one wasn't, or if this is the first
+      if (!existing || (a.isPrimary && !existing.isPrimary)) {
+        uniqueRoles.set(a.jobRoleId, a);
+      }
+    }
+
+    return Array.from(uniqueRoles.values()).map((a) => ({
+      ...a,
+      roleName: jobRoles.find((r) => r.id === a.jobRoleId)?.name ?? a.jobRoleId,
+      roleColor: jobRoles.find((r) => r.id === a.jobRoleId)?.color ?? '#666',
+    }));
+  };
 
   const roleForm = (
     <>
