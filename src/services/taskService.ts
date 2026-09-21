@@ -12,8 +12,8 @@ export async function fetchTasksForDate(date: string) {
     const snapshot = await getDocs(q);
     // Sort in memory to avoid composite index requirement
     return snapshot.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => {
+      .map(d => ({ id: d.id, ...d.data() } as any))
+      .sort((a: any, b: any) => {
         const priorityDiff = (a.priority || 999) - (b.priority || 999);
         if (priorityDiff !== 0) return priorityDiff;
         return (a.createdAt || '').localeCompare(b.createdAt || '');
@@ -33,9 +33,9 @@ export async function fetchTasksForUser(userId: string, startDate: string, endDa
     const snapshot = await getDocs(q);
     // Filter and sort in memory to avoid composite index requirement
     return snapshot.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter(task => task.date >= startDate && task.date <= endDate)
-      .sort((a, b) => {
+      .map(d => ({ id: d.id, ...d.data() } as any))
+      .filter((task: any) => task.date >= startDate && task.date <= endDate)
+      .sort((a: any, b: any) => {
         const dateDiff = (b.date || '').localeCompare(a.date || '');
         if (dateDiff !== 0) return dateDiff;
         return (a.priority || 999) - (b.priority || 999);
@@ -54,9 +54,9 @@ export async function fetchAllTasks(startDate: string, endDate: string) {
     const snapshot = await getDocs(q);
     // Filter and sort in memory to avoid composite index requirement
     return snapshot.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter(task => task.date >= startDate && task.date <= endDate)
-      .sort((a, b) => {
+      .map(d => ({ id: d.id, ...d.data() } as any))
+      .filter((task: any) => task.date >= startDate && task.date <= endDate)
+      .sort((a: any, b: any) => {
         const dateDiff = (b.date || '').localeCompare(a.date || '');
         if (dateDiff !== 0) return dateDiff;
         return (a.priority || 999) - (b.priority || 999);
@@ -133,7 +133,7 @@ export async function markMissedTasks(beforeDate: string) {
     const now = new Date().toISOString();
 
     snapshot.docs
-      .filter(docSnap => {
+      .filter((docSnap: any) => {
         const data = docSnap.data();
         return data.date < beforeDate && ['pending', 'in_progress'].includes(data.status);
       })
