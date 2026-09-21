@@ -33,22 +33,37 @@ export async function fetchUsers(): Promise<StaffUser[]> {
       })
       .filter((u): u is StaffUser => u !== null);
 
-    // CRITICAL: Deduplicate by user ID - keep only the first (most recent) record
-    // This prevents 2-3x duplicate names in Staff Management view
+    // CRITICAL: Deduplicate by BOTH ID and USERNAME
+    // Multiple documents with different IDs but same username must be filtered
+    // Keep only the first occurrence by ID, then deduplicate by username
     const seenIds = new Set<string>();
+    const seenUsernames = new Set<string>();
     const uniqueUsers: StaffUser[] = [];
 
     for (const user of users) {
-      if (!seenIds.has(user.id)) {
-        seenIds.add(user.id);
-        uniqueUsers.push(user);
-      } else {
-        console.warn(`[Deduplication] Duplicate user ID detected: ${user.displayName} (${user.id}) - keeping first occurrence only`);
+      const usernameLower = user.username.toLowerCase().trim();
+
+      // Skip if we've already seen this username
+      if (seenUsernames.has(usernameLower)) {
+        console.warn(`[Deduplication] Duplicate username detected: "${user.displayName}" (username: ${usernameLower}, id: ${user.id}) - FILTERED OUT`);
+        continue;
       }
+
+      // Skip if we've already seen this ID
+      if (seenIds.has(user.id)) {
+        console.warn(`[Deduplication] Duplicate user ID detected: "${user.displayName}" (id: ${user.id}) - keeping first occurrence only`);
+        continue;
+      }
+
+      // This is a unique user - add it
+      seenIds.add(user.id);
+      seenUsernames.add(usernameLower);
+      uniqueUsers.push(user);
     }
 
     if (uniqueUsers.length < users.length) {
-      console.log(`[Deduplication] Removed ${users.length - uniqueUsers.length} duplicate user records`);
+      const duplicatesRemoved = users.length - uniqueUsers.length;
+      console.log(`[Deduplication] ✓ Removed ${duplicatesRemoved} duplicate user record(s). Final count: ${uniqueUsers.length} unique active users`);
     }
 
     return uniqueUsers;
