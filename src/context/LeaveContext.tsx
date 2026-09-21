@@ -30,6 +30,7 @@ interface LeaveContextValue {
   override: (requestId: string, newStatus: LeaveStatus, admin: UserRef, note?: string) => void;
   directAssign: (targetUserId: string, targetUserName: string, targetUserRole: 'staff' | 'manager' | 'super_admin', date: string, leaveType: LeaveType, adminName: string) => Promise<string | null>;
   getBalance: (userId: string) => LeaveBalance;
+  getCycleBalance: (userId: string) => LeaveBalance;
   getUserRequests: (userId: string) => LeaveRequest[];
   getPendingRequests: () => LeaveRequest[];
   getRequestsForDate: (date: string) => LeaveRequest[];
@@ -365,6 +366,29 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     );
   }, [requests, users]);
 
+  /**
+   * Get ONLY cycle-based balance for weekly views.
+   * Returns regularDays only — NO vacation data.
+   * This prevents monthly vacation numbers from leaking into weekly views.
+   */
+  const getCycleBalance = useCallback((userId: string): LeaveBalance => {
+    const today = formatDateLocal(new Date());
+    const cycle = getCycleForDate(today);
+
+    const approvedRequests = requests.filter((r) => {
+      if (r.status !== 'approved') return false;
+      const user = users.find(u => u.id === r.userId);
+      return user && user.isActive;
+    });
+
+    return computeBalance(
+      userId, cycle.start, cycle.end,
+      approvedRequests,
+      0, // NO vacation data in cycle-only view
+      getRegularOverride(userId, users),
+    );
+  }, [requests, users]);
+
   const getUserRequests = useCallback(
     (userId: string) => {
       const today = formatDateLocal(new Date());
@@ -411,10 +435,10 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     requests, loading, submitRequest, cancelRequest, approve, reject,
-    override: overrideReq, directAssign, getBalance, getUserRequests,
+    override: overrideReq, directAssign, getBalance, getCycleBalance, getUserRequests,
     getPendingRequests, getRequestsForDate,
   }), [requests, loading, submitRequest, cancelRequest, approve, reject,
-    overrideReq, directAssign, getBalance, getUserRequests, getPendingRequests, getRequestsForDate]);
+    overrideReq, directAssign, getBalance, getCycleBalance, getUserRequests, getPendingRequests, getRequestsForDate]);
 
   return <LeaveContext.Provider value={value}>{children}</LeaveContext.Provider>;
 }

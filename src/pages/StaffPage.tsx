@@ -35,7 +35,7 @@ type StatusFilter = 'all' | 'active' | 'on_leave';
 
 export default function StaffPage() {
   const { users, roleAssignments, jobRoles } = useAppData();
-  const { requests, getBalance, getUserRequests } = useLeave();
+  const { requests, getCycleBalance, getUserRequests } = useLeave();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -67,7 +67,7 @@ export default function StaffPage() {
   const rows = useMemo(() => {
     return (activeUsers ?? []).map((u) => {
       if (!u || !u.id) return null;
-      const bal = getBalance(u.id) ?? { regularDaysAllowed: 0, regularDaysUsed: 0, vacationDaysAllowed: 0, vacationDaysUsed: 0, vacationDaysRemaining: 0 };
+      const bal = getCycleBalance(u.id) ?? { regularDaysAllowed: 0, regularDaysUsed: 0, vacationDaysAllowed: 0, vacationDaysUsed: 0, vacationDaysRemaining: 0 };
       const roles = (roleAssignments ?? []).filter((a) => a?.userId === u.id).map((a) => roleMap[a?.jobRoleId]).filter(Boolean);
       const pendingCount = (getUserRequests(u.id) ?? []).filter((r) => r?.status === 'pending').length;
       const onLeaveToday = approvedToday.has(u.id);
@@ -83,7 +83,7 @@ export default function StaffPage() {
 
       return { user: u, roles, bal, pendingCount, onLeaveToday, attendancePct };
     }).filter((r): r is NonNullable<typeof r> => r !== null);
-  }, [activeUsers, roleAssignments, roleMap, getBalance, getUserRequests, approvedToday, checkInDayCounts, requests, today]);
+  }, [activeUsers, roleAssignments, roleMap, getCycleBalance, getUserRequests, approvedToday, checkInDayCounts, requests, today]);
 
   const filteredRows = rows
     .filter((r) => (r.user.displayName ?? '').toLowerCase().includes(search.trim().toLowerCase()))
@@ -174,10 +174,6 @@ export default function StaffPage() {
                   </div>
                 </div>
                 <div className="flex gap-3 flex-shrink-0 items-center">
-                  <div className="text-center">
-                    <p className="text-sm font-bold" style={{ color: theme.colors.warning }}>{bal?.vacationDaysRemaining ?? 0}</p>
-                    <p className="text-[8px]" style={{ color: theme.colors.grayDark }}>vacation</p>
-                  </div>
                   <div className="text-center">
                     <p className="text-sm font-bold" style={{ color: attendancePct < 90 ? theme.colors.warning : theme.colors.primary }}>{attendancePct}%</p>
                     <p className="text-[8px]" style={{ color: theme.colors.grayDark }}>attendance</p>
