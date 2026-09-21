@@ -8,6 +8,12 @@ import { runAutoAssignment } from '../services/autoAssignService';
 import { insertAuditLog } from '../services/firestoreService';
 
 export default function CycleManager() {
+  // DISABLED: Cycle management for future dates has been removed entirely.
+  // The system now only shows real, user-submitted requests for the current cycle.
+  // No automatic notifications, warnings, or assignments for future cycles.
+  return null;
+
+  /* LEGACY: Old cycle management code removed
   const { user } = useAuth();
   const { requests, submitRequest } = useLeave();
   const { users, jobRoles, roleAssignments, staffingRules, holidays, specialDays } = useAppData();

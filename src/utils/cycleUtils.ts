@@ -164,35 +164,19 @@ interface PickableRange {
 
 /**
  * Returns the date range a user can pick for regular day off requests.
- * - super_admin: full next cycle (including last week)
- * - staff/manager: next cycle excluding last week, BUT locked if in last week of current cycle
+ * ONLY allows requests for dates within the CURRENT cycle that haven't passed yet.
+ * This eliminates all future-cycle (next month) requests to keep the system focused
+ * on current, real-time operations.
  */
 export function getPickableDateRange(userRole: string): PickableRange | null {
-  const next = getNextCycle();
-  if (!next) return null;
+  const current = getCurrentCycle();
+  if (!current) return null;
 
-  // Super admin: full next cycle, always available
-  if (userRole === 'super_admin') {
-    return { min: next.start, max: next.end, cycle: next, locked: false };
-  }
+  const today = todayStr();
 
-  // Staff/manager: check if in last week of current cycle
-  if (isInLastWeek()) {
-    return {
-      min: next.start,
-      max: next.end,
-      cycle: next,
-      locked: true,
-      lockedReason: 'Picking is locked — you are in the last week of the current cycle. Contact your super admin.',
-    };
-  }
-
-  // Can pick for next cycle, excluding last week
-  
-  
-  
-
-  return { min: next.start, max: next.end, cycle: next, locked: false };
+  // Only allow dates from today through the end of current cycle
+  // (no past dates, no future cycle dates)
+  return { min: today, max: current.end, cycle: current, locked: false };
 }
 
 /**

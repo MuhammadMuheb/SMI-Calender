@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLeave } from '../context/LeaveContext';
 import type { LeaveType } from '../models/leave';
 import { LEAVE_TYPE_LABELS } from '../models/leave';
-import { getPickableDateRange, getNextCycle, getCycleLabel, getRemainingQuota, isInLastWeek } from '../utils/cycleUtils';
+import { getPickableDateRange, getCurrentCycle, getCycleLabel, getRemainingQuota } from '../utils/cycleUtils';
 
 interface RequestFormModalProps { open: boolean; onClose: () => void; }
 
@@ -32,55 +32,53 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
 
   if (!user) return null;
   // ── Cycle-aware date range for regular day off ──
+  // ONLY allow requests for CURRENT cycle (remaining dates), never future cycles
   const cycleRange = useMemo(() => getPickableDateRange(user.role), [user.role]);
-  const nextCycle = useMemo(() => getNextCycle(), []);
+  const currentCycle = useMemo(() => getCurrentCycle(), []);
 
-  // Count user's already-approved days in next cycle
-  const approvedInNextCycle = useMemo(() => {
-    if (!nextCycle) return [];
+  // Count user's already-approved days in current cycle
+  const approvedInCurrentCycle = useMemo(() => {
+    if (!currentCycle) return [];
     return requests
-      .filter((r) => r.userId === user.id && r.status === 'approved' && r.leaveType === 'regular_day_off' && r.date >= nextCycle.start && r.date <= nextCycle.end)
+      .filter((r) => r.userId === user.id && r.status === 'approved' && r.leaveType === 'regular_day_off' && r.date >= currentCycle.start && r.date <= currentCycle.end)
       .map((r) => r.date);
-  }, [requests, user.id, nextCycle]);
+  }, [requests, user.id, currentCycle]);
 
   const remainingQuota = useMemo(() => {
-    if (!nextCycle) return 0;
-    return getRemainingQuota(nextCycle, approvedInNextCycle);
-  }, [nextCycle, approvedInNextCycle]);
+    if (!currentCycle) return 0;
+    return getRemainingQuota(currentCycle, approvedInCurrentCycle);
+  }, [currentCycle, approvedInCurrentCycle]);
 
   // Pending requests also count toward quota
-  const pendingInNextCycle = useMemo(() => {
-    if (!nextCycle) return 0;
-    return requests.filter((r) => r.userId === user.id && r.status === 'pending' && r.leaveType === 'regular_day_off' && r.date >= nextCycle.start && r.date <= nextCycle.end).length;
-  }, [requests, user.id, nextCycle]);
+  const pendingInCurrentCycle = useMemo(() => {
+    if (!currentCycle) return 0;
+    return requests.filter((r) => r.userId === user.id && r.status === 'pending' && r.leaveType === 'regular_day_off' && r.date >= currentCycle.start && r.date <= currentCycle.end).length;
+  }, [requests, user.id, currentCycle]);
 
-  const effectiveRemaining = remainingQuota - pendingInNextCycle;
+  const effectiveRemaining = remainingQuota - pendingInCurrentCycle;
 
   // Date constraints per leave type
   const { minDate, maxDate, dateLabel } = useMemo(() => {
     if (leaveType === 'sick_day') {
-      return { minDate: getTodayStr(), maxDate: getYearEnd(), dateLabel: 'Sick day — today or any future date' };
+      return { minDate: getTodayStr(), maxDate: getYearEnd(), dateLabel: 'Sick day — today through end of year' };
     }
     if (leaveType === 'paid_vacation') {
-      return { minDate: getTodayStr(), maxDate: getYearEnd(), dateLabel: 'Vacation — any future date (uses vacation days)' };
+      return { minDate: getTodayStr(), maxDate: getYearEnd(), dateLabel: 'Vacation — today through end of year (uses vacation days)' };
     }
-    // regular_day_off — cycle restricted
+    // regular_day_off — current cycle only, no future cycles
     if (!cycleRange) {
-      return { minDate: '', maxDate: '', dateLabel: 'No upcoming cycle available' };
+      return { minDate: '', maxDate: '', dateLabel: 'No current cycle available' };
     }
-    if (cycleRange.locked) {
-      return { minDate: '', maxDate: '', dateLabel: cycleRange.lockedReason || 'Picking is locked' };
-    }
-    const label = nextCycle ? getCycleLabel(nextCycle) : 'Next cycle';
+    const label = currentCycle ? getCycleLabel(currentCycle) : 'Current cycle';
     return { minDate: cycleRange.min, maxDate: cycleRange.max, dateLabel: label };
-  }, [leaveType, cycleRange, nextCycle]);
+  }, [leaveType, cycleRange, currentCycle]);
 
   const isRegularLocked = leaveType === 'regular_day_off' && (!cycleRange || cycleRange.locked);
   const isOverQuota = leaveType === 'regular_day_off' && effectiveRemaining <= 0;
 
   const REQUEST_TYPES: { type: LeaveType; label: string; description: string }[] = [
-    { type: 'regular_day_off', label: LEAVE_TYPE_LABELS.regular_day_off, description: nextCycle ? `${getCycleLabel(nextCycle)}` : 'Next cycle' },
-    { type: 'paid_vacation', label: LEAVE_TYPE_LABELS.paid_vacation, description: 'Any future date — uses vacation days' },
+    { type: 'regular_day_off', label: LEAVE_TYPE_LABELS.regular_day_off, description: currentCycle ? `${getCycleLabel(currentCycle)} (remaining dates only)` : 'Current cycle' },
+    { type: 'paid_vacation', label: LEAVE_TYPE_LABELS.paid_vacation, description: 'Any remaining date this year — uses vacation days' },
     { type: 'sick_day', label: LEAVE_TYPE_LABELS.sick_day, description: 'Sick leave — attach medical certificate' },
   ];
 
@@ -91,7 +89,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
 
     if (leaveType === 'regular_day_off') {
       if (isRegularLocked) { setError('Day off requests are locked — contact super admin.'); return; }
-      if (isOverQuota) { setError(`No days left in this cycle (quota: ${nextCycle?.quota || 0}).`); return; }
+      if (isOverQuota) { setError(`No days left in current cycle (quota: ${currentCycle?.quota || 0}).`); return; }
       if (cycleRange && (date < cycleRange.min || date > cycleRange.max)) {
         setError(`Date must be within ${dateLabel}`); return;
       }
@@ -136,35 +134,28 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
       </div>
 
       {/* Cycle info for regular day off */}
-      {leaveType === 'regular_day_off' && nextCycle && (
+      {leaveType === 'regular_day_off' && currentCycle && (
         <div className="mb-3 p-3 rounded-lg" style={{ backgroundColor: c.bgElevated, border: `1px solid ${c.border}` }}>
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] font-semibold" style={{ color: c.gray }}>
-              {getCycleLabel(nextCycle)}
+              {getCycleLabel(currentCycle)}
             </span>
             <span className="text-[10px] font-bold" style={{ color: c.primaryLight }}>
-              {nextCycle.weeks} weeks
+              {currentCycle.weeks} weeks
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span className="text-[10px]" style={{ color: c.grayDark }}>
-              Quota: {nextCycle.quota} days (incl. auto-Sunday)
+              Quota: {currentCycle.quota} days (incl. auto-Sunday)
             </span>
             <span className="text-[10px] font-bold" style={{ color: effectiveRemaining > 0 ? c.primaryLight : c.danger }}>
               {effectiveRemaining} remaining
             </span>
           </div>
-          {pendingInNextCycle > 0 && (
+          {pendingInCurrentCycle > 0 && (
             <p className="text-[9px] mt-1" style={{ color: c.warning }}>
-              {pendingInNextCycle} pending request{pendingInNextCycle > 1 ? 's' : ''} awaiting approval
+              {pendingInCurrentCycle} pending request{pendingInCurrentCycle > 1 ? 's' : ''} awaiting approval
             </p>
-          )}
-          {isInLastWeek() && user.role !== 'super_admin' && (
-            <div className="mt-2 p-2 rounded-lg" style={{ backgroundColor: c.secondary + '15' }}>
-              <p className="text-[10px] font-semibold" style={{ color: c.secondary }}>
-                🔒 Last week of current cycle — requests locked. Contact super admin.
-              </p>
-            </div>
           )}
         </div>
       )}
