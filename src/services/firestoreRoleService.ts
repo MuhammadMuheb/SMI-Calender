@@ -81,7 +81,7 @@ export async function deleteJobRoleDb(id: string): Promise<void> {
 
 export async function fetchRoleAssignments(): Promise<StaffRoleAssignment[]> {
   try {
-    const snapshot = await getDocs(collection(db, 'roleAssignments'));
+    const snapshot = await getDocs(collection(db, 'role_assignments'));
     return snapshot.docs.map((docSnap) => {
       const data = docSnap.data();
       return {
@@ -105,7 +105,7 @@ export async function insertRoleAssignment(assignment: {
   isPrimary: boolean;
 }): Promise<string> {
   try {
-    const assignRef = doc(db, 'roleAssignments', assignment.id);
+    const assignRef = doc(db, 'role_assignments', assignment.id);
     await setDoc(assignRef, {
       id: assignment.id,
       userId: assignment.userId,
@@ -122,7 +122,7 @@ export async function insertRoleAssignment(assignment: {
 
 export async function deleteRoleAssignmentDb(id: string): Promise<void> {
   try {
-    const assignRef = doc(db, 'roleAssignments', id);
+    const assignRef = doc(db, 'role_assignments', id);
     await deleteDoc(assignRef);
   } catch (err) {
     console.error('deleteRoleAssignment:', err);

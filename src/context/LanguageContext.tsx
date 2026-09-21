@@ -13,7 +13,7 @@ const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 const STORAGE_KEY = 'smi_lang';
 
-export function LanguageProvider({ children, userId }: { children: ReactNode; userId?: string }) {
+export function LanguageProvider({ children, userId, username }: { children: ReactNode; userId?: string; username?: string }) {
   const [lang, setLangState] = useState<Lang>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     return (stored === 'it' ? 'it' : 'en') as Lang;
@@ -22,13 +22,14 @@ export function LanguageProvider({ children, userId }: { children: ReactNode; us
   const setLang = useCallback((newLang: Lang) => {
     setLangState(newLang);
     localStorage.setItem(STORAGE_KEY, newLang);
-    if (userId) {
-      const userRef = doc(db, 'users', userId);
+    // Use username as document ID (Firestore uses username, not userId)
+    if (username) {
+      const userRef = doc(db, 'users', username.toLowerCase());
       updateDoc(userRef, { lang: newLang }).catch((err) => {
         console.warn('Failed to update language preference:', err);
       });
     }
-  }, [userId]);
+  }, [username]);
 
   const t = useCallback((key: string, params?: Record<string, string | number>): string => {
     let str = translations[lang][key] || translations['en'][key] || key;

@@ -12,6 +12,8 @@ import { getSafeUsers, SAFE_EMPTY_USERS } from '../utils/safeFallbacks';
 import { validateUsers } from '../utils/dataValidation';
 import {
   fetchUsers, insertUser, updateUserDb, deleteUserDb,
+  deleteUserRoleAssignments, deleteUserLeaveRequests, deleteUserCheckIns,
+  deleteUserTourAssignments, deleteUserTasks,
 } from '../services/firestoreUserService';
 import {
   fetchJobRoles, insertJobRole, updateJobRoleDb, deleteJobRoleDb,
@@ -265,23 +267,44 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // Step 1: Delete from Firestore
-      console.log(`[AppContext] → Step 1: Deleting from Firestore...`);
-      await deleteUserDb(id);
-      console.log(`[AppContext] ✓ Step 1 complete: Firestore deletion verified`);
+      // Step 1: Cascade delete dependent records
+      console.log(`[AppContext] → Step 1: Deleting dependent records...`);
+      try {
+        const roleCount = await deleteUserRoleAssignments(id);
+        const leaveCount = await deleteUserLeaveRequests(id);
+        const checkInCount = await deleteUserCheckIns(id);
+        const tourCount = await deleteUserTourAssignments(id);
+        const taskCount = await deleteUserTasks(id);
 
-      // Step 2: Update local state immediately
-      console.log(`[AppContext] → Step 2: Updating local state...`);
+        const totalDependents = roleCount + leaveCount + checkInCount + tourCount + taskCount;
+        console.log(`[AppContext] ✓ Step 1 complete: Deleted ${totalDependents} dependent records`);
+        console.log(`[AppContext]   - Role assignments: ${roleCount}`);
+        console.log(`[AppContext]   - Leave requests: ${leaveCount}`);
+        console.log(`[AppContext]   - Check-ins: ${checkInCount}`);
+        console.log(`[AppContext]   - Tour assignments: ${tourCount}`);
+        console.log(`[AppContext]   - Tasks unassigned: ${taskCount}`);
+      } catch (cascadeErr) {
+        console.warn(`[AppContext] ⚠️ Warning: Some dependent records could not be deleted:`, cascadeErr);
+        // Continue with user deletion even if cascading delete fails
+      }
+
+      // Step 2: Delete user from Firestore
+      console.log(`[AppContext] → Step 2: Deleting user document...`);
+      await deleteUserDb(id);
+      console.log(`[AppContext] ✓ Step 2 complete: User document deleted`);
+
+      // Step 3: Update local state immediately
+      console.log(`[AppContext] → Step 3: Updating local state...`);
       const prevUsersCount = users.length;
       setUsers((prev) => {
         const filtered = prev.filter((u) => u.id !== id);
         const safe = getSafeUsers(filtered);
-        console.log(`[AppContext] ✓ Step 2 complete: Local state updated (${prevUsersCount} → ${safe.length} users)`);
+        console.log(`[AppContext] ✓ Step 3 complete: Local state updated (${prevUsersCount} → ${safe.length} users)`);
         return safe;
       });
 
-      // Step 3: Record in audit log
-      console.log(`[AppContext] → Step 3: Recording audit log...`);
+      // Step 4: Record in audit log
+      console.log(`[AppContext] → Step 4: Recording audit log...`);
       await insertAuditLog({
         actorId: 'admin',
         actorName,
@@ -290,7 +313,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         entityId: id,
         description: `Deleted user "${deletedUser.displayName}" (${deletedUser.username})`
       });
-      console.log(`[AppContext] ✓ Step 3 complete: Audit log recorded`);
+      console.log(`[AppContext] ✓ Step 4 complete: Audit log recorded`);
 
       console.log(`[AppContext] ✓✓✓ DELETION WORKFLOW COMPLETE - All systems verified\n`);
     } catch (err) {

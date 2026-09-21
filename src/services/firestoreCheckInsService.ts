@@ -27,7 +27,7 @@ export async function fetchCheckInsForDate(date: string) {
     const endOfDay = date + 'T23:59:59.999Z';
 
     const q = query(
-      collection(db, 'checkIns'),
+      collection(db, 'check_ins'),
       where('checkInAt', '>=', startOfDay),
       where('checkInAt', '<=', endOfDay),
       orderBy('checkInAt', 'desc')
@@ -50,7 +50,7 @@ export async function fetchRecentCheckIns(days = 7) {
     const sinceStr = since.toISOString();
 
     const q = query(
-      collection(db, 'checkIns'),
+      collection(db, 'check_ins'),
       where('checkInAt', '>=', sinceStr),
       orderBy('checkInAt', 'desc'),
       limit(500)
@@ -69,7 +69,7 @@ export async function fetchRecentCheckIns(days = 7) {
 export async function fetchUserCheckIns(userId: string, limit_: number = 50) {
   try {
     const q = query(
-      collection(db, 'checkIns'),
+      collection(db, 'check_ins'),
       where('userId', '==', userId),
       orderBy('checkInAt', 'desc'),
       limit(limit_)

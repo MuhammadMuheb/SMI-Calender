@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, writeBatch,
+  collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, query, where,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { StaffUser } from '../models/user';
@@ -199,6 +199,147 @@ export async function deleteUserDb(id: string): Promise<void> {
       console.error(`[Firestore Delete] Action: Deploy latest rules with: firebase deploy --only firestore:rules`);
     }
 
+    throw err;
+  }
+}
+
+/**
+ * Delete all role assignments for a user
+ * Called during user deletion to clean up dependent records
+ */
+export async function deleteUserRoleAssignments(userId: string): Promise<number> {
+  try {
+    console.log(`[Cascading Delete] Deleting role assignments for user: ${userId}`);
+    const q = query(collection(db, 'role_assignments'), where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      console.log(`[Cascading Delete] No role assignments found for user: ${userId}`);
+      return 0;
+    }
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+    await batch.commit();
+    console.log(`[Cascading Delete] ✓ Deleted ${snapshot.size} role assignments for user: ${userId}`);
+    return snapshot.size;
+  } catch (err) {
+    console.error(`[Cascading Delete] Error deleting role assignments:`, err);
+    throw err;
+  }
+}
+
+/**
+ * Delete all leave requests for a user
+ * Called during user deletion to clean up dependent records
+ */
+export async function deleteUserLeaveRequests(userId: string): Promise<number> {
+  try {
+    console.log(`[Cascading Delete] Deleting leave requests for user: ${userId}`);
+    const q = query(collection(db, 'leave_requests'), where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      console.log(`[Cascading Delete] No leave requests found for user: ${userId}`);
+      return 0;
+    }
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+    await batch.commit();
+    console.log(`[Cascading Delete] ✓ Deleted ${snapshot.size} leave requests for user: ${userId}`);
+    return snapshot.size;
+  } catch (err) {
+    console.error(`[Cascading Delete] Error deleting leave requests:`, err);
+    throw err;
+  }
+}
+
+/**
+ * Delete all check-ins for a user
+ * Called during user deletion to clean up dependent records
+ */
+export async function deleteUserCheckIns(userId: string): Promise<number> {
+  try {
+    console.log(`[Cascading Delete] Deleting check-ins for user: ${userId}`);
+    const q = query(collection(db, 'check_ins'), where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      console.log(`[Cascading Delete] No check-ins found for user: ${userId}`);
+      return 0;
+    }
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+    await batch.commit();
+    console.log(`[Cascading Delete] ✓ Deleted ${snapshot.size} check-ins for user: ${userId}`);
+    return snapshot.size;
+  } catch (err) {
+    console.error(`[Cascading Delete] Error deleting check-ins:`, err);
+    throw err;
+  }
+}
+
+/**
+ * Delete all tour assignments for a user
+ * Called during user deletion to clean up dependent records
+ */
+export async function deleteUserTourAssignments(userId: string): Promise<number> {
+  try {
+    console.log(`[Cascading Delete] Deleting tour assignments for user: ${userId}`);
+    const q = query(collection(db, 'tour_assignments'), where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      console.log(`[Cascading Delete] No tour assignments found for user: ${userId}`);
+      return 0;
+    }
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((docSnap) => {
+      batch.delete(docSnap.ref);
+    });
+    await batch.commit();
+    console.log(`[Cascading Delete] ✓ Deleted ${snapshot.size} tour assignments for user: ${userId}`);
+    return snapshot.size;
+  } catch (err) {
+    console.error(`[Cascading Delete] Error deleting tour assignments:`, err);
+    throw err;
+  }
+}
+
+/**
+ * Delete all task assignments for a user
+ * Called during user deletion to clean up dependent records
+ */
+export async function deleteUserTasks(userId: string): Promise<number> {
+  try {
+    console.log(`[Cascading Delete] Deleting task assignments for user: ${userId}`);
+    const q = query(collection(db, 'tasks'), where('assignedTo', '==', userId));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      console.log(`[Cascading Delete] No task assignments found for user: ${userId}`);
+      return 0;
+    }
+
+    // For tasks, we'll set assignedTo to null rather than delete (preserve audit trail)
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((docSnap) => {
+      batch.update(docSnap.ref, { assignedTo: null, updatedAt: new Date().toISOString() });
+    });
+    await batch.commit();
+    console.log(`[Cascading Delete] ✓ Unassigned ${snapshot.size} tasks for user: ${userId}`);
+    return snapshot.size;
+  } catch (err) {
+    console.error(`[Cascading Delete] Error updating task assignments:`, err);
     throw err;
   }
 }

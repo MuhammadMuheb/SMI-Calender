@@ -13,7 +13,7 @@ import InstallPrompt from './components/InstallPrompt';
 function AppInner() {
   const { user } = useAuth();
   return user ? (
-    <LanguageProvider userId={user.id}>
+    <LanguageProvider userId={user.id} username={user.username}>
       <AppDataProvider>
         <LeaveProvider>
           <SwapProvider>

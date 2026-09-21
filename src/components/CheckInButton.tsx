@@ -37,7 +37,7 @@ export default function CheckInButton({ userId, userName, userJobRoles, userRole
     setActiveCheckIn(null);
     try {
       const q = query(
-        collection(db, 'checkIns'),
+        collection(db, 'check_ins'),
         where('userId', '==', userId),
         where('checkOutAt', '==', null),
         orderBy('checkInAt', 'desc'),
@@ -76,7 +76,7 @@ export default function CheckInButton({ userId, userName, userJobRoles, userRole
     setActionLoading(true);
     setMessage(null);
     try {
-      const docRef = await addDoc(collection(db, 'checkIns'), {
+      const docRef = await addDoc(collection(db, 'check_ins'), {
         userId,
         locationId: location.id ?? '',
         locationName: location.name ?? 'Unknown',
@@ -120,7 +120,7 @@ export default function CheckInButton({ userId, userName, userJobRoles, userRole
       const officeLoc = snapshot.docs[0].data();
       const officeName = officeLoc.name ?? 'Office';
 
-      const docRef = await addDoc(collection(db, 'checkIns'), {
+      const docRef = await addDoc(collection(db, 'check_ins'), {
         userId,
         locationId: snapshot.docs[0].id,
         locationName: officeName,
@@ -161,7 +161,7 @@ export default function CheckInButton({ userId, userName, userJobRoles, userRole
         updateData.checkOutLat = latitude;
         updateData.checkOutLng = longitude;
       }
-      const checkInRef = doc(db, 'checkIns', activeCheckIn.id);
+      const checkInRef = doc(db, 'check_ins', activeCheckIn.id);
       await updateDoc(checkInRef, updateData);
       const label = activeCheckIn.isWfh ? 'WFH' : activeCheckIn.locationName;
       setMessage(`Checked out from ${label}`);

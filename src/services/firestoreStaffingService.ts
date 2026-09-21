@@ -6,7 +6,7 @@ import type { StaffingRule, StaffingEnforcement } from '../models/staffing';
 
 export async function fetchStaffingRules(): Promise<StaffingRule[]> {
   try {
-    const snapshot = await getDocs(collection(db, 'staffingRules'));
+    const snapshot = await getDocs(collection(db, 'staffing_rules'));
     return snapshot.docs.map((docSnap) => {
       const data = docSnap.data();
       return {
@@ -33,7 +33,7 @@ export async function insertStaffingRule(rule: {
   enforcement: string;
 }): Promise<string> {
   try {
-    const ruleRef = doc(db, 'staffingRules', rule.id);
+    const ruleRef = doc(db, 'staffing_rules', rule.id);
     await setDoc(ruleRef, {
       id: rule.id,
       jobRoleId: rule.jobRoleId,
@@ -59,7 +59,7 @@ export async function updateStaffingRuleDb(
     if ('enforcement' in updates) mapped.enforcement = updates.enforcement;
     if ('minimumRequired' in updates) mapped.minimumRequired = updates.minimumRequired;
 
-    const ruleRef = doc(db, 'staffingRules', id);
+    const ruleRef = doc(db, 'staffing_rules', id);
     await updateDoc(ruleRef, mapped);
   } catch (err) {
     console.error('updateStaffingRule:', err);
@@ -68,7 +68,7 @@ export async function updateStaffingRuleDb(
 
 export async function deleteStaffingRuleDb(id: string): Promise<void> {
   try {
-    const ruleRef = doc(db, 'staffingRules', id);
+    const ruleRef = doc(db, 'staffing_rules', id);
     await deleteDoc(ruleRef);
   } catch (err) {
     console.error('deleteStaffingRule:', err);

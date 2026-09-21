@@ -30,7 +30,7 @@ export async function fetchHolidays(): Promise<Holiday[]> {
 
 export async function fetchSpecialDays(): Promise<SpecialDay[]> {
   try {
-    const snapshot = await getDocs(collection(db, 'specialDays'));
+    const snapshot = await getDocs(collection(db, 'special_days'));
     return snapshot.docs.map((docSnap) => {
       const data = docSnap.data();
       return {
@@ -60,7 +60,7 @@ export async function insertSpecialDay(day: {
   createdBy: string;
 }): Promise<string> {
   try {
-    const dayRef = doc(db, 'specialDays', day.id);
+    const dayRef = doc(db, 'special_days', day.id);
     await setDoc(dayRef, {
       id: day.id,
       name: day.name,
@@ -80,7 +80,7 @@ export async function insertSpecialDay(day: {
 
 export async function deleteSpecialDayDb(id: string): Promise<void> {
   try {
-    const dayRef = doc(db, 'specialDays', id);
+    const dayRef = doc(db, 'special_days', id);
     await deleteDoc(dayRef);
   } catch (err) {
     console.error('deleteSpecialDay:', err);
