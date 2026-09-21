@@ -112,17 +112,27 @@ export async function deleteUserDb(id: string): Promise<void> {
     console.log(`[Firestore Delete] ✓ Found user: ${user.displayName} (username: ${user.username})`);
 
     // Step 2: Construct and validate document reference
-    const docId = user.username.toLowerCase();
-    const userRef = doc(db, 'users', docId);
-    console.log(`[Firestore Delete] Document reference: users/${docId}`);
+    // Handle both document ID formats: "username" and "usr_username"
+    let docId = user.username.toLowerCase();
+    console.log(`[Firestore Delete] Trying document ID: users/${docId}`);
 
-    // Step 3: Verify document exists before deletion
-    console.log(`[Firestore Delete] Verifying document exists before deletion...`);
-    const docSnapshot = await getDoc(userRef);
+    let userRef = doc(db, 'users', docId);
+    let docSnapshot = await getDoc(userRef);
+
+    // If not found with just username, try with usr_ prefix
+    if (!docSnapshot.exists()) {
+      docId = `usr_${user.username.toLowerCase()}`;
+      console.log(`[Firestore Delete] Document not found with username, trying: users/${docId}`);
+      userRef = doc(db, 'users', docId);
+      docSnapshot = await getDoc(userRef);
+    }
+
+    console.log(`[Firestore Delete] Using document ID: users/${docId}`);
+
+    // Step 3: Verify document exists (already checked above, but validate)
     if (!docSnapshot.exists()) {
       console.warn(`[Firestore Delete] ⚠️ WARNING: Document does not exist: users/${docId}`);
-      console.warn(`[Firestore Delete] This might indicate the user was already deleted or the path is incorrect`);
-      throw new Error(`Document not found before deletion: users/${docId}. User may have already been deleted.`);
+      throw new Error(`Document not found: users/${docId}`);
     }
     console.log(`[Firestore Delete] ✓ Document confirmed to exist: users/${docId}`);
 
