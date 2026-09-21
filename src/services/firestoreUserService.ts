@@ -266,21 +266,28 @@ export async function deleteUserTasks(userId: string): Promise<number> {
  * Delete all schedule entries for a user
  * CRITICAL: Prevents deleted users from appearing in calendar/tour views
  * Searches by displayName since schedules store guide name, not userId
+ * IMPORTANT: Must fetch user from Firestore directly (not through fetchUsers which filters)
  */
 export async function deleteUserSchedules(userId: string): Promise<number> {
   try {
-    const users = await fetchUsers();
-    const user = users.find((u) => u.id === userId);
-    if (!user) return 0;
+    // Query Firestore directly to get user - bypasses active filter to find user being deleted
+    const userSnap = await getDocs(query(collection(db, 'users'), where('id', '==', userId)));
+    if (userSnap.empty) return 0;
+
+    const user = userSnap.docs[0].data() as any;
+    const displayName = user.displayName || user.name;
+    if (!displayName) return 0;
 
     // Schedules reference users by displayName, not by ID
-    const q = query(collection(db, 'schedules'), where('guide', '==', user.displayName));
+    const q = query(collection(db, 'schedules'), where('guide', '==', displayName));
     const snapshot = await getDocs(q);
     if (snapshot.empty) return 0;
 
     const batch = writeBatch(db);
     snapshot.docs.forEach((docSnap) => batch.delete(docSnap.ref));
     await batch.commit();
+
+    console.log(`[Schedule Deletion] Deleted ${snapshot.size} schedule entries for user ${displayName}`);
     return snapshot.size;
   } catch (err) {
     console.error(`Error deleting schedules:`, err);
@@ -410,5 +417,52 @@ export async function deleteUserWithDataHandling(
     console.error(`${'═'.repeat(60)}\n`);
 
     throw err;
+  }
+}
+
+/**
+ * Clean up orphaned schedules (schedules that reference users no longer in the users collection)
+ * Runs periodically to maintain data integrity and prevent ghost entries
+ */
+export async function cleanupOrphanedSchedules(): Promise<number> {
+  try {
+    const allUsers = await getDocs(collection(db, 'users'));
+    const validUserNames = new Set(
+      allUsers.docs.map(doc => (doc.data().displayName || doc.data().name || '').toLowerCase())
+    );
+
+    const schedules = await getDocs(collection(db, 'schedules'));
+    const orphanedDocs: any[] = [];
+
+    schedules.docs.forEach(doc => {
+      const guide = (doc.data().guide || '').toLowerCase();
+      if (guide && !validUserNames.has(guide)) {
+        orphanedDocs.push(doc.ref);
+      }
+    });
+
+    if (orphanedDocs.length === 0) return 0;
+
+    // Delete in batches to respect Firestore limits
+    let batch = writeBatch(db);
+    let batchCount = 0;
+
+    orphanedDocs.forEach((docRef, idx) => {
+      batch.delete(docRef);
+      batchCount++;
+
+      // Commit every 500 deletions
+      if (batchCount === 500 || idx === orphanedDocs.length - 1) {
+        batch.commit();
+        batch = writeBatch(db);
+        batchCount = 0;
+      }
+    });
+
+    console.log(`[Orphan Cleanup] Deleted ${orphanedDocs.length} orphaned schedule entries`);
+    return orphanedDocs.length;
+  } catch (err) {
+    console.error(`Error cleaning up orphaned schedules:`, err);
+    return 0;
   }
 }
