@@ -7,12 +7,17 @@ export async function fetchTasksForDate(date: string) {
   try {
     const q = query(
       collection(db, 'tasks'),
-      where('date', '==', date),
-      orderBy('priority'),
-      orderBy('createdAt')
+      where('date', '==', date)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Sort in memory to avoid composite index requirement
+    return snapshot.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => {
+        const priorityDiff = (a.priority || 999) - (b.priority || 999);
+        if (priorityDiff !== 0) return priorityDiff;
+        return (a.createdAt || '').localeCompare(b.createdAt || '');
+      });
   } catch (error) {
     console.error('fetchTasksForDate:', error);
     return [];
@@ -23,14 +28,18 @@ export async function fetchTasksForUser(userId: string, startDate: string, endDa
   try {
     const q = query(
       collection(db, 'tasks'),
-      where('assignedTo', '==', userId),
-      where('date', '>=', startDate),
-      where('date', '<=', endDate),
-      orderBy('date', 'desc'),
-      orderBy('priority')
+      where('assignedTo', '==', userId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Filter and sort in memory to avoid composite index requirement
+    return snapshot.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(task => task.date >= startDate && task.date <= endDate)
+      .sort((a, b) => {
+        const dateDiff = (b.date || '').localeCompare(a.date || '');
+        if (dateDiff !== 0) return dateDiff;
+        return (a.priority || 999) - (b.priority || 999);
+      });
   } catch (error) {
     console.error('fetchTasksForUser:', error);
     return [];
@@ -40,14 +49,18 @@ export async function fetchTasksForUser(userId: string, startDate: string, endDa
 export async function fetchAllTasks(startDate: string, endDate: string) {
   try {
     const q = query(
-      collection(db, 'tasks'),
-      where('date', '>=', startDate),
-      where('date', '<=', endDate),
-      orderBy('date', 'desc'),
-      orderBy('priority')
+      collection(db, 'tasks')
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Filter and sort in memory to avoid composite index requirement
+    return snapshot.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(task => task.date >= startDate && task.date <= endDate)
+      .sort((a, b) => {
+        const dateDiff = (b.date || '').localeCompare(a.date || '');
+        if (dateDiff !== 0) return dateDiff;
+        return (a.priority || 999) - (b.priority || 999);
+      });
   } catch (error) {
     console.error('fetchAllTasks:', error);
     return [];
@@ -113,21 +126,23 @@ export async function completeGroupTasks(groupId: string, completedBy: string, c
 
 export async function markMissedTasks(beforeDate: string) {
   try {
-    const q = query(
-      collection(db, 'tasks'),
-      where('date', '<', beforeDate),
-      where('status', 'in', ['pending', 'in_progress'])
-    );
+    // Fetch all tasks and filter in memory to avoid composite index requirement
+    const q = query(collection(db, 'tasks'));
     const snapshot = await getDocs(q);
     const batch = writeBatch(db);
     const now = new Date().toISOString();
 
-    snapshot.docs.forEach(docSnap => {
-      batch.update(docSnap.ref, {
-        status: 'missed',
-        updatedAt: now,
+    snapshot.docs
+      .filter(docSnap => {
+        const data = docSnap.data();
+        return data.date < beforeDate && ['pending', 'in_progress'].includes(data.status);
+      })
+      .forEach(docSnap => {
+        batch.update(docSnap.ref, {
+          status: 'missed',
+          updatedAt: now,
+        });
       });
-    });
 
     await batch.commit();
   } catch (error) {
