@@ -344,25 +344,37 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   }, [requests, users]);
 
   const getUserRequests = useCallback(
-    (userId: string) => requests.filter((r) =>
-      r.userId === userId &&
-      users.find(u => u.id === r.userId && u.isActive)
-    ),
+    (userId: string) => {
+      const today = formatDateLocal(new Date());
+      return requests.filter((r) =>
+        r.userId === userId &&
+        r.date <= today && // CRITICAL: Only show requests for today or past dates, never future
+        users.find(u => u.id === r.userId && u.isActive)
+      );
+    },
     [requests, users],
   );
   const getPendingRequests = useCallback(
-    () => requests.filter((r) =>
-      r.status === 'pending' &&
-      r.userRef?.role === 'staff' &&
-      users.find(u => u.id === r.userId && u.isActive)
-    ),
+    () => {
+      const today = formatDateLocal(new Date());
+      return requests.filter((r) =>
+        r.status === 'pending' &&
+        r.userRef?.role === 'staff' &&
+        r.date <= today && // CRITICAL: Only show requests for today or past dates, never future
+        users.find(u => u.id === r.userId && u.isActive)
+      );
+    },
     [requests, users],
   );
   const getRequestsForDate = useCallback(
-    (date: string) => requests.filter((r) =>
-      r.date === date &&
-      users.find(u => u.id === r.userId && u.isActive)
-    ),
+    (date: string) => {
+      const today = formatDateLocal(new Date());
+      return requests.filter((r) =>
+        r.date === date &&
+        r.date <= today && // CRITICAL: Only show requests for today or past dates, never future
+        users.find(u => u.id === r.userId && u.isActive)
+      );
+    },
     [requests, users],
   );
 
