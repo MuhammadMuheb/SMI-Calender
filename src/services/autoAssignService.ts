@@ -6,6 +6,7 @@ import type { Holiday, SpecialDay } from '../models/holiday';
 import { checkStaffingForDate, wouldCauseShortage, getUserJobRoleIds, scopeStatusesToRoles } from './staffingService';
 import { formatDateLocal } from '../utils/dateUtils';
 import { ROLES } from '../config/roles';
+import { REGULAR_DAYS_OFF_PER_CYCLE } from '../models/validation';
 
 export interface AutoAssignResult {
   userId: string;
@@ -21,13 +22,10 @@ export interface AutoAssignPreview {
   warnings: string[];
 }
 
-/** Default regular days off per month per person */
-const DAYS_OFF_PER_MONTH = 6;
-
-/** Each user's quota = their override if set, else the default. */
+/** Each user's quota = their override if set, else the centralized default. */
 function quotaFor(user: StaffUser): number {
   const o = user.regularOverride;
-  return o != null && o >= 0 ? o : DAYS_OFF_PER_MONTH;
+  return o != null && o >= 0 ? o : REGULAR_DAYS_OFF_PER_CYCLE;
 }
 
 function getFirstSunday(year: number, month: number): string {

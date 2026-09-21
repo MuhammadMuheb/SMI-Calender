@@ -42,7 +42,7 @@ export default function StaffPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [selectedStaff, setSelectedStaff] = useState<StaffUser | null>(null);
-  const selectedBalance = selectedStaff ? getBalance(selectedStaff.id) : null;
+  const selectedBalance = selectedStaff ? getCycleBalance(selectedStaff.id) : null;
 
   const activeUsers = useMemo(() => users.filter((u) => u.isActive), [users]);
   const roleMap: Record<string, string> = {};
@@ -150,8 +150,21 @@ export default function StaffPage() {
           const role = u?.role ?? 'staff';
           const regularPct = (bal?.regularDaysAllowed ?? 0) > 0 ? Math.min(100, ((bal?.regularDaysUsed ?? 0) / (bal?.regularDaysAllowed ?? 1)) * 100) : 0;
           return (
-            <Card key={u?.id ?? Math.random()} onClick={() => setSelectedStaff(u)} style={{ cursor: 'pointer' }}>
-              <div className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <button
+              key={u?.id ?? Math.random()}
+              onClick={() => setSelectedStaff(u)}
+              style={{
+                cursor: 'pointer',
+                width: '100%',
+                textAlign: 'left',
+                border: 'none',
+                background: 'none',
+                padding: 0,
+              }}
+              className="hover:opacity-80 transition-opacity"
+            >
+              <Card>
+                <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
                   style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight }}>
                   {(displayName ?? '?')[0]?.toUpperCase() ?? '?'}
@@ -184,8 +197,9 @@ export default function StaffPage() {
                   </div>
                   {pendingCount > 0 && <Badge color="warning" size="xs">{pendingCount} pending</Badge>}
                 </div>
-              </div>
-            </Card>
+                </div>
+              </Card>
+            </button>
           );
         })}
       </div>

@@ -1,4 +1,4 @@
-import { Modal, Badge, LeaveAllowanceCard } from './ui';
+import { Modal, Badge } from './ui';
 import { theme } from '../config/theme';
 import { alpha } from '../utils/themeColor';
 import type { LeaveBalance } from '../models/balance';
@@ -17,21 +17,28 @@ export default function StaffLeaveDetailModal({
   staff,
   balance,
 }: StaffLeaveDetailModalProps) {
+  // Error boundary: render error state if data missing
+  if (open && (!staff || !balance)) {
+    return (
+      <Modal open={open} onClose={onClose} title="Leave Details">
+        <div className="p-4 text-center">
+          <p style={{ color: theme.colors.danger }}>Unable to load leave details. Please try again.</p>
+        </div>
+      </Modal>
+    );
+  }
+
   if (!staff || !balance) return null;
 
   const regularUsagePct = balance.regularDaysAllowed > 0
     ? Math.round((balance.regularDaysUsed / balance.regularDaysAllowed) * 100)
     : 0;
 
-  const vacationUsagePct = balance.vacationDaysTotal > 0
-    ? Math.round((balance.vacationDaysUsed / balance.vacationDaysTotal) * 100)
-    : 0;
-
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="Leave & Attendance Details"
+      title="Weekly Leave Balance"
     >
       <div className="space-y-4">
         {/* Staff Member Header */}
@@ -58,71 +65,34 @@ export default function StaffLeaveDetailModal({
           </Badge>
         </div>
 
-        {/* Monthly Vacation Balance */}
-        <div className="space-y-2">
-          <div>
-            <p className="text-xs font-semibold" style={{ color: theme.colors.white }}>
-              📅 Monthly Vacation Balance
-            </p>
-            <p className="text-[10px]" style={{ color: theme.colors.grayDark }}>
-              Accrues automatically • Never expires • Rolls over
-            </p>
-          </div>
-          <div
-            className="p-3 rounded-lg"
-            style={{ backgroundColor: theme.colors.bgCard, border: `1px solid ${theme.colors.border}` }}
-          >
-            <div className="flex items-end justify-between mb-2">
-              <div>
-                <p className="text-xs font-semibold" style={{ color: theme.colors.white }}>
-                  {balance.vacationDaysRemaining} of {balance.vacationDaysTotal} days remaining
-                </p>
-                <p className="text-[9px]" style={{ color: theme.colors.grayDark }}>
-                  {balance.vacationDaysUsed} days already used
-                </p>
-              </div>
-              <p className="text-2xl font-bold" style={{ color: theme.colors.warning }}>
-                {balance.vacationDaysRemaining}
-              </p>
-            </div>
-            {/* Visual progress bar */}
-            <div className="flex gap-2">
-              <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: theme.colors.secondary }}>
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${vacationUsagePct}%`,
-                    backgroundColor: theme.colors.warning,
-                  }}
-                />
-              </div>
-              <span className="text-[9px] font-semibold" style={{ color: theme.colors.grayDark }}>
-                {vacationUsagePct}%
-              </span>
-            </div>
-            <div className="mt-2 flex gap-2 text-[9px]" style={{ color: theme.colors.grayDark }}>
-              <span>Used: {balance.vacationDaysUsed}</span>
-              <span>•</span>
-              <span>Total: {balance.vacationDaysTotal}</span>
-            </div>
-          </div>
+        {/* Context Note - This is a Weekly View */}
+        <div
+          className="p-2.5 rounded-lg text-[9px]"
+          style={{ backgroundColor: alpha(theme.colors.secondary, '15'), border: `1px solid ${alpha(theme.colors.secondary, '30')}` }}
+        >
+          <p style={{ color: theme.colors.white }}>
+            <strong>📊 Current Cycle Status</strong>
+          </p>
+          <p style={{ color: theme.colors.grayDark }} className="mt-1">
+            {balance.cycleStart} to {balance.cycleEnd}
+          </p>
         </div>
 
-        {/* Weekly/Cycle Regular Days Balance */}
+        {/* Regular Days Off Balance - CYCLE ONLY */}
         <div className="space-y-2">
           <div>
             <p className="text-xs font-semibold" style={{ color: theme.colors.white }}>
-              📊 Weekly / Cycle Regular Days
+              📋 Regular Days Off (This Cycle)
             </p>
             <p className="text-[10px]" style={{ color: theme.colors.grayDark }}>
-              Resets each cycle • Current: {balance.cycleStart} to {balance.cycleEnd}
+              Resets at the end of each cycle
             </p>
           </div>
           <div
             className="p-3 rounded-lg"
             style={{ backgroundColor: theme.colors.bgCard, border: `1px solid ${theme.colors.border}` }}
           >
-            <div className="flex items-end justify-between mb-2">
+            <div className="flex items-end justify-between mb-3">
               <div>
                 <p className="text-xs font-semibold" style={{ color: theme.colors.white }}>
                   {balance.regularDaysRemaining} of {balance.regularDaysAllowed} days remaining
@@ -131,41 +101,57 @@ export default function StaffLeaveDetailModal({
                   {balance.regularDaysUsed} days already used
                 </p>
               </div>
-              <p className="text-2xl font-bold" style={{ color: theme.colors.primary }}>
+              <p className="text-3xl font-bold" style={{ color: theme.colors.primary }}>
                 {balance.regularDaysRemaining}
               </p>
             </div>
             {/* Visual progress bar */}
-            <div className="flex gap-2">
-              <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: theme.colors.secondary }}>
+            <div className="flex gap-2 items-center">
+              <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: theme.colors.secondary }}>
                 <div
-                  className="h-full rounded-full"
+                  className="h-full rounded-full transition-all"
                   style={{
                     width: `${regularUsagePct}%`,
                     backgroundColor: theme.colors.primary,
                   }}
                 />
               </div>
-              <span className="text-[9px] font-semibold" style={{ color: theme.colors.grayDark }}>
+              <span className="text-[9px] font-semibold w-8 text-right" style={{ color: theme.colors.grayDark }}>
                 {regularUsagePct}%
               </span>
-            </div>
-            <div className="mt-2 flex gap-2 text-[9px]" style={{ color: theme.colors.grayDark }}>
-              <span>Used: {balance.regularDaysUsed}</span>
-              <span>•</span>
-              <span>Allowed: {balance.regularDaysAllowed}</span>
             </div>
           </div>
         </div>
 
-        {/* Key Info Box */}
+        {/* Info Box */}
         <div
-          className="p-2.5 rounded-lg text-[9px]"
+          className="p-2.5 rounded-lg text-[9px] space-y-1"
           style={{ backgroundColor: alpha(theme.colors.primary, '10'), border: `1px solid ${alpha(theme.colors.primary, '30')}` }}
         >
           <p style={{ color: theme.colors.primaryLight }}>
-            <strong>ℹ️ Note:</strong> Vacation days accrue automatically at 2 days per month based on hire date.
-            Regular days reset each cycle. Approved leave requests automatically deduct from balances.
+            <strong>ℹ️ Weekly View:</strong>
+          </p>
+          <p style={{ color: theme.colors.primaryLight }}>
+            • This shows your current cycle status only
+          </p>
+          <p style={{ color: theme.colors.primaryLight }}>
+            • Regular days reset when the cycle ends
+          </p>
+          <p style={{ color: theme.colors.primaryLight }}>
+            • Approved leave requests automatically deduct from your balance
+          </p>
+        </div>
+
+        {/* Note about vacation balance */}
+        <div
+          className="p-2.5 rounded-lg text-[9px]"
+          style={{ backgroundColor: alpha(theme.colors.warning, '10'), border: `1px solid ${alpha(theme.colors.warning, '30')}` }}
+        >
+          <p style={{ color: theme.colors.warning }}>
+            <strong>💡 For Full Details:</strong>
+          </p>
+          <p style={{ color: theme.colors.grayDark }} className="mt-1">
+            View your complete leave balance (including monthly vacation accrual) in <strong>Admin Panel → Vacation Adjustments</strong>
           </p>
         </div>
       </div>
