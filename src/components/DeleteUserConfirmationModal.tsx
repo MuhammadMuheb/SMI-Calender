@@ -37,7 +37,18 @@ export default function DeleteUserConfirmationModal({
   return (
     <Modal open={open} onClose={onClose} title="Delete Staff Member">
       <div className="space-y-4">
-        <p className="text-sm" style={{ color: c.gray }}>
+        {isLoading && (
+          <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center z-50">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-10 h-10 border-3 border-transparent rounded-full animate-spin"
+                   style={{ borderTopColor: c.primary, borderRightColor: c.primary }}>
+              </div>
+              <p className="text-sm" style={{ color: c.white }}>Processing deletion...</p>
+            </div>
+          </div>
+        )}
+
+        <p className="text-sm" style={{ color: c.gray, opacity: isLoading ? 0.5 : 1 }}>
           You are about to delete <strong style={{ color: c.white }}>{user.displayName}</strong>.
           Choose what to do with their historical data:
         </p>
@@ -46,7 +57,8 @@ export default function DeleteUserConfirmationModal({
         <button
           type="button"
           onClick={() => setSelectedOption('hard_delete')}
-          className="w-full p-3 rounded-lg border-2 transition-all text-left cursor-pointer"
+          disabled={isLoading}
+          className="w-full p-3 rounded-lg border-2 transition-all text-left cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             borderColor: selectedOption === 'hard_delete' ? c.danger : c.border,
             backgroundColor: selectedOption === 'hard_delete' ? `${c.danger}15` : c.bgCard,
@@ -80,7 +92,8 @@ export default function DeleteUserConfirmationModal({
         <button
           type="button"
           onClick={() => setSelectedOption('soft_delete')}
-          className="w-full p-3 rounded-lg border-2 transition-all text-left cursor-pointer"
+          disabled={isLoading}
+          className="w-full p-3 rounded-lg border-2 transition-all text-left cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             borderColor: selectedOption === 'soft_delete' ? c.primary : c.border,
             backgroundColor: selectedOption === 'soft_delete' ? `${c.primary}15` : c.bgCard,
