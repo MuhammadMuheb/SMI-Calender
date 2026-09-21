@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ROLES, ROLE_LABELS, ROLE_BADGE_COLOR, type Role } from '../../config/roles';
 import { getDisplayName, getUserInitial } from '../../utils/safeFallbacks';
 import type { StaffUser } from '../../models/user';
+import DeleteUserConfirmationModal from '../../components/DeleteUserConfirmationModal';
 
 const ROLE_OPTIONS: Role[] = [ROLES.STAFF, ROLES.MANAGER, ROLES.SUPER_ADMIN, ROLES.SPECTATOR];
 
@@ -69,13 +70,15 @@ interface Props { onBack: () => void }
 export default function StaffManagement({ onBack }: Props) {
   const { user } = useAuth();
   const {
-    users, addUser, updateUser, deleteUser,
+    users, addUser, updateUser, deleteUser, deleteUserWithDataHandling,
     jobRoles, roleAssignments, assignRole, removeRoleAssignment,
   } = useAppData();
 
   const [showAdd, setShowAdd] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffUser | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<StaffUser | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteErrorMsg, setDeleteErrorMsg] = useState('');
 
   const [formName, setFormName] = useState('');
   const [formUsername, setFormUsername] = useState('');
@@ -85,7 +88,6 @@ export default function StaffManagement({ onBack }: Props) {
   const [formPrimaryRole, setFormPrimaryRole] = useState<string>('');
   const [formActive, setFormActive] = useState(true);
   const [formError, setFormError] = useState('');
-  const [deleteError, setDeleteError] = useState('');
 
   const actorName = user?.displayName ?? 'Admin';
 
@@ -164,66 +166,21 @@ export default function StaffManagement({ onBack }: Props) {
     setEditingStaff(null);
   };
 
-  const handleDelete = async (staff: StaffUser) => {
-    console.log(`\n${'═'.repeat(50)}`);
-    console.log(`DELETE WORKFLOW INITIATED`);
-    console.log(`${'═'.repeat(50)}`);
-    console.log(`Target: ${staff.displayName} (username: ${staff.username}, ID: ${staff.id})`);
-    setDeleteError('');
+  const handleDelete = async (staff: StaffUser, mode: 'hard_delete' | 'soft_delete') => {
+    setDeleteLoading(true);
+    setDeleteErrorMsg('');
 
     try {
-      // Step 1: Clean up role assignments
-      const userAssignments = roleAssignments.filter((a) => a.userId === staff.id);
-      console.log(`\n[UI] Step 1: Cleaning up role assignments (found ${userAssignments.length})`);
-
-      if (userAssignments.length > 0) {
-        const removePromises = userAssignments.map((a) => removeRoleAssignment(a.id, actorName));
-        await Promise.all(removePromises);
-        console.log(`[UI] ✓ All ${userAssignments.length} role assignments removed`);
-      } else {
-        console.log(`[UI] ✓ No role assignments to remove`);
-      }
-
-      // Step 2: Delete user from Firestore
-      console.log(`[UI] Step 2: Initiating Firestore deletion...`);
-      await deleteUser(staff.id, actorName);
-      console.log(`[UI] ✓ User deleted from Firestore`);
-
-      // Step 3: Close modal and complete
-      console.log(`[UI] Step 3: Closing confirmation dialog`);
+      await deleteUserWithDataHandling(staff.id, mode, actorName);
       setConfirmDelete(null);
-      console.log(`\n${'═'.repeat(50)}`);
-      console.log(`✓✓✓ DELETION WORKFLOW COMPLETE ✓✓✓`);
-      console.log(`Staff member "${staff.displayName}" has been permanently removed.`);
-      console.log(`${'═'.repeat(50)}\n`);
-
     } catch (err) {
-      console.error(`\n${'═'.repeat(50)}`);
-      console.error(`✗ DELETION WORKFLOW FAILED`);
-      console.error(`${'═'.repeat(50)}`);
-      console.error(`Staff: ${staff.displayName} (${staff.username})`);
-      console.error(`Error: ${(err as any)?.message || String(err)}`);
-      console.error(`Code: ${(err as any)?.code || 'N/A'}`);
-
-      if ((err as any)?.stack) {
-        console.error(`Stack:\n${(err as any).stack}`);
-      }
-
-      // User-friendly error message
-      let userMessage = `Failed to delete ${staff.displayName}`;
+      let userMessage = `Failed to ${mode === 'hard_delete' ? 'delete' : 'archive'} ${staff.displayName}`;
       if ((err as any)?.message) {
-        const msg = (err as any).message;
-        if (msg.includes('PERMISSION_DENIED') || msg.includes('security')) {
-          userMessage += ': Security rules are blocking deletion. Contact your admin.';
-        } else if (msg.includes('not found')) {
-          userMessage += ': User record not found in database.';
-        } else {
-          userMessage += `: ${msg}`;
-        }
+        userMessage += `: ${(err as any).message}`;
       }
-
-      setDeleteError(`❌ ${userMessage}`);
-      console.error(`${'═'.repeat(50)}\n`);
+      setDeleteErrorMsg(userMessage);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -399,14 +356,13 @@ export default function StaffManagement({ onBack }: Props) {
         {roleForm}
       </Modal>
 
-      <Modal open={!!confirmDelete} onClose={() => { setConfirmDelete(null); setDeleteError(''); }} title="Delete Staff Member"
-        footer={<><Button variant="outline" onClick={() => { setConfirmDelete(null); setDeleteError(''); }}>Cancel</Button>
-          <Button variant="secondary" onClick={() => confirmDelete && handleDelete(confirmDelete)}>Delete</Button></>}>
-        <p className="text-sm" style={{ color: theme.colors.gray }}>
-          This permanently deletes <strong style={{ color: theme.colors.white }}>{confirmDelete?.displayName}</strong> and their login access. Their past attendance and request history may be affected. This cannot be undone.
-        </p>
-        {deleteError && <p className="text-xs mt-3" style={{ color: theme.colors.danger }}>{deleteError}</p>}
-      </Modal>
+      <DeleteUserConfirmationModal
+        open={!!confirmDelete}
+        user={confirmDelete}
+        onClose={() => { setConfirmDelete(null); setDeleteErrorMsg(''); }}
+        onConfirm={(mode) => confirmDelete ? handleDelete(confirmDelete, mode) : Promise.resolve()}
+        error={deleteErrorMsg}
+      />
     </div>
   );
 }

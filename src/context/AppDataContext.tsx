@@ -14,6 +14,7 @@ import {
   fetchUsers, insertUser, updateUserDb, deleteUserDb,
   deleteUserRoleAssignments, deleteUserLeaveRequests, deleteUserCheckIns,
   deleteUserTourAssignments, deleteUserTasks,
+  deleteUserWithDataHandling as deleteUserService,
 } from '../services/firestoreUserService';
 import {
   fetchJobRoles, insertJobRole, updateJobRoleDb, deleteJobRoleDb,
@@ -48,6 +49,7 @@ interface AppDataContextValue {
   addUser: (user: Omit<StaffUser, 'id' | 'createdAt' | 'updatedAt'>, actorName: string) => Promise<string>;
   updateUser: (id: string, updates: Partial<StaffUser>, actorName: string) => void;
   deleteUser: (id: string, actorName: string) => void;
+  deleteUserWithDataHandling: (id: string, mode: 'hard_delete' | 'soft_delete', actorName: string) => Promise<void>;
   jobRoles: JobRole[];
   addJobRole: (role: Omit<JobRole, 'id' | 'createdAt' | 'updatedAt'>, actorName: string) => void;
   updateJobRole: (id: string, updates: Partial<JobRole>, actorName: string) => void;
@@ -266,6 +268,47 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
   }, [users]);
 
+  // Enhanced deletion with user choice: HARD DELETE (wipe all) or SOFT DELETE (archive)
+  const deleteUserWithDataHandling = useCallback(async (
+    id: string,
+    mode: 'hard_delete' | 'soft_delete',
+    actorName: string
+  ) => {
+    const targetUser = users.find((u) => u.id === id);
+    if (!targetUser) {
+      throw new Error(`User ${id} not found in local state`);
+    }
+
+    try {
+      // Call the service function that handles both deletion modes
+      await deleteUserService(id, mode);
+
+      if (mode === 'hard_delete') {
+        // Hard delete: remove user from state completely
+        setUsers((prev) => getSafeUsers(prev.filter((u) => u.id !== id)));
+      } else {
+        // Soft delete: mark as inactive in state
+        setUsers((prev) => getSafeUsers(
+          prev.map((u) => u.id === id ? { ...u, isActive: false } : u)
+        ));
+      }
+
+      // Log audit trail
+      insertAuditLog({
+        actorId: 'admin',
+        actorName,
+        action: mode === 'hard_delete' ? 'user_deleted_hard' : 'user_deleted_soft',
+        entityType: 'user',
+        entityId: id,
+        description: `${mode === 'hard_delete' ? 'Permanently deleted' : 'Archived'} user "${targetUser.displayName}" (${targetUser.username})`
+      }).catch(err => console.warn('Audit log failed:', err));
+
+    } catch (err) {
+      console.error(`User ${mode} deletion failed:`, err);
+      throw err;
+    }
+  }, [users]);
+
   // ─── Job Roles ───────────────────────────────────────
   const addJobRole = useCallback(async (role: Omit<JobRole, 'id' | 'createdAt' | 'updatedAt'>, actorName: string) => {
     const id = `role_${Date.now()}`;
@@ -366,7 +409,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(() => ({
-    loading, users, addUser, updateUser, deleteUser,
+    loading, users, addUser, updateUser, deleteUser, deleteUserWithDataHandling,
     jobRoles, addJobRole, updateJobRole, deleteJobRole,
     roleAssignments, assignRole, removeRoleAssignment,
     staffingRules, addStaffingRule, updateStaffingRule, deleteStaffingRule,
@@ -376,7 +419,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     notificationSettings, updateNotificationSettings: updateNotificationSettingsHandler,
     refreshData: loadData,
   }), [
-    loading, users, addUser, updateUser, deleteUser,
+    loading, users, addUser, updateUser, deleteUser, deleteUserWithDataHandling,
     jobRoles, addJobRole, updateJobRole, deleteJobRole,
     roleAssignments, assignRole, removeRoleAssignment,
     staffingRules, addStaffingRule, updateStaffingRule, deleteStaffingRule,

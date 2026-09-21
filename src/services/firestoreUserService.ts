@@ -226,3 +226,124 @@ export async function deleteUserTasks(userId: string): Promise<number> {
     return 0;
   }
 }
+
+/**
+ * ENHANCED DELETION: Supports both HARD DELETE (wipe all data) and SOFT DELETE (archive account)
+ *
+ * Hard Delete: Permanently removes user and ALL associated data
+ * - Deletes user account from users collection
+ * - Deletes all leave requests
+ * - Deletes all role assignments
+ * - Deletes all check-ins
+ * - Deletes all tour assignments
+ * - Clears task assignments
+ *
+ * Soft Delete: Deactivates account but retains data (hidden from active views)
+ * - Marks user as isActive = false
+ * - Data stays in database but filtered out by active queries
+ * - Audit trail preserved for compliance
+ */
+export async function deleteUserWithDataHandling(
+  userId: string,
+  mode: 'hard_delete' | 'soft_delete'
+): Promise<{ success: boolean; deletedCounts: Record<string, number>; message: string }> {
+  try {
+    const users = await fetchUsers();
+    const user = users.find((u) => u.id === userId);
+
+    if (!user) {
+      throw new Error(`User with ID "${userId}" not found`);
+    }
+
+    console.log(`\n${'═'.repeat(60)}`);
+    console.log(`USER DELETION - ${mode.toUpperCase()}`);
+    console.log(`${'═'.repeat(60)}`);
+    console.log(`User: ${user.displayName} (${user.username}, ID: ${user.id})`);
+    console.log(`Mode: ${mode === 'hard_delete' ? '🗑️ PERMANENT DELETE' : '📦 ARCHIVE (SOFT DELETE)'}`);
+
+    const deletedCounts: Record<string, number> = {
+      user: 0,
+      leaveRequests: 0,
+      roleAssignments: 0,
+      checkIns: 0,
+      tourAssignments: 0,
+      tasks: 0,
+    };
+
+    if (mode === 'hard_delete') {
+      // HARD DELETE: Remove all traces of the user
+      console.log(`\n[HARD DELETE] Initiating complete purge...`);
+
+      // Delete in parallel for efficiency
+      const [leaveCount, roleCount, checkinCount, tourCount, taskCount] = await Promise.all([
+        deleteUserLeaveRequests(userId),
+        deleteUserRoleAssignments(userId),
+        deleteUserCheckIns(userId),
+        deleteUserTourAssignments(userId),
+        deleteUserTasks(userId),
+      ]);
+
+      deletedCounts.leaveRequests = leaveCount;
+      deletedCounts.roleAssignments = roleCount;
+      deletedCounts.checkIns = checkinCount;
+      deletedCounts.tourAssignments = tourCount;
+      deletedCounts.tasks = taskCount;
+
+      console.log(`[HARD DELETE] Associated data purged:`);
+      console.log(`  ✓ Leave requests: ${leaveCount}`);
+      console.log(`  ✓ Role assignments: ${roleCount}`);
+      console.log(`  ✓ Check-ins: ${checkinCount}`);
+      console.log(`  ✓ Tour assignments: ${tourCount}`);
+      console.log(`  ✓ Tasks unassigned: ${taskCount}`);
+
+      // Finally, delete the user document
+      console.log(`[HARD DELETE] Deleting user document...`);
+      await deleteUserDb(userId);
+      deletedCounts.user = 1;
+      console.log(`  ✓ User document deleted`);
+
+      console.log(`\n${'═'.repeat(60)}`);
+      console.log(`✓ HARD DELETE COMPLETE`);
+      console.log(`User "${user.displayName}" and ALL associated data permanently removed.`);
+      console.log(`${'═'.repeat(60)}\n`);
+
+      return {
+        success: true,
+        deletedCounts,
+        message: `Permanently deleted "${user.displayName}" and all associated data (${Object.values(deletedCounts).reduce((a, b) => a + b, 0)} records removed).`,
+      };
+    } else {
+      // SOFT DELETE: Just mark as inactive (data remains but hidden)
+      console.log(`\n[SOFT DELETE] Marking account as inactive...`);
+
+      const userRef = doc(db, 'users', user.username.toLowerCase());
+      await updateDoc(userRef, {
+        isActive: false,
+        updatedAt: new Date().toISOString(),
+      });
+
+      deletedCounts.user = 1;
+      console.log(`  ✓ User marked as inactive`);
+      console.log(`  ✓ Historical data retained and archived`);
+
+      console.log(`\n${'═'.repeat(60)}`);
+      console.log(`✓ SOFT DELETE COMPLETE`);
+      console.log(`Account "${user.displayName}" archived. Data retained for records.`);
+      console.log(`${'═'.repeat(60)}\n`);
+
+      return {
+        success: true,
+        deletedCounts,
+        message: `Archived account "${user.displayName}". Historical data retained and hidden from active views.`,
+      };
+    }
+  } catch (err) {
+    console.error(`\n${'═'.repeat(60)}`);
+    console.error(`✗ USER DELETION FAILED - ${mode.toUpperCase()}`);
+    console.error(`${'═'.repeat(60)}`);
+    console.error(`Error: ${(err as any)?.message || String(err)}`);
+    console.error(`${'═'.repeat(60)}\n`);
+
+    throw err;
+  }
+}
