@@ -35,6 +35,11 @@ export function useCalendarData(
     [users],
   );
 
+  const activeUserDisplayNames = useMemo(
+    () => users.filter((u) => u.isActive).map((u) => u.displayName),
+    [users],
+  );
+
   const summaries = useMemo(
     () =>
       buildMonthSummaries(
@@ -48,8 +53,9 @@ export function useCalendarData(
         roleAssignments,
         roleNames,
         schedules,
+        activeUserDisplayNames, // CRITICAL: Pass active user names for filtering
       ),
-    [year, month, leaveRequests, totalStaff, holidays, specialDays, staffingRules, roleAssignments, roleNames, schedules],
+    [year, month, leaveRequests, totalStaff, holidays, specialDays, staffingRules, roleAssignments, roleNames, schedules, activeUserDisplayNames],
   );
 
   const summaryMap = useMemo(() => {

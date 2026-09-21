@@ -28,6 +28,7 @@ export function buildMonthSummaries(
   roleAssignments: StaffRoleAssignment[],
   roleNames: Record<string, string>,
   schedules: Schedule[] = [],
+  activeUserNames: string[] = [], // CRITICAL: List of active user display names
 ): DaySummary[] {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const summaries: DaySummary[] = [];
@@ -44,8 +45,15 @@ export function buildMonthSummaries(
     const isSpecialDay = specialDays.some((s) => s.date === dateStr);
 
     // Get scheduled guides for this date
+    // CRITICAL: Filter to only ACTIVE users - deleted users should never appear
     const daySchedules = schedules.filter((s) => s.date === dateStr);
-    const scheduledGuides = [...new Set(daySchedules.map((s) => s.guide))].sort();
+    const scheduledGuides = [
+      ...new Set(
+        daySchedules
+          .map((s) => s.guide)
+          .filter((guide) => activeUserNames.includes(guide)) // Only include active users
+      ),
+    ].sort();
 
     const onDuty = totalStaff - approvedLeaves;
 
