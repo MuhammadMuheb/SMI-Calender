@@ -38,21 +38,30 @@ export default function CalendarPage() {
   const [manageDate, setManageDate] = useState<string | null>(null);
   const [showRequestForm, setShowRequestForm] = useState(false);
 
+  // CRITICAL: Calendar only shows APPROVED requests, never pending
+  // Business logic: Unapproved requests should not affect calendar status
+  // until explicitly approved by admin/manager
   const userOffDates = useMemo(() => {
     if (!user) return new Set<string>();
+    // Filter ONLY approved requests - pending requests do NOT show on calendar
     return new Set(requests.filter((r) => r.userId === user.id && r.status === 'approved').map((r) => r.date));
   }, [requests, user]);
 
+  // CRITICAL: Calendar indicators only reflect APPROVED leave, not pending
+  // Pending requests are hidden until manager approves them
   const hasLeaveDates = useMemo(() => {
     const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
     const dates = new Set<string>();
     for (const r of requests) {
+      // APPROVED ONLY - pending requests do not show on calendar
       if (r.status === 'approved' && r.date.startsWith(monthPrefix)) dates.add(r.date);
     }
     return dates;
   }, [requests, year, month]);
 
-  // Compute staffing level per day
+  // CRITICAL: Staffing calculations only use APPROVED leave requests
+  // Pending requests do NOT affect staffing levels until approved
+  // This ensures accurate real-time staffing visibility
   const staffingMap = useMemo(() => {
     const map = new Map<string, 'good' | 'exact' | 'low'>();
     if (staffingRules.length === 0) return map;
@@ -61,6 +70,7 @@ export default function CalendarPage() {
     for (const r of jobRoles) roleNames[r.id] = r.name;
 
     const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
+    // Only use APPROVED requests for staffing - pending are not yet confirmed
     const monthApproved = requests.filter(r => r.status === 'approved' && r.date.startsWith(monthPrefix));
 
     for (const tile of grid) {
