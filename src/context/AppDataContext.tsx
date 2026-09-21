@@ -97,35 +97,27 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       // Wrap each fetch in its own try-catch to prevent one failure from crashing all
-      console.log('[AppDataContext] Starting loadData...');
       const u = await fetchUsers().catch(err => {
-        console.error('[CRITICAL] fetchUsers error:', err);
-        console.error('[CRITICAL] Error code:', (err as any)?.code);
-        console.error('[CRITICAL] Error message:', (err as any)?.message);
+        console.error('fetchUsers error:', err);
         return [];
       });
-      console.log('[AppDataContext] Fetched users:', u.length);
       let jr: JobRole[] = await fetchJobRoles().catch(err => {
         console.error('fetchJobRoles error:', err);
         return [] as JobRole[];
       });
 
-      // Seed default job roles if empty
       if (jr.length === 0) {
-        console.log('No job roles found in Firestore, seeding defaults...');
         const defaultRoles: JobRole[] = [
           { id: 'role_checkin', name: 'Check In', color: '#3B82F6', isHidden: false, shiftStartTime: '08:00', shiftEndTime: '17:00', createdAt: now(), updatedAt: now() },
           { id: 'role_backoffice', name: 'Back Office', color: '#F59E0B', isHidden: false, shiftStartTime: '09:00', shiftEndTime: '18:00', createdAt: now(), updatedAt: now() },
           { id: 'role_backoffice_extra', name: 'Back Office Extra', color: '#EA580C', isHidden: false, shiftStartTime: '09:00', shiftEndTime: '18:00', createdAt: now(), updatedAt: now() },
           { id: 'role_office', name: 'Office', color: '#8B5CF6', isHidden: false, shiftStartTime: '08:00', shiftEndTime: '17:00', createdAt: now(), updatedAt: now() },
         ];
-
         try {
           for (const role of defaultRoles) {
-            await insertJobRole({ id: role.id, name: role.name, color: role.color, isHidden: role.isHidden, shiftStart: role.shiftStartTime, shiftEnd: role.shiftEndTime }).catch(err => console.warn(`Failed to insert role ${role.id}:`, err));
+            await insertJobRole({ id: role.id, name: role.name, color: role.color, isHidden: role.isHidden, shiftStart: role.shiftStartTime, shiftEnd: role.shiftEndTime }).catch(() => null);
           }
           jr = defaultRoles;
-          console.log('✓ Successfully seeded default job roles');
         } catch (seedErr) {
           console.error('Failed to seed job roles:', seedErr);
         }
@@ -158,34 +150,21 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         console.error('fetchSchedules error:', err);
         return [];
       });
-      // Use bulletproof validation - GUARANTEED to never be undefined
       const validatedUsers = validateUsers(Array.isArray(u) ? u : SAFE_EMPTY_USERS);
       setUsers(validatedUsers);
       setJobRoles(Array.isArray(jr) ? jr : []);
       let finalRoleAssignments = Array.isArray(ra) ? ra : [];
 
-      // Auto-restore role assignments if empty (migration/recovery)
       if (finalRoleAssignments.length === 0) {
-        console.log('AppDataContext: No role assignments in Firestore, restoring from backup...');
         try {
           const response = await fetch('./role-assignments-from-supabase.json');
           if (response.ok) {
             const backupAssignments = await response.json();
-            const insertedCount = await Promise.all(
-              backupAssignments.map((assignment: any) =>
-                insertRoleAssignment(assignment).catch((err: any) => {
-                  console.warn(`Failed to restore role assignment ${assignment.id}:`, err);
-                  return null;
-                })
-              )
-            ).then(results => results.filter(Boolean).length);
-            console.log(`✓ Restored ${insertedCount} role assignments from backup`);
+            await Promise.all(backupAssignments.map((assignment: any) => insertRoleAssignment(assignment).catch(() => null)));
             finalRoleAssignments = backupAssignments;
-          } else {
-            console.log('Backup file not available, continuing without role assignments');
           }
         } catch (err) {
-          console.warn('Could not restore role assignments:', err);
+          console.error('Could not restore role assignments:', err);
         }
       }
 
@@ -196,40 +175,17 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       setNotificationSettings(ns || { dailyReminderTime: '14:00', dailyReminderEnabled: true, updatedAt: '', updatedBy: '' });
       setTourAssignments(Array.isArray(ta) ? ta : []);
       const scheduleData = Array.isArray(sched) ? sched : [];
-      console.log(`AppDataContext: Loaded ${scheduleData.length} schedules from Firestore`);
-      console.log(`AppDataContext: Loaded ${Array.isArray(u) ? u.length : 0} users from Firestore`);
       setSchedules(scheduleData);
 
-      // Auto-import schedules if none exist
-      if (scheduleData.length === 0) {
-        console.log(`AppDataContext: No schedules in Firestore, checking for local data...`);
-        console.log(`August schedules available: ${augustSchedules.length}, September: ${septemberSchedules.length}`);
-
-        if (augustSchedules.length > 0 || septemberSchedules.length > 0) {
-          try {
+      if (scheduleData.length === 0 && (augustSchedules.length > 0 || septemberSchedules.length > 0)) {
+        try {
           const allSchedules = [...augustSchedules, ...septemberSchedules];
-          console.log(`Attempting to auto-import ${allSchedules.length} schedule entries...`);
-          console.log('Sample entries:', allSchedules.slice(0, 3));
-
-          if (!allSchedules || allSchedules.length === 0) {
-            console.error('Schedule data is invalid or empty');
-            return;
+          if (allSchedules && allSchedules.length > 0) {
+            setSchedules(allSchedules);
+            await insertSchedulesBatch(allSchedules).catch(err => console.error('Failed to save schedules:', err));
           }
-
-          // Set local state first so it renders even if Firestore fails
-          setSchedules(allSchedules);
-          console.log(`AppDataContext: Set local schedules state (${allSchedules.length} entries)`);
-
-          // Then attempt to save to Firestore
-          try {
-            await insertSchedulesBatch(allSchedules);
-            console.log(`✓ AppDataContext: Successfully saved ${allSchedules.length} schedules to Firestore`);
-          } catch (firestoreErr) {
-            console.warn(`⚠ AppDataContext: Firestore save failed, but local data is available`);
-          }
-          } catch (importErr) {
-            console.error('✗ AppDataContext: Failed to auto-import schedules:', importErr);
-          }
+        } catch (importErr) {
+          console.error('Failed to auto-import schedules:', importErr);
         }
       }
     } catch (err) {
