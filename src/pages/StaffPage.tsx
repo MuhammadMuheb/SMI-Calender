@@ -7,6 +7,8 @@ import { useLeave } from '../context/LeaveContext';
 import { ROLE_LABELS, ROLE_BADGE_COLOR } from '../config/roles';
 import { getCurrentCycle, getWeekNumberInCycle } from '../utils/cycleUtils';
 import { todayStr, formatDateLocal } from '../utils/dateUtils';
+import StaffLeaveDetailModal from '../components/StaffLeaveDetailModal';
+import type { StaffUser } from '../models/user';
 
 const ATTENDANCE_WINDOW_DAYS = 30;
 
@@ -35,10 +37,12 @@ type StatusFilter = 'all' | 'active' | 'on_leave';
 
 export default function StaffPage() {
   const { users, roleAssignments, jobRoles } = useAppData();
-  const { requests, getCycleBalance, getUserRequests } = useLeave();
+  const { requests, getCycleBalance, getUserRequests, getBalance } = useLeave();
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [selectedStaff, setSelectedStaff] = useState<StaffUser | null>(null);
+  const selectedBalance = selectedStaff ? getBalance(selectedStaff.id) : null;
 
   const activeUsers = useMemo(() => users.filter((u) => u.isActive), [users]);
   const roleMap: Record<string, string> = {};
@@ -146,8 +150,8 @@ export default function StaffPage() {
           const role = u?.role ?? 'staff';
           const regularPct = (bal?.regularDaysAllowed ?? 0) > 0 ? Math.min(100, ((bal?.regularDaysUsed ?? 0) / (bal?.regularDaysAllowed ?? 1)) * 100) : 0;
           return (
-            <Card key={u?.id ?? Math.random()}>
-              <div className="flex items-center gap-3">
+            <Card key={u?.id ?? Math.random()} onClick={() => setSelectedStaff(u)} style={{ cursor: 'pointer' }}>
+              <div className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
                   style={{ backgroundColor: alpha(theme.colors.primary, '20'), color: theme.colors.primaryLight }}>
                   {(displayName ?? '?')[0]?.toUpperCase() ?? '?'}
@@ -185,6 +189,13 @@ export default function StaffPage() {
           );
         })}
       </div>
+
+      <StaffLeaveDetailModal
+        open={selectedStaff !== null}
+        onClose={() => setSelectedStaff(null)}
+        staff={selectedStaff}
+        balance={selectedBalance}
+      />
     </div>
   );
 }
