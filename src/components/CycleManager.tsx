@@ -62,37 +62,33 @@ export default function CycleManager() {
         }, 3000);
       }
 
-      // 3. Last week (week 4) → auto-assign unfilled days for NEXT cycle (future dates)
+      // 3. Last week (week 4) → notify about auto-assignment but do NOT create entries
+      // Only show real user-submitted requests, no ghost/auto entries for future dates
       if (info.week >= 4 && lastAutoAssign < info.cycleIndex) {
-        setTimeout(async () => {
+        setTimeout(() => {
           try {
             const roleNames: Record<string, string> = {};
             for (const r of jobRoles) roleNames[r.id] = r.name;
 
-            // Auto-assign for the NEXT cycle — these are future dates
+            // Preview auto-assignment for next cycle but do NOT submit
             const preview = runAutoAssignment(users, requests, staffingRules, roleAssignments,
               holidays, specialDays, roleNames, info.nextStart, info.nextEnd);
 
             if (preview.totalAssigned > 0) {
-              for (const a of preview.assignments) {
-                const u = users.find(x => x.id === a.userId);
-                if (!u) continue;
-                await submitRequest(a.userId,
-                  { id: a.userId, displayName: a.userName, role: u.role as 'staff' | 'manager' | 'super_admin' },
-                  a.date, 'regular_day_off', 'Auto-assigned (deadline passed)', true);
-              }
+              // Notify users about what WOULD be auto-assigned if they don't request
               const affected = [...new Set(preview.assignments.map(a => a.userId))];
               for (const uid of affected) {
                 const days = preview.assignments.filter(a => a.userId === uid).length;
-                addNotification(uid, 'new_request_pending', '🔄 Days Auto-Assigned',
-                  `System auto-assigned ${days} day(s) off for ${nextLabel} (not requested before deadline).`);
+                addNotification(uid, 'new_request_pending', '⏰ Auto-Assign Deadline',
+                  `${days} day(s) will be automatically assigned for ${nextLabel} if not requested by deadline (last day of this cycle).`);
               }
-              await insertAuditLog({ actorId: 'system', actorName: 'System',
-                action: 'auto_assignment_run', entityType: 'auto_assignment', entityId: 'cycle_deadline',
-                description: `Auto-assign for ${nextLabel}: ${preview.totalAssigned} days across ${affected.length} people` });
+              // Log the planned assignment (for transparency) but do NOT create entries
+              insertAuditLog({ actorId: 'system', actorName: 'System',
+                action: 'auto_assignment_preview', entityType: 'auto_assignment', entityId: 'cycle_deadline',
+                description: `Auto-assign planned for ${nextLabel}: ${preview.totalAssigned} days would affect ${affected.length} people (not yet submitted)` });
             }
             localStorage.setItem('smi_last_auto_assign', String(info.cycleIndex));
-          } catch (e) { console.error('CycleManager: auto-assign error', e); }
+          } catch (e) { console.error('CycleManager: auto-assign preview error', e); }
         }, 5000);
       }
 
