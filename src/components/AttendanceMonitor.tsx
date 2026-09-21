@@ -14,14 +14,17 @@ export default function AttendanceMonitor({ userRole }: AttendanceMonitorProps) 
     if (hasRun.current) return;
     hasRun.current = true;
 
+    const today = new Date().toISOString().split('T')[0];
+
     // Run immediately
-    sendLateAlerts().catch(() => {});
-    sendCheckoutReminders().catch(() => {});
+    sendLateAlerts(today).catch(() => {});
+    sendCheckoutReminders(today).catch(() => {});
 
     // Then every 30 minutes
     const interval = setInterval(() => {
-      sendLateAlerts().catch(() => {});
-      sendCheckoutReminders().catch(() => {});
+      const currentDate = new Date().toISOString().split('T')[0];
+      sendLateAlerts(currentDate).catch(() => {});
+      sendCheckoutReminders(currentDate).catch(() => {});
     }, 30 * 60 * 1000);
 
     return () => clearInterval(interval);

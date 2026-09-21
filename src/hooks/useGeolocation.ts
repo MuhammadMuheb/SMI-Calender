@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getDocs, collection } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export interface Location {
   id: string;
@@ -43,8 +45,23 @@ export function useGeolocation(userJobRoles: string[], autoWatch = true) {
 
   useEffect(() => {
     async function fetchLocations() {
-      // TODO: Migrate to Firestore
-      locationsRef.current = [];
+      try {
+        const snapshot = await getDocs(collection(db, 'locations'));
+        const locations = snapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name || '',
+          address: doc.data().address || null,
+          latitude: doc.data().latitude || 0,
+          longitude: doc.data().longitude || 0,
+          radius_meters: doc.data().radius_meters || 100,
+          allowed_roles: doc.data().allowed_roles || [],
+        }));
+        locationsRef.current = locations;
+        setState(prev => ({ ...prev, allLocations: locations }));
+      } catch (error) {
+        console.error('Failed to fetch locations:', error);
+        locationsRef.current = [];
+      }
     }
     fetchLocations();
   }, []);

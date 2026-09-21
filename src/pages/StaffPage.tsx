@@ -9,6 +9,7 @@ import { getCurrentCycle, getWeekNumberInCycle } from '../utils/cycleUtils';
 import { todayStr, formatDateLocal } from '../utils/dateUtils';
 import StaffLeaveDetailModal from '../components/StaffLeaveDetailModal';
 import type { StaffUser } from '../models/user';
+import { fetchRecentCheckIns } from '../services/firestoreCheckInsService';
 
 const ATTENDANCE_WINDOW_DAYS = 30;
 
@@ -19,14 +20,39 @@ function useCheckInDayCounts(userIds: string[]) {
   useEffect(() => {
     if (userIds.length === 0) return;
     let cancelled = false;
-    const since = new Date();
-    since.setDate(since.getDate() - ATTENDANCE_WINDOW_DAYS);
 
-    // TODO: Migrate to Firestore check-ins query
-    const result: Record<string, number> = {};
-    for (const id of userIds) result[id] = 0;
-    setCounts(result);
+    const loadCheckIns = async () => {
+      try {
+        const checkIns = await fetchRecentCheckIns(ATTENDANCE_WINDOW_DAYS);
 
+        // Count distinct check-in days per user
+        const result: Record<string, number> = {};
+        for (const id of userIds) result[id] = 0;
+
+        const userCheckInDays = new Map<string, Set<string>>();
+        for (const checkIn of checkIns) {
+          if (!userCheckInDays.has(checkIn.userId)) {
+            userCheckInDays.set(checkIn.userId, new Set());
+          }
+          // Extract date from checkInAt (YYYY-MM-DD from ISO string)
+          const dateStr = checkIn.checkInAt.split('T')[0];
+          userCheckInDays.get(checkIn.userId)!.add(dateStr);
+        }
+
+        for (const [userId, dates] of userCheckInDays) {
+          result[userId] = dates.size;
+        }
+
+        if (!cancelled) setCounts(result);
+      } catch (error) {
+        console.error('Error loading check-ins:', error);
+        const result: Record<string, number> = {};
+        for (const id of userIds) result[id] = 0;
+        if (!cancelled) setCounts(result);
+      }
+    };
+
+    loadCheckIns();
     return () => { cancelled = true; };
   }, [userIds.join(',')]);
 

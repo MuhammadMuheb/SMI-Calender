@@ -163,7 +163,7 @@ export function checkDepartmentCoverageWarning(
   ).length;
 
   const remaining = usersInDept.length - onLeave;
-  const coveragePercentage = (remaining / usersInDept.length) * 100;
+  const coveragePercentage = usersInDept.length > 0 ? (remaining / usersInDept.length) * 100 : 0;
 
   return {
     warning: coveragePercentage < minimumCoveragePercentage,

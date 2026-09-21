@@ -1,4 +1,5 @@
-// TODO: Migrate push subscriptions to Firestore
+import { setDoc, doc, collection } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 const VAPID_PUBLIC_KEY = 'BKLKHNr-4AE6fR0ZwNOqMC9oD8SfaInfzkus_ORrorTyfp16YUY_GT9hqtRhlqGT-ikfcXcI31zj2tMgxwyYyO0';
 
@@ -35,8 +36,20 @@ export async function subscribeToPush(userId: string): Promise<{ ok: boolean; er
       }
     }
 
-    // TODO: Save subscription to Firestore instead of Supabase
-    console.log('Push subscription created - TODO: save to Firestore');
+    // Save subscription to Firestore
+    try {
+      const subscriptionData = {
+        endpoint: subscription.endpoint,
+        auth: subscription.getKey('auth'),
+        p256dh: subscription.getKey('p256dh'),
+        userId,
+        createdAt: new Date().toISOString(),
+      };
+      await setDoc(doc(collection(db, 'push_subscriptions'), userId), subscriptionData);
+    } catch (firestoreErr) {
+      console.error('Failed to save subscription to Firestore:', firestoreErr);
+      return { ok: false, error: 'Failed to save subscription' };
+    }
 
     return { ok: true };
   } catch (err) {
