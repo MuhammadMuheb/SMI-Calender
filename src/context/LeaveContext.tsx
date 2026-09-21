@@ -135,27 +135,39 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     const staffingErr = checkStaffingBeforeSubmit(normalizedDate, userId, requests, staffingRules, roleAssignments, jobRoles);
     if (staffingErr) return staffingErr;
 
+    // Create the properly-structured LeaveRequest that will be saved to Firestore
+    const nowIso = new Date().toISOString();
+    const requestToSave: LeaveRequest = {
+      id: `temp_${Date.now()}`, // Will be replaced by Firestore doc ID
+      userId,
+      userRef,
+      date: normalizedDate,
+      leaveType,
+      status: autoApprove ? 'approved' : 'pending',
+      staffNote: note,
+      approverNote: '',
+      decidedBy: null,
+      decidedAt: null,
+      isOverridden: false,
+      overriddenBy: null,
+      overriddenAt: null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
     let id: string;
     try {
-      id = await insertLeaveRequest({
-        userId,
-        userDisplayName: userRef.displayName,
-        userRole: userRef.role,
-        type: leaveType,
-        date: normalizedDate,
-        reason: note,
-      });
+      console.log('[SUBMIT] Saving to Firestore with proper structure:', requestToSave);
+      id = await insertLeaveRequest(requestToSave);
+      console.log('[SUBMIT] Firestore save successful, got ID:', id);
     } catch (err) {
       console.error('Failed to save leave request:', err);
       return 'Failed to save your request — please try again';
     }
 
     const newRequest: LeaveRequest = {
-      id, userId, userRef, date: normalizedDate, leaveType,
-      status: autoApprove ? 'approved' : 'pending', staffNote: note, approverNote: '',
-      decidedBy: null, decidedAt: null,
-      isOverridden: false, overriddenBy: null, overriddenAt: null,
-      createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+      ...requestToSave,
+      id, // Use the actual Firestore ID
     };
     setRequests((prev) => [newRequest, ...prev]);
 
@@ -325,24 +337,30 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       await updateLeaveRequestDb(r.id, { status: 'cancelled' });
     }
 
-    const id = await insertLeaveRequest({
-      userId: targetUserId,
-      userDisplayName: targetUserName,
-      userRole: targetUserRole,
-      type: leaveType,
-      date: normalizedDate,
-      reason: `Directly assigned by ${adminName} (admin bypass)`,
-    });
-
     const nowIso = new Date().toISOString();
-    const newEntry: LeaveRequest = {
-      id, userId: targetUserId,
+    const requestToSave: LeaveRequest = {
+      id: `temp_${Date.now()}`,
+      userId: targetUserId,
       userRef: { id: targetUserId, displayName: targetUserName, role: targetUserRole },
-      date: normalizedDate, leaveType, status: 'approved',
-      staffNote: '', approverNote: `Directly assigned by ${adminName} (admin bypass)`,
-      decidedBy: null, decidedAt: nowIso,
-      isOverridden: false, overriddenBy: null, overriddenAt: null,
-      createdAt: nowIso, updatedAt: nowIso,
+      date: normalizedDate,
+      leaveType,
+      status: 'approved',
+      staffNote: '',
+      approverNote: `Directly assigned by ${adminName} (admin bypass)`,
+      decidedBy: null,
+      decidedAt: nowIso,
+      isOverridden: false,
+      overriddenBy: null,
+      overriddenAt: null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    const id = await insertLeaveRequest(requestToSave);
+
+    const newEntry: LeaveRequest = {
+      ...requestToSave,
+      id,
     };
 
     setRequests((prev) => {
