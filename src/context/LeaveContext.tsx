@@ -347,9 +347,19 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   const getBalance = useCallback((userId: string): LeaveBalance => {
     const today = formatDateLocal(new Date());
     const cycle = getCycleForDate(today);
+
+    // CRITICAL: Only count leave requests from ACTIVE users
+    // Deleted users' leave records should not affect current balances
+    const approvedRequests = requests.filter((r) => {
+      if (r.status !== 'approved') return false;
+      // Verify the user still exists and is active
+      const user = users.find(u => u.id === r.userId);
+      return user && user.isActive;
+    });
+
     return computeBalance(
       userId, cycle.start, cycle.end,
-      requests.filter((r) => r.status === 'approved'),
+      approvedRequests,
       getVacationAccrual(userId, users),
       getRegularOverride(userId, users),
     );
