@@ -129,24 +129,28 @@ export async function updateUserDb(
 
 export async function deleteUserDb(id: string): Promise<void> {
   try {
-    const users = await fetchUsers();
-    const user = users.find((u) => u.id === id);
+    // CRITICAL FIX: Query Firestore directly to find user (bypasses fetchUsers filter)
+    // This prevents "not found" errors when user is already inactive
+    const userSnap = await getDocs(query(collection(db, 'users'), where('id', '==', id)));
 
-    if (!user) {
+    if (userSnap.empty) {
       throw new Error(`User with ID "${id}" not found in Firestore`);
     }
 
-    if (!user.username) {
+    const userData = userSnap.docs[0].data();
+    const username = userData.username || userData.name;
+
+    if (!username) {
       throw new Error(`User record exists but has no username - cannot delete. ID: ${id}`);
     }
 
-    // Try to find document with either username format (instant, no logging)
-    let docId = user.username.toLowerCase();
+    // Try to find document with either username format
+    let docId = username.toLowerCase();
     let userRef = doc(db, 'users', docId);
     let docSnapshot = await getDoc(userRef);
 
     if (!docSnapshot.exists()) {
-      docId = `usr_${user.username.toLowerCase()}`;
+      docId = `usr_${username.toLowerCase()}`;
       userRef = doc(db, 'users', docId);
       docSnapshot = await getDoc(userRef);
     }
@@ -155,12 +159,20 @@ export async function deleteUserDb(id: string): Promise<void> {
       throw new Error(`Document not found: users/${docId}`);
     }
 
-    // Delete immediately - no retries, no delays
+    // Delete user document
     const batch = writeBatch(db);
     batch.delete(userRef);
     await batch.commit();
+
+    // Verify deletion succeeded
+    const verifySnap = await getDoc(userRef);
+    if (verifySnap.exists()) {
+      throw new Error(`[CRITICAL] User document still exists after deletion attempt: ${docId}`);
+    }
+
+    console.log(`[User Deletion] User document successfully deleted: ${docId}`);
   } catch (err) {
-    console.error(`[Firestore Delete] Error: ${(err as any)?.message || String(err)}`);
+    console.error(`[Firestore Delete] CRITICAL ERROR: ${(err as any)?.message || String(err)}`);
     throw err;
   }
 }
@@ -316,12 +328,21 @@ export async function deleteUserWithDataHandling(
   mode: 'hard_delete' | 'soft_delete'
 ): Promise<{ success: boolean; deletedCounts: Record<string, number>; message: string }> {
   try {
-    const users = await fetchUsers();
-    const user = users.find((u) => u.id === userId);
+    // CRITICAL FIX: Query Firestore directly to find user (not fetchUsers which filters inactive)
+    // This prevents "not found" errors when attempting to delete already-inactive users
+    const userSnap = await getDocs(query(collection(db, 'users'), where('id', '==', userId)));
 
-    if (!user) {
-      throw new Error(`User with ID "${userId}" not found`);
+    if (userSnap.empty) {
+      throw new Error(`User with ID "${userId}" not found in Firestore`);
     }
+
+    const userData = userSnap.docs[0].data() as any;
+    const user = {
+      id: userData.id || userSnap.docs[0].id,
+      username: userData.username || userData.name || userSnap.docs[0].id,
+      displayName: userData.displayName || userData.name || userData.username || userSnap.docs[0].id,
+      isActive: userData.isActive !== false,
+    } as any;
 
     console.log(`\n${'═'.repeat(60)}`);
     console.log(`USER DELETION - ${mode.toUpperCase()}`);
@@ -342,41 +363,71 @@ export async function deleteUserWithDataHandling(
     if (mode === 'hard_delete') {
       // HARD DELETE: Remove all traces of the user
       console.log(`\n[HARD DELETE] Initiating complete purge...`);
+      console.log(`[HARD DELETE] Deleting cascade data (in parallel)...`);
 
-      // Delete in parallel for efficiency (CRITICAL: include schedules to prevent ghost entries)
-      const [leaveCount, roleCount, checkinCount, tourCount, taskCount, scheduleCount] = await Promise.all([
-        deleteUserLeaveRequests(userId),
-        deleteUserRoleAssignments(userId),
-        deleteUserCheckIns(userId),
-        deleteUserTourAssignments(userId),
-        deleteUserTasks(userId),
-        deleteUserSchedules(userId),
-      ]);
+      // Delete cascading data first - with proper error handling
+      try {
+        const [leaveCount, roleCount, checkinCount, tourCount, taskCount, scheduleCount] = await Promise.all([
+          deleteUserLeaveRequests(userId).catch(err => {
+            console.error(`[HARD DELETE] Leave requests deletion failed: ${err.message}`);
+            throw err;
+          }),
+          deleteUserRoleAssignments(userId).catch(err => {
+            console.error(`[HARD DELETE] Role assignments deletion failed: ${err.message}`);
+            throw err;
+          }),
+          deleteUserCheckIns(userId).catch(err => {
+            console.error(`[HARD DELETE] Check-ins deletion failed: ${err.message}`);
+            throw err;
+          }),
+          deleteUserTourAssignments(userId).catch(err => {
+            console.error(`[HARD DELETE] Tour assignments deletion failed: ${err.message}`);
+            throw err;
+          }),
+          deleteUserTasks(userId).catch(err => {
+            console.error(`[HARD DELETE] Tasks deletion failed: ${err.message}`);
+            throw err;
+          }),
+          deleteUserSchedules(userId).catch(err => {
+            console.error(`[HARD DELETE] Schedules deletion failed: ${err.message}`);
+            throw err;
+          }),
+        ]);
 
-      deletedCounts.leaveRequests = leaveCount;
-      deletedCounts.roleAssignments = roleCount;
-      deletedCounts.checkIns = checkinCount;
-      deletedCounts.tourAssignments = tourCount;
-      deletedCounts.tasks = taskCount;
-      deletedCounts.schedules = scheduleCount;
+        deletedCounts.leaveRequests = leaveCount;
+        deletedCounts.roleAssignments = roleCount;
+        deletedCounts.checkIns = checkinCount;
+        deletedCounts.tourAssignments = tourCount;
+        deletedCounts.tasks = taskCount;
+        deletedCounts.schedules = scheduleCount;
 
-      console.log(`[HARD DELETE] Associated data purged:`);
-      console.log(`  ✓ Leave requests: ${leaveCount}`);
-      console.log(`  ✓ Role assignments: ${roleCount}`);
-      console.log(`  ✓ Check-ins: ${checkinCount}`);
-      console.log(`  ✓ Tour assignments: ${tourCount}`);
-      console.log(`  ✓ Tasks unassigned: ${taskCount}`);
-      console.log(`  ✓ Schedule entries: ${scheduleCount}`);
+        console.log(`[HARD DELETE] ✓ Cascade data purged successfully:`);
+        console.log(`  ✓ Leave requests: ${leaveCount}`);
+        console.log(`  ✓ Role assignments: ${roleCount}`);
+        console.log(`  ✓ Check-ins: ${checkinCount}`);
+        console.log(`  ✓ Tour assignments: ${tourCount}`);
+        console.log(`  ✓ Tasks unassigned: ${taskCount}`);
+        console.log(`  ✓ Schedule entries: ${scheduleCount}`);
+      } catch (cascadeErr) {
+        console.error(`[HARD DELETE] ✗ CASCADE DELETION FAILED - aborting user document deletion`);
+        throw new Error(`Cascade deletion failed: ${(cascadeErr as any)?.message}`);
+      }
 
-      // Finally, delete the user document
-      console.log(`[HARD DELETE] Deleting user document...`);
-      await deleteUserDb(userId);
-      deletedCounts.user = 1;
-      console.log(`  ✓ User document deleted`);
+      // Only delete user document if ALL cascade deletes succeeded
+      console.log(`[HARD DELETE] All cascade deletes succeeded. Deleting user document...`);
+      try {
+        await deleteUserDb(userId);
+        deletedCounts.user = 1;
+        console.log(`[HARD DELETE] ✓ User document successfully deleted`);
+      } catch (userDelErr) {
+        console.error(`[HARD DELETE] ✗ CRITICAL: User document deletion FAILED`);
+        throw userDelErr;
+      }
 
       console.log(`\n${'═'.repeat(60)}`);
-      console.log(`✓ HARD DELETE COMPLETE`);
-      console.log(`User "${user.displayName}" and ALL associated data permanently removed.`);
+      console.log(`✓ HARD DELETE COMPLETE - ALL DATA PERMANENTLY REMOVED`);
+      console.log(`User: "${user.displayName}" (${user.username})`);
+      console.log(`Total records deleted: ${Object.values(deletedCounts).reduce((a, b) => a + b, 0)}`);
       console.log(`${'═'.repeat(60)}\n`);
 
       return {
