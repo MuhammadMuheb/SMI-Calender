@@ -38,30 +38,53 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
   // Rule 1: Roles with < 3 total staff are entirely locked
   // Rule 2: Dates with 2+ already on approved leave are locked
   const staffingConstraints = useMemo(() => {
-    const userRoles = roleAssignments.filter((a) => a.userId === user.id).map((a) => a.jobRoleId);
-    const isRoleTooSmall = userRoles.some((roleId) => {
-      const totalInRole = roleAssignments.filter((a) => a.jobRoleId === roleId).length;
-      return totalInRole < 3;
-    });
+    const userAssignments = roleAssignments.filter((a) => a.userId === user.id);
+    const userRoles = userAssignments.map((a) => a.jobRoleId);
+
+    console.log('[LOCK_DEBUG] ===== CONSTRAINTS CALC =====');
+    console.log('[LOCK_DEBUG] User ID:', user.id, '| User role string:', user.role);
+    console.log('[LOCK_DEBUG] Total roleAssignments:', roleAssignments.length);
+    console.log('[LOCK_DEBUG] User assignments:', userAssignments.length);
+    console.log('[LOCK_DEBUG] User role IDs:', userRoles);
+
+    if (roleAssignments.length > 0) {
+      console.log('[LOCK_DEBUG] Sample assignment:', JSON.stringify(roleAssignments[0]));
+    }
+
+    // ❌ CRITICAL: If no role assignments found, lock dates as safeguard
+    if (userRoles.length === 0) {
+      console.error('[LOCK_DEBUG] ⚠️ NO ROLE ASSIGNMENTS - defaulting to LOCKED');
+      return { isRoleTooSmall: true, lockedDates: new Set() };
+    }
+
+    // Check if ANY of user's roles has < 3 total staff
+    let isRoleTooSmall = false;
+    for (const roleId of userRoles) {
+      const staffCount = roleAssignments.filter((a) => a.jobRoleId === roleId).length;
+      console.log('[LOCK_DEBUG] Role "' + roleId + '" has ' + staffCount + ' staff members (< 3 = locked)');
+
+      if (staffCount < 3) {
+        isRoleTooSmall = true;
+        console.error('[LOCK_DEBUG] ❌ DETECTED SMALL ROLE: "' + roleId + '" has only ' + staffCount + ' staff - LOCKING');
+        break;
+      }
+    }
 
     const lockedDates = new Set<string>();
     if (!isRoleTooSmall) {
-      // Calculate which dates are locked (2+ staff already approved for leave)
+      console.log('[LOCK_DEBUG] Role is large enough, checking for date locks...');
       for (const roleId of userRoles) {
-        // Get all approved leave requests for this role
         const approvedForRole = requests.filter(
           (r) =>
             r.status === 'approved' &&
             roleAssignments.some((a) => a.userId === r.userId && a.jobRoleId === roleId)
         );
 
-        // Group by date and find dates with 2+ on leave
         const dateCount = new Map<string, number>();
         for (const req of approvedForRole) {
           dateCount.set(req.date, (dateCount.get(req.date) ?? 0) + 1);
         }
 
-        // Lock dates that already have 2 or more staff on leave
         for (const [d, count] of dateCount.entries()) {
           if (count >= 2) {
             lockedDates.add(d);
@@ -70,6 +93,8 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
       }
     }
 
+    console.log('[LOCK_DEBUG] FINAL:', { isRoleTooSmall, lockedDates: lockedDates.size });
+    console.log('[LOCK_DEBUG] ===== END CALC =====');
     return { isRoleTooSmall, lockedDates };
   }, [user.id, roleAssignments, requests]);
   // ── Cycle-aware date range for regular day off ──
