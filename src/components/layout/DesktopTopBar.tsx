@@ -14,11 +14,21 @@ interface DesktopTopBarProps {
 
 export default function DesktopTopBar({ title, subtitle }: DesktopTopBarProps) {
   const { user } = useAuth();
-  const { getForUser } = useNotifications();
+  const { getForUser, notifications } = useNotifications();
   const [showNotifs, setShowNotifs] = useState(false);
   const { mode, toggle } = useThemeMode();
 
-  const unreadCount = user ? getForUser(user.id).filter((n) => !n.isRead).length : 0;
+  const userNotifications = user ? getForUser(user.id) : [];
+  const unreadCount = userNotifications.filter((n) => !n.isRead).length;
+
+  // Debug logging
+  if (unreadCount === 0 && notifications.length > 0) {
+    console.log('[TOPBAR] ⚠️ Notifications exist but none for this user:', {
+      totalNotifications: notifications.length,
+      userId: user?.id,
+      notificationUserIds: notifications.map(n => n.userId)
+    });
+  }
 
   return (
     <>
