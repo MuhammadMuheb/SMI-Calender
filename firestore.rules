@@ -133,6 +133,11 @@ service cloud.firestore {
       allow read, create, update, delete: if request.auth != null;
     }
 
+    // ===== Tour Assignments =====
+    match /tour_assignments/{assignmentId} {
+      allow read, create, update, delete: if request.auth != null;
+    }
+
     // ===== Deny everything else =====
     match /{document=**} {
       allow read, write: if false;
