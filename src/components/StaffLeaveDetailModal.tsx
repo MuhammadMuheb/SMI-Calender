@@ -34,11 +34,15 @@ export default function StaffLeaveDetailModal({
     ? Math.round((balance.regularDaysUsed / balance.regularDaysAllowed) * 100)
     : 0;
 
+  const vacationUsagePct = balance.vacationDaysTotal > 0
+    ? Math.round((balance.vacationDaysUsed / balance.vacationDaysTotal) * 100)
+    : 0;
+
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="Weekly Leave Balance"
+      title="Complete Leave Balance"
     >
       <div className="space-y-4">
         {/* Staff Member Header */}
@@ -65,20 +69,62 @@ export default function StaffLeaveDetailModal({
           </Badge>
         </div>
 
-        {/* Context Note - This is a Weekly View */}
+        {/* Cycle Context */}
         <div
           className="p-2.5 rounded-lg text-[9px]"
           style={{ backgroundColor: alpha(theme.colors.secondary, '15'), border: `1px solid ${alpha(theme.colors.secondary, '30')}` }}
         >
           <p style={{ color: theme.colors.white }}>
-            <strong>📊 Current Cycle Status</strong>
-          </p>
-          <p style={{ color: theme.colors.grayDark }} className="mt-1">
-            {balance.cycleStart} to {balance.cycleEnd}
+            <strong>📅 Current Cycle:</strong> {balance.cycleStart} to {balance.cycleEnd}
           </p>
         </div>
 
-        {/* Regular Days Off Balance - CYCLE ONLY */}
+        {/* Monthly Vacation Balance */}
+        <div className="space-y-2">
+          <div>
+            <p className="text-xs font-semibold" style={{ color: theme.colors.white }}>
+              🏖️ Monthly Vacation Balance
+            </p>
+            <p className="text-[10px]" style={{ color: theme.colors.grayDark }}>
+              Accrues automatically • Never expires • Rolls over
+            </p>
+          </div>
+          <div
+            className="p-3 rounded-lg"
+            style={{ backgroundColor: theme.colors.bgCard, border: `1px solid ${theme.colors.border}` }}
+          >
+            <div className="flex items-end justify-between mb-3">
+              <div>
+                <p className="text-xs font-semibold" style={{ color: theme.colors.white }}>
+                  {balance.vacationDaysRemaining} of {balance.vacationDaysTotal} days remaining
+                </p>
+                <p className="text-[9px]" style={{ color: theme.colors.grayDark }}>
+                  {balance.vacationDaysUsed} days already used
+                </p>
+              </div>
+              <p className="text-3xl font-bold" style={{ color: theme.colors.warning }}>
+                {balance.vacationDaysRemaining}
+              </p>
+            </div>
+            {/* Visual progress bar */}
+            <div className="flex gap-2 items-center">
+              <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ backgroundColor: theme.colors.secondary }}>
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${vacationUsagePct}%`,
+                    backgroundColor: theme.colors.warning,
+                  }}
+                />
+              </div>
+              <span className="text-[9px] font-semibold w-8 text-right" style={{ color: theme.colors.grayDark }}>
+                {vacationUsagePct}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Regular Days Off Balance */}
         <div className="space-y-2">
           <div>
             <p className="text-xs font-semibold" style={{ color: theme.colors.white }}>
@@ -129,29 +175,13 @@ export default function StaffLeaveDetailModal({
           style={{ backgroundColor: alpha(theme.colors.primary, '10'), border: `1px solid ${alpha(theme.colors.primary, '30')}` }}
         >
           <p style={{ color: theme.colors.primaryLight }}>
-            <strong>ℹ️ Weekly View:</strong>
+            <strong>ℹ️ Balance Types:</strong>
           </p>
           <p style={{ color: theme.colors.primaryLight }}>
-            • This shows your current cycle status only
+            🏖️ Vacation: Accrues 2 days/month, never expires, rolls over
           </p>
           <p style={{ color: theme.colors.primaryLight }}>
-            • Regular days reset when the cycle ends
-          </p>
-          <p style={{ color: theme.colors.primaryLight }}>
-            • Approved leave requests automatically deduct from your balance
-          </p>
-        </div>
-
-        {/* Note about vacation balance */}
-        <div
-          className="p-2.5 rounded-lg text-[9px]"
-          style={{ backgroundColor: alpha(theme.colors.warning, '10'), border: `1px solid ${alpha(theme.colors.warning, '30')}` }}
-        >
-          <p style={{ color: theme.colors.warning }}>
-            <strong>💡 For Full Details:</strong>
-          </p>
-          <p style={{ color: theme.colors.grayDark }} className="mt-1">
-            View your complete leave balance (including monthly vacation accrual) in <strong>Admin Panel → Vacation Adjustments</strong>
+            📋 Regular Days: Resets each cycle, approvals auto-deduct
           </p>
         </div>
       </div>

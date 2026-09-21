@@ -42,7 +42,7 @@ export default function StaffPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [selectedStaff, setSelectedStaff] = useState<StaffUser | null>(null);
-  const selectedBalance = selectedStaff ? getCycleBalance(selectedStaff.id) : null;
+  const selectedBalance = selectedStaff ? getBalance(selectedStaff.id) : null;
 
   const activeUsers = useMemo(() => users.filter((u) => u.isActive), [users]);
   const roleMap: Record<string, string> = {};
