@@ -116,12 +116,32 @@ export async function deleteUserDb(id: string): Promise<void> {
     const userRef = doc(db, 'users', docId);
     console.log(`[Firestore Delete] Document reference: users/${docId}`);
 
-    // Step 3: Delete the document using batch
-    console.log(`[Firestore Delete] Executing deletion...`);
+    // Step 3: Verify document exists before deletion
+    console.log(`[Firestore Delete] Verifying document exists before deletion...`);
+    const docSnapshot = await getDoc(userRef);
+    if (!docSnapshot.exists()) {
+      console.warn(`[Firestore Delete] ⚠️ WARNING: Document does not exist: users/${docId}`);
+      console.warn(`[Firestore Delete] This might indicate the user was already deleted or the path is incorrect`);
+      throw new Error(`Document not found before deletion: users/${docId}. User may have already been deleted.`);
+    }
+    console.log(`[Firestore Delete] ✓ Document confirmed to exist: users/${docId}`);
+
+    // Step 4: Delete the document using batch
+    console.log(`[Firestore Delete] Executing batch delete operation...`);
     const batch = writeBatch(db);
     batch.delete(userRef);
     await batch.commit();
-    console.log(`[Firestore Delete] ✓ Batch delete committed`);
+    console.log(`[Firestore Delete] ✓ Batch delete committed successfully`);
+
+    // Step 4b: Verify document is deleted immediately after batch commit
+    console.log(`[Firestore Delete] Verifying immediate deletion (no delay)...`);
+    const checkAfterDelete = await getDoc(userRef);
+    if (checkAfterDelete.exists()) {
+      console.error(`[Firestore Delete] ⚠️ Document still exists immediately after batch commit`);
+      console.error(`[Firestore Delete] This suggests the delete operation was silently blocked`);
+    } else {
+      console.log(`[Firestore Delete] ✓ Document confirmed deleted immediately after batch commit`);
+    }
 
     // Step 4: Verify deletion with retries for Firestore consistency
     console.log(`[Firestore Delete] Verifying deletion (with retries for consistency)...`);
