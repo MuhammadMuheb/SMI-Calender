@@ -99,10 +99,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         return [];
       });
 
-      // CLEANUP: On every load, remove all ghost/future-dated/admin requests from database
-      // This ensures clean data even if legacy requests exist
-      if (u.length > 0) {
-        cleanupGhostRequests(u).catch(err => console.error('Cleanup error:', err));
+      // CRITICAL DATA INTEGRITY: Filter to only ACTIVE users
+      // Deleted users must be completely hidden from all views and queries
+      const activeUsers = u.filter(user => {
+        if (!user.isActive) {
+          console.warn(`[Data Integrity] Filtering out inactive/deleted user: ${user.displayName} (${user.id})`);
+          return false;
+        }
+        return true;
+      });
+
+      if (activeUsers.length !== u.length) {
+        console.log(`[Data Integrity] Loaded ${activeUsers.length} active users (filtered ${u.length - activeUsers.length} deleted/inactive)`);
       }
       let jr: JobRole[] = await fetchJobRoles().catch(err => {
         console.error('fetchJobRoles error:', err);
@@ -153,8 +161,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         console.error('fetchSchedules error:', err);
         return [];
       });
-      const validatedUsers = validateUsers(Array.isArray(u) ? u : SAFE_EMPTY_USERS);
+      // CRITICAL: Use only ACTIVE users - filter out all deleted/inactive
+      const validatedUsers = validateUsers(Array.isArray(activeUsers) ? activeUsers : SAFE_EMPTY_USERS);
       setUsers(validatedUsers);
+
+      // IMPORTANT: Pass ACTIVE users only to cleanup to avoid stale data
+      if (activeUsers.length > 0) {
+        cleanupGhostRequests(activeUsers).catch(err => console.error('Cleanup error:', err));
+      }
       setJobRoles(Array.isArray(jr) ? jr : []);
       let finalRoleAssignments = Array.isArray(ra) ? ra : [];
 

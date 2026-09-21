@@ -61,24 +61,36 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
           const validated = validateLeaveRequests(data);
 
           // Enrich leave requests with actual user data from the users collection
-          // CRITICAL: Filter out requests from deleted/inactive users
+          // CRITICAL: AGGRESSIVE filtering - reject ANY request from deleted/inactive users
           const enriched = validated
             .map((req: LeaveRequest) => {
               const actualUser = users.find(u => u.id === req.userId);
-              if (actualUser && actualUser.isActive) {
-                return {
-                  ...req,
-                  userRef: {
-                    id: actualUser.id,
-                    displayName: actualUser.displayName || actualUser.username || 'Unknown User',
-                    role: actualUser.role,
-                  },
-                };
+
+              // STRICT VALIDATION:
+              // 1. User must exist in users collection
+              // 2. User must be active (isActive === true)
+              // 3. If both conditions fail, EXCLUDE from requests
+              if (!actualUser) {
+                console.warn(`[Data Integrity] Request ${req.id} from deleted user ${req.userId} - FILTERED OUT`);
+                return null;
               }
-              return null;
+              if (!actualUser.isActive) {
+                console.warn(`[Data Integrity] Request ${req.id} from inactive user ${actualUser.displayName} - FILTERED OUT`);
+                return null;
+              }
+
+              return {
+                ...req,
+                userRef: {
+                  id: actualUser.id,
+                  displayName: actualUser.displayName || actualUser.username || 'Unknown User',
+                  role: actualUser.role,
+                },
+              };
             })
             .filter((req): req is LeaveRequest => req !== null);
 
+          console.log(`[Data Integrity] Loaded ${enriched.length} valid requests (filtered ${validated.length - enriched.length} from deleted/inactive users)`);
           setRequests(enriched);
         } catch (err) {
           console.error('Error validating leave requests:', err);
