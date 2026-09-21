@@ -49,7 +49,7 @@ export default function ManagerDashboard() {
     </div>
   );
 
-  const activeStaff = users.filter((u) => u.isActive);
+  const activeStaff = users.filter((u) => u.isActive && u.role === 'staff');
   const pendingRequests = getPendingRequests().filter(
     (r) => (r.userRef?.role ?? 'staff') === 'staff' && r.userId !== user.id,
   );

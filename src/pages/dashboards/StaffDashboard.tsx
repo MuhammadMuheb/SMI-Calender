@@ -60,7 +60,7 @@ export default function StaffDashboard() {
   ).slice(0, 3);
 
   // Working today
-  const activeStaff = users.filter((u) => u.isActive);
+  const activeStaff = users.filter((u) => u.isActive && u.role === 'staff');
   const today = todayStr();
   const offTodayIds = new Set(requests.filter((r) => r.date === today && r.status === 'approved').map((r) => r.userId));
   const workingToday = activeStaff.filter((u) => !offTodayIds.has(u.id));

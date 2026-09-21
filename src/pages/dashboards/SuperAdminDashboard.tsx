@@ -41,7 +41,7 @@ export default function SuperAdminDashboard() {
     </div>
   );
 
-  const activeStaff = users.filter((u) => u.isActive);
+  const activeStaff = users.filter((u) => u.isActive && u.role === 'staff');
   const totalStaff = activeStaff.length;
   const pendingCount = getPendingRequests().length;
 
