@@ -58,12 +58,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const userIdRef = useRef<string | null>(null);
 
   // Set user ID from session
+  const [userId, setUserId] = useState<string | null>(null);
+
   useEffect(() => {
     try {
       const session = localStorage.getItem('smi_session');
       if (session) {
         const parsed = JSON.parse(session);
-        userIdRef.current = parsed.id ?? null;
+        const id = parsed.id ?? null;
+        userIdRef.current = id;
+        setUserId(id);
+        console.log('[NOTIFICATIONS] Set userId from session:', id);
       }
     } catch { /* ignore */ }
   }, []);
@@ -75,38 +80,39 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   // Subscribe to push (once, after mount)
   useEffect(() => {
-    const userId = userIdRef.current;
-    if (!userId) return;
+    const id = userId;
+    if (!id) return;
     const timer = setTimeout(() => {
-      subscribeToPush(userId).then((result) => {
+      subscribeToPush(id).then((result) => {
         if (mountedRef.current) setPushEnabled(result.ok);
       }).catch(() => {});
     }, 2000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [userId]);
 
-  // Load notifications from Firestore in real-time
-  const loadNotifications = useCallback(async () => {
-    console.log('[NOTIFICATIONS] loadNotifications called, userIdRef:', userIdRef.current);
-    if (!userIdRef.current || !mountedRef.current) {
-      console.warn('[NOTIFICATIONS] Aborting load - userIdRef:', userIdRef.current, 'mounted:', mountedRef.current);
+  // CRITICAL: Set up notification listener when userId is available
+  // This effect MUST trigger whenever userId changes to ensure the listener is active
+  useEffect(() => {
+    if (!userId || !mountedRef.current) {
+      console.warn('[NOTIFICATIONS] Listener setup skipped - userId:', userId, 'mounted:', mountedRef.current);
       return;
     }
+
+    console.log('[NOTIFICATIONS] === LISTENER SETUP START === for userId:', userId);
     setLoading(true);
 
     try {
       const db = getFirestore();
-      console.log('[NOTIFICATIONS] Setting up listener for userId:', userIdRef.current);
-      const q = query(collection(db, 'notifications'), where('userId', '==', userIdRef.current));
+      const q = query(collection(db, 'notifications'), where('userId', '==', userId));
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
         if (!mountedRef.current) return;
 
-        console.log('[LISTENER] ✓ Snapshot received for user', userIdRef.current, '- Found:', snapshot.docs.length, 'notifications');
+        console.log('[LISTENER] ✓ Snapshot received for user', userId, '- Found:', snapshot.docs.length, 'notifications');
 
         const notifs = snapshot.docs.map((doc) => {
           const data = doc.data();
-          console.log('[LISTENER] Notification:', { id: doc.id, type: data.type, title: data.title, userId: data.userId });
+          console.log('[LISTENER] Notification data:', { id: doc.id, type: data.type, title: data.title, userId: data.userId });
           return {
             id: doc.id,
             userId: data.userId,
@@ -124,26 +130,22 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
         // Sort by createdAt descending (newest first)
         notifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        console.log('[LISTENER] Setting notifications:', notifs.length, 'items');
         setNotifications(notifs);
         setLoading(false);
       });
 
-      return unsubscribe;
+      console.log('[NOTIFICATIONS] Listener established for userId:', userId);
+
+      return () => {
+        console.log('[NOTIFICATIONS] Cleaning up listener for userId:', userId);
+        unsubscribe();
+      };
     } catch (err) {
-      console.error('Failed to load notifications:', err);
+      console.error('[NOTIFICATIONS] Failed to set up listener:', err);
       setLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-    loadNotifications().then((unsub) => {
-      unsubscribe = unsub;
-    });
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, [loadNotifications]);
+  }, [userId]);
 
   const addNotification = useCallback(async (
     userId: string, type: NotificationType,
@@ -244,15 +246,52 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     [notifications],
   );
 
+  const refreshNotifications = useCallback(() => {
+    console.log('[NOTIFICATIONS] Manual refresh triggered for userId:', userId);
+    // Force a re-fetch by re-establishing the listener
+    if (userId && mountedRef.current) {
+      setLoading(true);
+      try {
+        const db = getFirestore();
+        const q = query(collection(db, 'notifications'), where('userId', '==', userId));
+        const unsub = onSnapshot(q, (snapshot) => {
+          const notifs = snapshot.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              userId: data.userId,
+              type: data.type as NotificationType,
+              title: data.title,
+              body: data.body,
+              isRead: data.isRead ?? false,
+              confirmStatus: (data.confirmStatus ?? 'pending') as ConfirmStatus,
+              rejectReason: data.rejectReason ?? '',
+              entityType: data.entityType,
+              entityId: data.entityId,
+              createdAt: data.createdAt ?? new Date().toISOString(),
+            } as Notification;
+          });
+          notifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setNotifications(notifs);
+          setLoading(false);
+          unsub();
+        });
+      } catch (err) {
+        console.error('[NOTIFICATIONS] Manual refresh failed:', err);
+        setLoading(false);
+      }
+    }
+  }, [userId]);
+
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const value = useMemo(() => ({
     notifications, unreadCount, loading, pushEnabled, addNotification,
     markAsRead, markAllAsRead, confirmNotification,
     rejectNotification, getForUser, getUrgentRejections,
-    refreshNotifications: loadNotifications,
+    refreshNotifications,
   }), [notifications, unreadCount, loading, pushEnabled, addNotification, markAsRead, markAllAsRead,
-    confirmNotification, rejectNotification, getForUser, getUrgentRejections, loadNotifications]);
+    confirmNotification, rejectNotification, getForUser, getUrgentRejections, refreshNotifications]);
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 }
