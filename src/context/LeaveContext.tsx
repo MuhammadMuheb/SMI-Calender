@@ -61,20 +61,23 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
           const validated = validateLeaveRequests(data);
 
           // Enrich leave requests with actual user data from the users collection
-          const enriched = validated.map((req: LeaveRequest) => {
-            const actualUser = users.find(u => u.id === req.userId);
-            if (actualUser) {
-              return {
-                ...req,
-                userRef: {
-                  id: actualUser.id,
-                  displayName: actualUser.displayName || actualUser.username || 'Unknown User',
-                  role: actualUser.role,
-                },
-              };
-            }
-            return req;
-          });
+          // CRITICAL: Filter out requests from deleted/inactive users
+          const enriched = validated
+            .map((req: LeaveRequest) => {
+              const actualUser = users.find(u => u.id === req.userId);
+              if (actualUser && actualUser.isActive) {
+                return {
+                  ...req,
+                  userRef: {
+                    id: actualUser.id,
+                    displayName: actualUser.displayName || actualUser.username || 'Unknown User',
+                    role: actualUser.role,
+                  },
+                };
+              }
+              return null;
+            })
+            .filter((req): req is LeaveRequest => req !== null);
 
           setRequests(enriched);
         } catch (err) {
@@ -341,16 +344,26 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   }, [requests, users]);
 
   const getUserRequests = useCallback(
-    (userId: string) => requests.filter((r) => r.userId === userId),
-    [requests],
+    (userId: string) => requests.filter((r) =>
+      r.userId === userId &&
+      users.find(u => u.id === r.userId && u.isActive)
+    ),
+    [requests, users],
   );
   const getPendingRequests = useCallback(
-    () => requests.filter((r) => r.status === 'pending'),
-    [requests],
+    () => requests.filter((r) =>
+      r.status === 'pending' &&
+      r.userRef?.role === 'staff' &&
+      users.find(u => u.id === r.userId && u.isActive)
+    ),
+    [requests, users],
   );
   const getRequestsForDate = useCallback(
-    (date: string) => requests.filter((r) => r.date === date),
-    [requests],
+    (date: string) => requests.filter((r) =>
+      r.date === date &&
+      users.find(u => u.id === r.userId && u.isActive)
+    ),
+    [requests, users],
   );
 
   const value = useMemo(() => ({
