@@ -304,6 +304,8 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
 
   const overrideReq = useCallback((requestId: string, newStatus: LeaveStatus, admin: UserRef, note: string = '') => {
     const now = new Date().toISOString();
+    const req = requests.find((r) => r.id === requestId);
+
     setRequests((prev) => prev.map((r) =>
       r.id === requestId ? {
         ...r, status: newStatus, isOverridden: true, overriddenBy: admin,
@@ -321,6 +323,11 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       action: 'leave_overridden', entityType: 'leave_request', entityId: requestId,
       description: `${adminName} overrode ${(() => { const r = requests.find((x) => x.id === requestId); return r ? (r.userRef.displayName ?? 'Unknown') + "'s request" : 'a request'; })()} to ${newStatus}`,
     });
+
+    // CRITICAL: Notify the staff member about the override
+    if (req) {
+      notifyUserOfOverride(req, newStatus, admin, note);
+    }
   }, [requests]);
 
   const directAssign = useCallback(async (
@@ -382,6 +389,20 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       newEntry,
     ];
     notifyManagersOfDeduction(newEntry, approvedSnapshot, users);
+
+    // CRITICAL: Notify the staff member that leave was directly assigned to them
+    try {
+      await notifyUserOfDirectAssignment(
+        targetUserId,
+        targetUserName,
+        normalizedDate,
+        leaveType,
+        adminName,
+        `Directly assigned by ${adminName} (admin bypass)`,
+      );
+    } catch (notifErr) {
+      console.error('[DIRECT_ASSIGN] Failed to notify user of assignment:', notifErr);
+    }
 
     return null;
   }, [requests, users]);
@@ -611,6 +632,7 @@ async function notifyManagersOfDeduction(
 
 /**
  * Notify the user when their leave request is approved
+ * This sends TARGETED notification directly to the requesting staff member
  */
 async function notifyUserOfApproval(
   req: { userId: string; userRef: UserRef; date: string; leaveType: LeaveType },
@@ -625,10 +647,17 @@ async function notifyUserOfApproval(
   const body = `Your ${typeLabel.toLowerCase()} request for ${dateLabel} has been approved by ${approver.displayName}.${noteText}`;
 
   try {
-    // Save notification to Firestore
-    await insertNotification({
-      id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    console.log('[NOTIFY_APPROVAL] 🎯 TARGETED notification to staff member:', {
       userId: req.userId,
+      displayName: req.userRef.displayName,
+      date: dateLabel,
+      approver: approver.displayName
+    });
+
+    // Save notification to Firestore - DIRECTLY to requesting user
+    const notifId = await insertNotification({
+      id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      userId: req.userId,  // CRITICAL: Send to requesting staff member, not admins
       type: 'leave_approved',
       title,
       body,
@@ -638,15 +667,19 @@ async function notifyUserOfApproval(
       },
     });
 
+    console.log('[NOTIFY_APPROVAL] ✅ Saved notification:', notifId, '| Recipient:', req.userId);
+
     // Send push notification to user
     await sendPushToUser(req.userId, title, body, 'approval');
+    console.log('[NOTIFY_APPROVAL] ✅ Push sent to:', req.userId);
   } catch (e) {
-    console.error(`Failed to notify user ${req.userId} of approval:`, e);
+    console.error(`[NOTIFY_APPROVAL] ❌ Failed to notify user ${req.userId} of approval:`, e);
   }
 }
 
 /**
  * Notify the user when their leave request is rejected
+ * This sends TARGETED notification directly to the requesting staff member
  */
 async function notifyUserOfRejection(
   req: { userId: string; userRef: UserRef; date: string; leaveType: LeaveType },
@@ -661,10 +694,17 @@ async function notifyUserOfRejection(
   const body = `Your ${typeLabel.toLowerCase()} request for ${dateLabel} was rejected by ${approver.displayName}.${reasonText}`;
 
   try {
-    // Save notification to Firestore
-    await insertNotification({
-      id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    console.log('[NOTIFY_REJECTION] 🎯 TARGETED notification to staff member:', {
       userId: req.userId,
+      displayName: req.userRef.displayName,
+      date: dateLabel,
+      rejectedBy: approver.displayName
+    });
+
+    // Save notification to Firestore - DIRECTLY to requesting user
+    const notifId = await insertNotification({
+      id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      userId: req.userId,  // CRITICAL: Send to requesting staff member, not admins
       type: 'leave_rejected',
       title,
       body,
@@ -674,10 +714,95 @@ async function notifyUserOfRejection(
       },
     });
 
+    console.log('[NOTIFY_REJECTION] ✅ Saved notification:', notifId, '| Recipient:', req.userId);
+
     // Send push notification to user
     await sendPushToUser(req.userId, title, body, 'rejection');
+    console.log('[NOTIFY_REJECTION] ✅ Push sent to:', req.userId);
   } catch (e) {
-    console.error(`Failed to notify user ${req.userId} of rejection:`, e);
+    console.error(`[NOTIFY_REJECTION] ❌ Failed to notify user ${req.userId} of rejection:`, e);
+  }
+}
+
+/**
+ * Notify the user when their leave request is overridden by an admin
+ */
+async function notifyUserOfOverride(
+  req: { userId: string; userRef: UserRef; date: string; leaveType: LeaveType },
+  newStatus: LeaveStatus,
+  admin: UserRef,
+  adminNote: string = '',
+): Promise<void> {
+  const dateLabel = new Date(req.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const typeLabel = LEAVE_TYPE_LABELS[req.leaveType] ?? req.leaveType;
+  const statusText = newStatus === 'approved' ? '✅ Approved' : newStatus === 'rejected' ? '❌ Rejected' : `Changed to ${newStatus}`;
+
+  const title = `⚙️ ${typeLabel} ${statusText} (Admin Override)`;
+  const noteText = adminNote ? `\n\nAdmin note: ${adminNote}` : '';
+  const body = `Your ${typeLabel.toLowerCase()} request for ${dateLabel} was ${newStatus} by admin ${admin.displayName}.${noteText}`;
+
+  try {
+    console.log('[NOTIFY_OVERRIDE] Sending override notification to user:', { userId: req.userId, status: newStatus, admin: admin.displayName });
+
+    // Save notification to Firestore
+    await insertNotification({
+      id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      userId: req.userId,
+      type: 'leave_overridden',
+      title,
+      body,
+      data: {
+        entityType: 'leave_request',
+        entityId: req.userId,
+      },
+    });
+
+    // Send push notification to user
+    await sendPushToUser(req.userId, title, body, 'override');
+    console.log('[NOTIFY_OVERRIDE] ✅ Notification sent to user:', req.userId);
+  } catch (e) {
+    console.error(`[NOTIFY_OVERRIDE] ❌ Failed to notify user ${req.userId} of override:`, e);
+  }
+}
+
+/**
+ * Notify the user when their leave is directly assigned by an admin
+ */
+async function notifyUserOfDirectAssignment(
+  userId: string,
+  displayName: string,
+  date: string,
+  leaveType: LeaveType,
+  adminName: string,
+  adminNote: string = '',
+): Promise<void> {
+  const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const typeLabel = LEAVE_TYPE_LABELS[leaveType] ?? leaveType;
+
+  const title = `📋 ${typeLabel} Assigned by Admin`;
+  const body = `${adminName} has assigned you ${typeLabel.toLowerCase()} for ${dateLabel}.${adminNote ? `\n\nNote: ${adminNote}` : ''}`;
+
+  try {
+    console.log('[NOTIFY_ASSIGN] Sending direct assignment notification to user:', { userId, type: leaveType, admin: adminName });
+
+    // Save notification to Firestore
+    await insertNotification({
+      id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      userId,
+      type: 'leave_approved',
+      title,
+      body,
+      data: {
+        entityType: 'leave_request',
+        entityId: userId,
+      },
+    });
+
+    // Send push notification to user
+    await sendPushToUser(userId, title, body, 'assignment');
+    console.log('[NOTIFY_ASSIGN] ✅ Notification sent to user:', userId);
+  } catch (e) {
+    console.error(`[NOTIFY_ASSIGN] ❌ Failed to notify user ${userId} of direct assignment:`, e);
   }
 }
 
