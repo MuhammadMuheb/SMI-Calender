@@ -160,17 +160,25 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     setRequests((prev) => [newRequest, ...prev]);
 
     const displayName = userRef.displayName ?? 'Unknown';
+    console.log('[SUBMIT] Request saved successfully:', { id, userId, date: normalizedDate, type: leaveType });
+
     await insertAuditLog({
       actorId: userId, actorName: displayName,
       action: 'leave_requested', entityType: 'leave_request', entityId: id,
       description: `${displayName} requested ${LEAVE_TYPE_LABELS[leaveType] ?? leaveType} for ${new Date(normalizedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
     });
 
-    if (autoApprove) {
-      const approvedSnapshot = [...requests.filter((r) => r.status === 'approved'), newRequest];
-      notifyManagersOfDeduction(newRequest, approvedSnapshot, users);
-    } else {
-      await notifyAdminsOfNewRequest(newRequest, users);
+    try {
+      if (autoApprove) {
+        const approvedSnapshot = [...requests.filter((r) => r.status === 'approved'), newRequest];
+        notifyManagersOfDeduction(newRequest, approvedSnapshot, users);
+      } else {
+        console.log('[SUBMIT] Calling notifyAdminsOfNewRequest with users:', users.map(u => ({ id: u.id, role: u.role, displayName: u.displayName })));
+        await notifyAdminsOfNewRequest(newRequest, users);
+        console.log('[SUBMIT] notifyAdminsOfNewRequest completed');
+      }
+    } catch (notifErr) {
+      console.error('[SUBMIT] ERROR in notification:', notifErr);
     }
 
     // Notify admins if user exceeded their quota
@@ -661,57 +669,73 @@ async function notifyUserOfRejection(
  */
 async function notifyAdminsOfNewRequest(
   req: { userId: string; userRef: UserRef; date: string; leaveType: LeaveType },
-  users: { id: string; role: string; isActive: boolean }[],
+  users: any[],
 ): Promise<void> {
-  const dateLabel = new Date(req.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  const typeLabel = LEAVE_TYPE_LABELS[req.leaveType] ?? req.leaveType;
+  try {
+    console.log('[NOTIFY_ADMINS] === START ===');
+    console.log('[NOTIFY_ADMINS] Request:', { userId: req.userId, displayName: req.userRef?.displayName, date: req.date });
+    console.log('[NOTIFY_ADMINS] Total users received:', users?.length || 0);
 
-  const title = `New ${typeLabel} Request`;
-  const body = `${req.userRef.displayName} submitted a ${typeLabel.toLowerCase()} request for ${dateLabel}. Review and approve in the admin panel.`;
-
-  // Get all active admins and managers
-  const recipients = users.filter((u) =>
-    (u.role === 'manager' || u.role === 'super_admin') && u.isActive,
-  );
-
-  console.log('[NOTIFICATION] New request from staff:', req.userRef.displayName);
-  console.log('[NOTIFICATION] Total users:', users.length);
-  console.log('[NOTIFICATION] Admin/Manager recipients found:', recipients.length);
-  console.log('[NOTIFICATION] Users with roles:', users.map(u => ({ id: u.id, role: u.role, isActive: u.isActive })));
-
-  if (recipients.length === 0) {
-    console.warn('[NOTIFICATION] No admin/manager recipients found! Check user roles.');
-  }
-
-  for (const admin of recipients) {
-    try {
-      console.log(`[NOTIFICATION] Creating notification for admin ${admin.id}...`);
-
-      // Save notification to Firestore with all required fields
-      const notifId = await insertNotification({
-        userId: admin.id,
-        type: 'new_request_pending',
-        title,
-        body,
-        isRead: false,
-        confirmStatus: 'pending',
-        rejectReason: '',
-        entityType: 'leave_request',
-        entityId: req.userId,
-        createdAt: new Date().toISOString(),
-      });
-
-      console.log(`[NOTIFICATION] Created notification ${notifId} for admin ${admin.id}`);
-
-      // Send push notification to admin
-      const pushResult = await sendPushToUser(admin.id, title, body, 'new-request');
-      console.log(`[NOTIFICATION] Push result:`, pushResult);
-    } catch (e) {
-      console.error(`[NOTIFICATION] Failed to notify admin ${admin.id}:`, e);
+    if (!users || users.length === 0) {
+      console.warn('[NOTIFY_ADMINS] No users array provided!');
+      return;
     }
-  }
 
-  console.log('[NOTIFICATION] Done notifying admins for request');
+    const dateLabel = new Date(req.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const typeLabel = LEAVE_TYPE_LABELS[req.leaveType] ?? req.leaveType;
+
+    const title = `New ${typeLabel} Request`;
+    const body = `${req.userRef.displayName} submitted a ${typeLabel.toLowerCase()} request for ${dateLabel}. Review and approve in the admin panel.`;
+
+    // Get all active admins and managers
+    const recipients = users.filter((u) => {
+      const isManager = u.role === 'manager' || u.role === 'super_admin';
+      const isActive = u.isActive === true;
+      console.log(`[NOTIFY_ADMINS] Check user ${u.id}: role=${u.role}, isActive=${u.isActive}, matches=${isManager && isActive}`);
+      return isManager && isActive;
+    });
+
+    console.log('[NOTIFY_ADMINS] Filtered recipients:', recipients.length, recipients.map(r => ({ id: r.id, role: r.role })));
+
+    if (recipients.length === 0) {
+      console.warn('[NOTIFY_ADMINS] ⚠️ NO RECIPIENTS FOUND - Check roles in Firestore users collection');
+      return;
+    }
+
+    for (const admin of recipients) {
+      try {
+        console.log(`[NOTIFY_ADMINS] Saving notification for ${admin.id}...`);
+        const notifId = await insertNotification({
+          userId: admin.id,
+          type: 'new_request_pending',
+          title,
+          body,
+          isRead: false,
+          confirmStatus: 'pending',
+          rejectReason: '',
+          entityType: 'leave_request',
+          entityId: req.userId,
+          createdAt: new Date().toISOString(),
+        });
+
+        console.log(`[NOTIFY_ADMINS] ✓ Created notification ${notifId} for ${admin.id}`);
+
+        // Send push notification to admin
+        try {
+          await sendPushToUser(admin.id, title, body, 'new-request');
+          console.log(`[NOTIFY_ADMINS] ✓ Push sent to ${admin.id}`);
+        } catch (pushErr) {
+          console.warn(`[NOTIFY_ADMINS] Push failed for ${admin.id}:`, pushErr);
+        }
+      } catch (e) {
+        console.error(`[NOTIFY_ADMINS] ✗ Failed for ${admin.id}:`, e);
+      }
+    }
+
+    console.log('[NOTIFY_ADMINS] === COMPLETE ===');
+  } catch (err) {
+    console.error('[NOTIFY_ADMINS] FATAL ERROR:', err);
+  }
 }
 
 function getVacationAccrual(userId: string, users: { id: string; createdAt: string; vacationOverride?: number | null; vacationOverrideAt?: string | null }[]): number {
