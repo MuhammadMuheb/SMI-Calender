@@ -93,8 +93,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   // CRITICAL: Set up notification listener when userId is available
   // This effect MUST trigger whenever userId changes to ensure the listener is active
   useEffect(() => {
+    console.log('[NOTIFICATIONS] Effect triggered - userId:', userId, 'mounted:', mountedRef.current);
+
     if (!userId || !mountedRef.current) {
-      console.warn('[NOTIFICATIONS] Listener setup skipped - userId:', userId, 'mounted:', mountedRef.current);
+      console.warn('[NOTIFICATIONS] ⚠️ Listener setup skipped - userId:', userId, 'mounted:', mountedRef.current);
       return;
     }
 
@@ -103,16 +105,34 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     try {
       const db = getFirestore();
+      console.log('[NOTIFICATIONS] Creating Firestore query for userId:', userId);
       const q = query(collection(db, 'notifications'), where('userId', '==', userId));
 
+      console.log('[NOTIFICATIONS] Setting up onSnapshot listener...');
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        if (!mountedRef.current) return;
+        if (!mountedRef.current) {
+          console.warn('[LISTENER] Component unmounted, ignoring snapshot');
+          return;
+        }
 
-        console.log('[LISTENER] ✓ Snapshot received for user', userId, '- Found:', snapshot.docs.length, 'notifications');
+        console.log('[LISTENER] ✓ Snapshot received for user', userId);
+        console.log('[LISTENER] Total docs in snapshot:', snapshot.docs.length);
+        console.log('[LISTENER] Snapshot query:', { collection: 'notifications', userId });
+
+        if (snapshot.docs.length === 0) {
+          console.warn('[LISTENER] ⚠️ NO NOTIFICATIONS FOUND for userId:', userId);
+          console.log('[LISTENER] This could mean: notifications not saved OR userId mismatch');
+        }
 
         const notifs = snapshot.docs.map((doc) => {
           const data = doc.data();
-          console.log('[LISTENER] Notification data:', { id: doc.id, type: data.type, title: data.title, userId: data.userId });
+          console.log('[LISTENER] Processing notification:', {
+            id: doc.id,
+            type: data.type,
+            title: data.title,
+            storedUserId: data.userId,
+            queryUserId: userId
+          });
           return {
             id: doc.id,
             userId: data.userId,
@@ -130,19 +150,22 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
         // Sort by createdAt descending (newest first)
         notifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        console.log('[LISTENER] Setting notifications:', notifs.length, 'items');
+        console.log('[LISTENER] Setting state with', notifs.length, 'notifications');
         setNotifications(notifs);
+        setLoading(false);
+      }, (error) => {
+        console.error('[LISTENER] ❌ Listener error:', error);
         setLoading(false);
       });
 
-      console.log('[NOTIFICATIONS] Listener established for userId:', userId);
+      console.log('[NOTIFICATIONS] ✅ Listener established for userId:', userId);
 
       return () => {
         console.log('[NOTIFICATIONS] Cleaning up listener for userId:', userId);
         unsubscribe();
       };
     } catch (err) {
-      console.error('[NOTIFICATIONS] Failed to set up listener:', err);
+      console.error('[NOTIFICATIONS] ❌ Failed to set up listener:', err);
       setLoading(false);
     }
   }, [userId]);

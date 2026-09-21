@@ -690,14 +690,16 @@ async function notifyAdminsOfNewRequest(
   users: any[],
 ): Promise<void> {
   try {
-    console.log('[NOTIFY_ADMINS] === START ===');
-    console.log('[NOTIFY_ADMINS] Request:', { userId: req.userId, displayName: req.userRef?.displayName, date: req.date });
-    console.log('[NOTIFY_ADMINS] Total users received:', users?.length || 0);
+    console.log('[NOTIFY_ADMINS] ===== START NOTIFICATION FLOW =====');
+    console.log('[NOTIFY_ADMINS] Request details:', { userId: req.userId, displayName: req.userRef?.displayName, date: req.date, leaveType: req.leaveType });
+    console.log('[NOTIFY_ADMINS] Total users in array:', users?.length || 0);
 
     if (!users || users.length === 0) {
-      console.warn('[NOTIFY_ADMINS] No users array provided!');
+      console.error('[NOTIFY_ADMINS] ❌ CRITICAL: No users array provided!');
       return;
     }
+
+    console.log('[NOTIFY_ADMINS] All users:', users.map(u => ({ id: u.id, role: u.role, displayName: u.displayName, isActive: u.isActive })));
 
     const dateLabel = new Date(req.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     const typeLabel = LEAVE_TYPE_LABELS[req.leaveType] ?? req.leaveType;
@@ -709,21 +711,27 @@ async function notifyAdminsOfNewRequest(
     const recipients = users.filter((u) => {
       const isManager = u.role === 'manager' || u.role === 'super_admin';
       const isActive = u.isActive === true;
-      console.log(`[NOTIFY_ADMINS] Check user ${u.id}: role=${u.role}, isActive=${u.isActive}, matches=${isManager && isActive}`);
-      return isManager && isActive;
+      const matches = isManager && isActive;
+      console.log(`[NOTIFY_ADMINS] Filter user ${u.id}:`, { role: u.role, isActive: u.isActive, isManager, matches });
+      return matches;
     });
 
-    console.log('[NOTIFY_ADMINS] Filtered recipients:', recipients.length, recipients.map(r => ({ id: r.id, role: r.role })));
+    console.log('[NOTIFY_ADMINS] Recipients found:', recipients.length);
+    console.log('[NOTIFY_ADMINS] Recipients:', recipients.map(r => ({ id: r.id, role: r.role, displayName: r.displayName })));
 
     if (recipients.length === 0) {
-      console.warn('[NOTIFY_ADMINS] ⚠️ NO RECIPIENTS FOUND - Check roles in Firestore users collection');
+      console.error('[NOTIFY_ADMINS] ❌ NO RECIPIENTS FOUND!');
+      console.error('[NOTIFY_ADMINS] Possible causes:');
+      console.error('  1. No users with role "manager" or "super_admin"');
+      console.error('  2. All managers/admins are marked isActive: false');
+      console.error('  3. Users array is not from Firestore (stale data)');
       return;
     }
 
     for (const admin of recipients) {
       try {
-        console.log(`[NOTIFY_ADMINS] Saving notification for ${admin.id}...`);
-        const notifId = await insertNotification({
+        console.log(`[NOTIFY_ADMINS] Saving notification for admin ${admin.id} (${admin.displayName})...`);
+        const notificationData = {
           userId: admin.id,
           type: 'new_request_pending',
           title,
@@ -734,23 +742,27 @@ async function notifyAdminsOfNewRequest(
           entityType: 'leave_request',
           entityId: req.userId,
           createdAt: new Date().toISOString(),
-        });
+        };
+        console.log('[NOTIFY_ADMINS] Notification data being saved:', notificationData);
 
-        console.log(`[NOTIFY_ADMINS] ✓ Created notification ${notifId} for ${admin.id}`);
+        const notifId = await insertNotification(notificationData);
+
+        console.log(`[NOTIFY_ADMINS] ✅ Created notification ${notifId} for ${admin.id}`);
+        console.log(`[NOTIFY_ADMINS] This notification should appear in browser for user ${admin.id}`);
 
         // Send push notification to admin
         try {
           await sendPushToUser(admin.id, title, body, 'new-request');
-          console.log(`[NOTIFY_ADMINS] ✓ Push sent to ${admin.id}`);
+          console.log(`[NOTIFY_ADMINS] ✅ Push sent to ${admin.id}`);
         } catch (pushErr) {
-          console.warn(`[NOTIFY_ADMINS] Push failed for ${admin.id}:`, pushErr);
+          console.warn(`[NOTIFY_ADMINS] ⚠️ Push failed for ${admin.id}:`, pushErr);
         }
       } catch (e) {
-        console.error(`[NOTIFY_ADMINS] ✗ Failed for ${admin.id}:`, e);
+        console.error(`[NOTIFY_ADMINS] ❌ Failed to save notification for ${admin.id}:`, e);
       }
     }
 
-    console.log('[NOTIFY_ADMINS] === COMPLETE ===');
+    console.log('[NOTIFY_ADMINS] ===== COMPLETE ===== ');
   } catch (err) {
     console.error('[NOTIFY_ADMINS] FATAL ERROR:', err);
   }

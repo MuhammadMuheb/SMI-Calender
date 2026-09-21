@@ -22,12 +22,20 @@ export default function DesktopTopBar({ title, subtitle }: DesktopTopBarProps) {
   const unreadCount = userNotifications.filter((n) => !n.isRead).length;
 
   // Debug logging
+  console.log('[TOPBAR] ===== RENDER =====');
+  console.log('[TOPBAR] Current user:', { id: user?.id, role: user?.role, displayName: user?.displayName });
+  console.log('[TOPBAR] Total notifications in context:', notifications.length);
+  console.log('[TOPBAR] Notifications for this user:', userNotifications.length);
+  console.log('[TOPBAR] Unread count:', unreadCount);
+
+  if (notifications.length > 0) {
+    console.log('[TOPBAR] All notifications:', notifications.map(n => ({ id: n.id, userId: n.userId, title: n.title, isRead: n.isRead })));
+  }
+
   if (unreadCount === 0 && notifications.length > 0) {
-    console.log('[TOPBAR] ⚠️ Notifications exist but none for this user:', {
-      totalNotifications: notifications.length,
-      userId: user?.id,
-      notificationUserIds: notifications.map(n => n.userId)
-    });
+    console.log('[TOPBAR] ⚠️ Notifications exist but NONE for this user!');
+    console.log('[TOPBAR] User ID:', user?.id);
+    console.log('[TOPBAR] Notification user IDs:', notifications.map(n => n.userId));
   }
 
   return (
