@@ -13,7 +13,7 @@ import { validateUsers } from '../utils/dataValidation';
 import {
   fetchUsers, insertUser, updateUserDb, deleteUserDb,
   deleteUserRoleAssignments, deleteUserLeaveRequests, deleteUserCheckIns,
-  deleteUserTourAssignments, deleteUserTasks,
+  deleteUserTourAssignments, deleteUserTasks, cleanupOrphanedSchedules,
   deleteUserWithDataHandling as deleteUserService,
 } from '../services/firestoreUserService';
 import {

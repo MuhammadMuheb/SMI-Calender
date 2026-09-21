@@ -6,6 +6,7 @@
  */
 
 import { collection, getDocs, getFirestore, query, where } from 'firebase/firestore';
+import { cleanupOrphanedSchedules } from '../services/firestoreUserService';
 
 interface VerificationReport {
   timestamp: string;
@@ -196,7 +197,9 @@ export async function verifyExpectedCounts(expectedUsers: number, expectedRoles:
 if (import.meta.env.MODE === 'development') {
   (window as any).verifyCalendarData = verifyCalendarData;
   (window as any).verifyExpectedCounts = verifyExpectedCounts;
+  (window as any).cleanupOrphanedSchedules = cleanupOrphanedSchedules;
   console.log('💡 Verification commands available:');
   console.log('   - await verifyCalendarData() - Verify data integrity');
   console.log('   - await verifyExpectedCounts(users, roles, august, sept) - Verify exact counts');
+  console.log('   - await cleanupOrphanedSchedules() - Remove orphaned schedule entries');
 }
