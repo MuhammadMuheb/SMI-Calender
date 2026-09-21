@@ -87,17 +87,22 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   // Load notifications from Firestore in real-time
   const loadNotifications = useCallback(async () => {
-    if (!userIdRef.current || !mountedRef.current) return;
+    console.log('[NOTIFICATIONS] loadNotifications called, userIdRef:', userIdRef.current);
+    if (!userIdRef.current || !mountedRef.current) {
+      console.warn('[NOTIFICATIONS] Aborting load - userIdRef:', userIdRef.current, 'mounted:', mountedRef.current);
+      return;
+    }
     setLoading(true);
 
     try {
       const db = getFirestore();
+      console.log('[NOTIFICATIONS] Setting up listener for userId:', userIdRef.current);
       const q = query(collection(db, 'notifications'), where('userId', '==', userIdRef.current));
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
         if (!mountedRef.current) return;
 
-        console.log('[LISTENER] Firestore snapshot for user', userIdRef.current, ':', snapshot.docs.length, 'notifications');
+        console.log('[LISTENER] ✓ Snapshot received for user', userIdRef.current, '- Found:', snapshot.docs.length, 'notifications');
 
         const notifs = snapshot.docs.map((doc) => {
           const data = doc.data();
