@@ -357,12 +357,21 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   const getPendingRequests = useCallback(
     () => {
       const today = formatDateLocal(new Date());
-      return requests.filter((r) =>
-        r.status === 'pending' &&
-        r.userRef?.role === 'staff' &&
-        r.date <= today && // CRITICAL: Only show requests for today or past dates, never future
-        users.find(u => u.id === r.userId && u.isActive)
-      );
+      return requests.filter((r) => {
+        // CRITICAL FILTERS:
+        // 1. Status must be pending
+        // 2. User must be staff (not admin/manager)
+        // 3. Date must be today or earlier (NO future dates)
+        // 4. User must exist and be active
+        const user = users.find(u => u.id === r.userId && u.isActive);
+        return (
+          r.status === 'pending' &&
+          user &&
+          user.role === 'staff' &&
+          r.userRef?.role === 'staff' &&
+          r.date <= today
+        );
+      });
     },
     [requests, users],
   );

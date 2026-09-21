@@ -281,3 +281,47 @@ export async function savePushSubscription(userId: string, subscription: any): P
     console.error('Error saving push subscription:', error);
   }
 }
+
+/**
+ * PERMANENT CLEANUP: Delete all ghost/future-dated leave requests and admin requests
+ * Removes all seeded/auto-generated requests with future dates and any admin-created entries
+ * This ensures the database is clean and only contains real user-submitted requests
+ */
+export async function cleanupGhostRequests(allUsers: any[]): Promise<{ deleted: number; reason: string }> {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const batch = writeBatch(db);
+    let count = 0;
+
+    const snapshot = await getDocs(collection(db, 'leave_requests'));
+
+    for (const docSnap of snapshot.docs) {
+      const req = docSnap.data();
+      const user = allUsers.find(u => u.id === req.userId);
+
+      // DELETE if:
+      // 1. Date is in the future (after today), OR
+      // 2. User is an admin/manager (not staff), OR
+      // 3. User doesn't exist or is inactive
+      const isFutureDate = req.date > today;
+      const isAdminOrManager = user && (user.role === 'super_admin' || user.role === 'manager');
+      const isInvalidUser = !user || !user.isActive;
+
+      if (isFutureDate || isAdminOrManager || isInvalidUser) {
+        batch.delete(docSnap.ref);
+        count++;
+      }
+    }
+
+    await batch.commit();
+    console.log(`[Cleanup] Deleted ${count} ghost/future/admin requests`);
+
+    return {
+      deleted: count,
+      reason: `Removed ${count} ghost requests (future-dated, admin, or invalid user entries)`
+    };
+  } catch (error) {
+    console.error('Error cleaning up ghost requests:', error);
+    return { deleted: 0, reason: 'Cleanup failed: ' + String(error) };
+  }
+}

@@ -28,13 +28,10 @@ import {
 } from '../services/firestoreSettingsService';
 import {
   fetchTourAssignments,
-} from '../services/firestoreService';
-import {
   insertAuditLog,
-} from '../services/firestoreService';
-import {
   fetchSchedules,
   insertSchedulesBatch,
+  cleanupGhostRequests,
 } from '../services/firestoreService';
 import { augustSchedules, septemberSchedules } from '../data/scheduleData';
 
@@ -101,6 +98,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         console.error('fetchUsers error:', err);
         return [];
       });
+
+      // CLEANUP: On every load, remove all ghost/future-dated/admin requests from database
+      // This ensures clean data even if legacy requests exist
+      if (u.length > 0) {
+        cleanupGhostRequests(u).catch(err => console.error('Cleanup error:', err));
+      }
       let jr: JobRole[] = await fetchJobRoles().catch(err => {
         console.error('fetchJobRoles error:', err);
         return [] as JobRole[];
