@@ -259,69 +259,36 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const deleteUser = useCallback(async (id: string, actorName: string) => {
-    console.log(`\n[AppContext] Starting deletion workflow for user ${id}`);
-
     const deletedUser = users.find((u) => u.id === id);
     if (!deletedUser) {
       throw new Error(`User ${id} not found in local state - cannot delete`);
     }
 
     try {
-      // Step 1: Cascade delete dependent records
-      console.log(`[AppContext] → Step 1: Deleting dependent records...`);
-      try {
-        const roleCount = await deleteUserRoleAssignments(id);
-        const leaveCount = await deleteUserLeaveRequests(id);
-        const checkInCount = await deleteUserCheckIns(id);
-        const tourCount = await deleteUserTourAssignments(id);
-        const taskCount = await deleteUserTasks(id);
-
-        const totalDependents = roleCount + leaveCount + checkInCount + tourCount + taskCount;
-        console.log(`[AppContext] ✓ Step 1 complete: Deleted ${totalDependents} dependent records`);
-        console.log(`[AppContext]   - Role assignments: ${roleCount}`);
-        console.log(`[AppContext]   - Leave requests: ${leaveCount}`);
-        console.log(`[AppContext]   - Check-ins: ${checkInCount}`);
-        console.log(`[AppContext]   - Tour assignments: ${tourCount}`);
-        console.log(`[AppContext]   - Tasks unassigned: ${taskCount}`);
-      } catch (cascadeErr) {
-        console.warn(`[AppContext] ⚠️ Warning: Some dependent records could not be deleted:`, cascadeErr);
-        // Continue with user deletion even if cascading delete fails
-      }
-
-      // Step 2: Delete user from Firestore
-      console.log(`[AppContext] → Step 2: Deleting user document...`);
+      // Delete user from Firestore (fast, no retries)
       await deleteUserDb(id);
-      console.log(`[AppContext] ✓ Step 2 complete: User document deleted`);
 
-      // Step 3: Update local state immediately
-      console.log(`[AppContext] → Step 3: Updating local state...`);
-      const prevUsersCount = users.length;
-      setUsers((prev) => {
-        const filtered = prev.filter((u) => u.id !== id);
-        const safe = getSafeUsers(filtered);
-        console.log(`[AppContext] ✓ Step 3 complete: Local state updated (${prevUsersCount} → ${safe.length} users)`);
-        return safe;
-      });
+      // Update UI immediately (user sees instant feedback)
+      setUsers((prev) => getSafeUsers(prev.filter((u) => u.id !== id)));
 
-      // Step 4: Record in audit log
-      console.log(`[AppContext] → Step 4: Recording audit log...`);
-      await insertAuditLog({
-        actorId: 'admin',
-        actorName,
-        action: 'user_deleted',
-        entityType: 'user',
-        entityId: id,
-        description: `Deleted user "${deletedUser.displayName}" (${deletedUser.username})`
-      });
-      console.log(`[AppContext] ✓ Step 4 complete: Audit log recorded`);
-
-      console.log(`[AppContext] ✓✓✓ DELETION WORKFLOW COMPLETE - All systems verified\n`);
+      // Run cleanup in parallel background (don't await)
+      Promise.all([
+        deleteUserRoleAssignments(id),
+        deleteUserLeaveRequests(id),
+        deleteUserCheckIns(id),
+        deleteUserTourAssignments(id),
+        deleteUserTasks(id),
+        insertAuditLog({
+          actorId: 'admin',
+          actorName,
+          action: 'user_deleted',
+          entityType: 'user',
+          entityId: id,
+          description: `Deleted user "${deletedUser.displayName}" (${deletedUser.username})`
+        })
+      ]).catch(err => console.warn(`Background cleanup had issues:`, err));
     } catch (err) {
-      console.error(`\n[AppContext] ✗✗✗ DELETION WORKFLOW FAILED\n`);
-      console.error(`[AppContext] User: ${deletedUser.displayName} (${deletedUser.username})`);
-      console.error(`[AppContext] Error message: ${(err as any)?.message}`);
-      console.error(`[AppContext] Error code: ${(err as any)?.code}`);
-      console.error(`[AppContext] Full error:`, err);
+      console.error(`Deletion failed: ${(err as any)?.message}`);
       throw err;
     }
   }, [users]);
