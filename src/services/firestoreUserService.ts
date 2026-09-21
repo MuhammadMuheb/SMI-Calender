@@ -139,27 +139,25 @@ export async function deleteUserDb(id: string): Promise<void> {
 
     const userData = userSnap.docs[0].data();
     const username = userData.username || userData.name;
+    const actualDocId = userSnap.docs[0].id; // Use the actual document ID from query
 
     if (!username) {
       throw new Error(`User record exists but has no username - cannot delete. ID: ${id}`);
     }
 
-    // Try to find document with either username format
-    let docId = username.toLowerCase();
-    let userRef = doc(db, 'users', docId);
+    console.log(`[User Deletion] Found user: username="${username}", actualDocId="${actualDocId}", userId="${id}"`);
+
+    // CRITICAL: Use actual document ID from query result - this is the most reliable method
+    const userRef = doc(db, 'users', actualDocId);
     let docSnapshot = await getDoc(userRef);
 
     if (!docSnapshot.exists()) {
-      docId = `usr_${username.toLowerCase()}`;
-      userRef = doc(db, 'users', docId);
-      docSnapshot = await getDoc(userRef);
-    }
-
-    if (!docSnapshot.exists()) {
-      throw new Error(`Document not found: users/${docId}`);
+      // Document not found with actual ID, this should not happen if query succeeded
+      throw new Error(`[CRITICAL] Query returned user but document not found: users/${actualDocId}`);
     }
 
     // Delete user document
+    console.log(`[User Deletion] Deleting document: ${actualDocId}`);
     const batch = writeBatch(db);
     batch.delete(userRef);
     await batch.commit();
@@ -167,10 +165,10 @@ export async function deleteUserDb(id: string): Promise<void> {
     // Verify deletion succeeded
     const verifySnap = await getDoc(userRef);
     if (verifySnap.exists()) {
-      throw new Error(`[CRITICAL] User document still exists after deletion attempt: ${docId}`);
+      throw new Error(`[CRITICAL] User document still exists after deletion attempt: ${actualDocId}`);
     }
 
-    console.log(`[User Deletion] User document successfully deleted: ${docId}`);
+    console.log(`[User Deletion] ✓ User document successfully deleted: ${actualDocId}`);
   } catch (err) {
     console.error(`[Firestore Delete] CRITICAL ERROR: ${(err as any)?.message || String(err)}`);
     throw err;
