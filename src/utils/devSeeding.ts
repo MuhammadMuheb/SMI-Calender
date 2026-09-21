@@ -63,7 +63,7 @@ export async function seedTestUsers() {
 }
 
 // Expose to window for development
-if (typeof process !== 'undefined' && (process.env as any)?.NODE_ENV === 'development') {
+if (import.meta.env.MODE === 'development') {
   (window as any).seedTestUsers = seedTestUsers;
   console.log('💡 Dev tip: Type "await seedTestUsers()" in the console to seed test users');
 }
