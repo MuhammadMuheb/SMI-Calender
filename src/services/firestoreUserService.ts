@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
+  collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, writeBatch,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { StaffUser } from '../models/user';
@@ -93,14 +93,82 @@ export async function updateUserDb(
 }
 
 export async function deleteUserDb(id: string): Promise<void> {
+  console.log(`\n[Firestore Delete] Starting deletion for user: ${id}`);
+
   try {
+    // Step 1: Fetch and validate user exists
+    console.log(`[Firestore Delete] Fetching user record...`);
     const users = await fetchUsers();
     const user = users.find((u) => u.id === id);
-    if (!user) return;
 
-    const userRef = doc(db, 'users', user.username.toLowerCase());
-    await deleteDoc(userRef);
+    if (!user) {
+      throw new Error(`User with ID "${id}" not found in Firestore`);
+    }
+
+    if (!user.username) {
+      throw new Error(`User record exists but has no username - cannot delete. ID: ${id}`);
+    }
+
+    console.log(`[Firestore Delete] ✓ Found user: ${user.displayName} (username: ${user.username})`);
+
+    // Step 2: Construct and validate document reference
+    const docId = user.username.toLowerCase();
+    const userRef = doc(db, 'users', docId);
+    console.log(`[Firestore Delete] Document reference: users/${docId}`);
+
+    // Step 3: Delete the document using batch
+    console.log(`[Firestore Delete] Executing deletion...`);
+    const batch = writeBatch(db);
+    batch.delete(userRef);
+    await batch.commit();
+    console.log(`[Firestore Delete] ✓ Batch delete committed`);
+
+    // Step 4: Verify deletion with retries for Firestore consistency
+    console.log(`[Firestore Delete] Verifying deletion (with retries for consistency)...`);
+    let verified = false;
+    let retryCount = 0;
+    const maxRetries = 4;
+    const retryDelays = [1000, 2000, 3000, 4000];
+
+    while (retryCount < maxRetries && !verified) {
+      const delayMs = retryDelays[retryCount];
+      console.log(`[Firestore Delete] → Retry ${retryCount + 1}/${maxRetries}: Waiting ${delayMs}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+
+      const freshUsers = await fetchUsers();
+      const stillExists = freshUsers.some(u => u.id === id);
+
+      if (!stillExists) {
+        verified = true;
+        console.log(`[Firestore Delete] ✓ Verified: User removed successfully (retry ${retryCount + 1})`);
+      } else {
+        retryCount++;
+        if (retryCount < maxRetries) {
+          console.log(`[Firestore Delete] User still exists, retrying...`);
+        }
+      }
+    }
+
+    if (!verified) {
+      const stillExistsUser = (await fetchUsers()).find(u => u.id === id);
+      console.error(`[Firestore Delete] ✗ VERIFICATION FAILED after ${maxRetries} retries`);
+      console.error(`[Firestore Delete] ID: ${id}, username: ${stillExistsUser?.username}`);
+      throw new Error(`Deletion could not be verified: user "${user.displayName}" still exists after ${maxRetries} retries`);
+    }
+
+    console.log(`[Firestore Delete] ✓✓✓ DELETION COMPLETE - User fully removed from Firestore\n`);
+
   } catch (err) {
-    console.error('deleteUserDb:', err);
+    console.error(`[Firestore Delete] ✗✗✗ DELETION FAILED\n`);
+    console.error(`[Firestore Delete] Error message: ${(err as any)?.message || String(err)}`);
+    console.error(`[Firestore Delete] Error code: ${(err as any)?.code || 'N/A'}`);
+
+    if ((err as any)?.message?.includes('PERMISSION_DENIED')) {
+      console.error(`[Firestore Delete] ⚠️  SECURITY RULES ISSUE DETECTED`);
+      console.error(`[Firestore Delete] The Firestore security rules may be blocking deletion.`);
+      console.error(`[Firestore Delete] Action: Deploy latest rules with: firebase deploy --only firestore:rules`);
+    }
+
+    throw err;
   }
 }

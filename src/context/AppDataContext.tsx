@@ -95,10 +95,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       // Wrap each fetch in its own try-catch to prevent one failure from crashing all
+      console.log('[AppDataContext] Starting loadData...');
       const u = await fetchUsers().catch(err => {
-        console.error('fetchUsers error:', err);
+        console.error('[CRITICAL] fetchUsers error:', err);
+        console.error('[CRITICAL] Error code:', (err as any)?.code);
+        console.error('[CRITICAL] Error message:', (err as any)?.message);
         return [];
       });
+      console.log('[AppDataContext] Fetched users:', u.length);
       let jr: JobRole[] = await fetchJobRoles().catch(err => {
         console.error('fetchJobRoles error:', err);
         return [] as JobRole[];
@@ -253,11 +257,51 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const deleteUser = useCallback(async (id: string, actorName: string) => {
-    // CRITICAL: Always filter through getSafeUsers
-    setUsers((prev) => getSafeUsers(prev.filter((u) => u.id !== id)));
-    await deleteUserDb(id);
-    await insertAuditLog({ actorId: 'admin', actorName, action: 'user_deleted', entityType: 'user', entityId: id, description: `Deleted user ${id}` });
-  }, []);
+    console.log(`\n[AppContext] Starting deletion workflow for user ${id}`);
+
+    const deletedUser = users.find((u) => u.id === id);
+    if (!deletedUser) {
+      throw new Error(`User ${id} not found in local state - cannot delete`);
+    }
+
+    try {
+      // Step 1: Delete from Firestore
+      console.log(`[AppContext] → Step 1: Deleting from Firestore...`);
+      await deleteUserDb(id);
+      console.log(`[AppContext] ✓ Step 1 complete: Firestore deletion verified`);
+
+      // Step 2: Update local state immediately
+      console.log(`[AppContext] → Step 2: Updating local state...`);
+      const prevUsersCount = users.length;
+      setUsers((prev) => {
+        const filtered = prev.filter((u) => u.id !== id);
+        const safe = getSafeUsers(filtered);
+        console.log(`[AppContext] ✓ Step 2 complete: Local state updated (${prevUsersCount} → ${safe.length} users)`);
+        return safe;
+      });
+
+      // Step 3: Record in audit log
+      console.log(`[AppContext] → Step 3: Recording audit log...`);
+      await insertAuditLog({
+        actorId: 'admin',
+        actorName,
+        action: 'user_deleted',
+        entityType: 'user',
+        entityId: id,
+        description: `Deleted user "${deletedUser.displayName}" (${deletedUser.username})`
+      });
+      console.log(`[AppContext] ✓ Step 3 complete: Audit log recorded`);
+
+      console.log(`[AppContext] ✓✓✓ DELETION WORKFLOW COMPLETE - All systems verified\n`);
+    } catch (err) {
+      console.error(`\n[AppContext] ✗✗✗ DELETION WORKFLOW FAILED\n`);
+      console.error(`[AppContext] User: ${deletedUser.displayName} (${deletedUser.username})`);
+      console.error(`[AppContext] Error message: ${(err as any)?.message}`);
+      console.error(`[AppContext] Error code: ${(err as any)?.code}`);
+      console.error(`[AppContext] Full error:`, err);
+      throw err;
+    }
+  }, [users]);
 
   // ─── Job Roles ───────────────────────────────────────
   const addJobRole = useCallback(async (role: Omit<JobRole, 'id' | 'createdAt' | 'updatedAt'>, actorName: string) => {

@@ -85,6 +85,7 @@ export default function StaffManagement({ onBack }: Props) {
   const [formPrimaryRole, setFormPrimaryRole] = useState<string>('');
   const [formActive, setFormActive] = useState(true);
   const [formError, setFormError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   const actorName = user?.displayName ?? 'Admin';
 
@@ -164,9 +165,66 @@ export default function StaffManagement({ onBack }: Props) {
   };
 
   const handleDelete = async (staff: StaffUser) => {
-    roleAssignments.filter((a) => a.userId === staff.id).forEach((a) => removeRoleAssignment(a.id, actorName));
-    await deleteUser(staff.id, actorName);
-    setConfirmDelete(null);
+    console.log(`\n${'═'.repeat(50)}`);
+    console.log(`DELETE WORKFLOW INITIATED`);
+    console.log(`${'═'.repeat(50)}`);
+    console.log(`Target: ${staff.displayName} (username: ${staff.username}, ID: ${staff.id})`);
+    setDeleteError('');
+
+    try {
+      // Step 1: Clean up role assignments
+      const userAssignments = roleAssignments.filter((a) => a.userId === staff.id);
+      console.log(`\n[UI] Step 1: Cleaning up role assignments (found ${userAssignments.length})`);
+
+      if (userAssignments.length > 0) {
+        const removePromises = userAssignments.map((a) => removeRoleAssignment(a.id, actorName));
+        await Promise.all(removePromises);
+        console.log(`[UI] ✓ All ${userAssignments.length} role assignments removed`);
+      } else {
+        console.log(`[UI] ✓ No role assignments to remove`);
+      }
+
+      // Step 2: Delete user from Firestore
+      console.log(`[UI] Step 2: Initiating Firestore deletion...`);
+      await deleteUser(staff.id, actorName);
+      console.log(`[UI] ✓ User deleted from Firestore`);
+
+      // Step 3: Close modal and complete
+      console.log(`[UI] Step 3: Closing confirmation dialog`);
+      setConfirmDelete(null);
+      console.log(`\n${'═'.repeat(50)}`);
+      console.log(`✓✓✓ DELETION WORKFLOW COMPLETE ✓✓✓`);
+      console.log(`Staff member "${staff.displayName}" has been permanently removed.`);
+      console.log(`${'═'.repeat(50)}\n`);
+
+    } catch (err) {
+      console.error(`\n${'═'.repeat(50)}`);
+      console.error(`✗ DELETION WORKFLOW FAILED`);
+      console.error(`${'═'.repeat(50)}`);
+      console.error(`Staff: ${staff.displayName} (${staff.username})`);
+      console.error(`Error: ${(err as any)?.message || String(err)}`);
+      console.error(`Code: ${(err as any)?.code || 'N/A'}`);
+
+      if ((err as any)?.stack) {
+        console.error(`Stack:\n${(err as any).stack}`);
+      }
+
+      // User-friendly error message
+      let userMessage = `Failed to delete ${staff.displayName}`;
+      if ((err as any)?.message) {
+        const msg = (err as any).message;
+        if (msg.includes('PERMISSION_DENIED') || msg.includes('security')) {
+          userMessage += ': Security rules are blocking deletion. Contact your admin.';
+        } else if (msg.includes('not found')) {
+          userMessage += ': User record not found in database.';
+        } else {
+          userMessage += `: ${msg}`;
+        }
+      }
+
+      setDeleteError(`❌ ${userMessage}`);
+      console.error(`${'═'.repeat(50)}\n`);
+    }
   };
 
   const getJobRoleNames = (userId: string) =>
@@ -341,12 +399,13 @@ export default function StaffManagement({ onBack }: Props) {
         {roleForm}
       </Modal>
 
-      <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Delete Staff Member"
-        footer={<><Button variant="outline" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+      <Modal open={!!confirmDelete} onClose={() => { setConfirmDelete(null); setDeleteError(''); }} title="Delete Staff Member"
+        footer={<><Button variant="outline" onClick={() => { setConfirmDelete(null); setDeleteError(''); }}>Cancel</Button>
           <Button variant="secondary" onClick={() => confirmDelete && handleDelete(confirmDelete)}>Delete</Button></>}>
         <p className="text-sm" style={{ color: theme.colors.gray }}>
           This permanently deletes <strong style={{ color: theme.colors.white }}>{confirmDelete?.displayName}</strong> and their login access. Their past attendance and request history may be affected. This cannot be undone.
         </p>
+        {deleteError && <p className="text-xs mt-3" style={{ color: theme.colors.danger }}>{deleteError}</p>}
       </Modal>
     </div>
   );
