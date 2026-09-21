@@ -437,3 +437,9 @@ export function useAppData(): AppDataContextValue {
   if (!ctx) throw new Error('useAppData must be used inside AppDataProvider');
   return ctx;
 }
+
+// Development mode: Load testing utilities
+if (import.meta.env.MODE === 'development') {
+  import('../utils/calendarDataIngestion').catch(() => null);
+  import('../utils/verifyCalendarData').catch(() => null);
+}

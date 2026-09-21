@@ -8,7 +8,7 @@ import type { Role } from '../config/roles';
 export async function fetchUsers(): Promise<StaffUser[]> {
   try {
     const snapshot = await getDocs(collection(db, 'users'));
-    return snapshot.docs
+    const users = snapshot.docs
       .map((docSnap) => {
         const data = docSnap.data();
         if (!data) return null;
@@ -32,6 +32,26 @@ export async function fetchUsers(): Promise<StaffUser[]> {
         } as StaffUser;
       })
       .filter((u): u is StaffUser => u !== null);
+
+    // CRITICAL: Deduplicate by user ID - keep only the first (most recent) record
+    // This prevents 2-3x duplicate names in Staff Management view
+    const seenIds = new Set<string>();
+    const uniqueUsers: StaffUser[] = [];
+
+    for (const user of users) {
+      if (!seenIds.has(user.id)) {
+        seenIds.add(user.id);
+        uniqueUsers.push(user);
+      } else {
+        console.warn(`[Deduplication] Duplicate user ID detected: ${user.displayName} (${user.id}) - keeping first occurrence only`);
+      }
+    }
+
+    if (uniqueUsers.length < users.length) {
+      console.log(`[Deduplication] Removed ${users.length - uniqueUsers.length} duplicate user records`);
+    }
+
+    return uniqueUsers;
   } catch (err) {
     console.error('fetchUsers:', err);
     return [];
