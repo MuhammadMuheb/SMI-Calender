@@ -263,6 +263,32 @@ export async function deleteUserTasks(userId: string): Promise<number> {
 }
 
 /**
+ * Delete all schedule entries for a user
+ * CRITICAL: Prevents deleted users from appearing in calendar/tour views
+ * Searches by displayName since schedules store guide name, not userId
+ */
+export async function deleteUserSchedules(userId: string): Promise<number> {
+  try {
+    const users = await fetchUsers();
+    const user = users.find((u) => u.id === userId);
+    if (!user) return 0;
+
+    // Schedules reference users by displayName, not by ID
+    const q = query(collection(db, 'schedules'), where('guide', '==', user.displayName));
+    const snapshot = await getDocs(q);
+    if (snapshot.empty) return 0;
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((docSnap) => batch.delete(docSnap.ref));
+    await batch.commit();
+    return snapshot.size;
+  } catch (err) {
+    console.error(`Error deleting schedules:`, err);
+    return 0;
+  }
+}
+
+/**
  * ENHANCED DELETION: Supports both HARD DELETE (wipe all data) and SOFT DELETE (archive account)
  *
  * Hard Delete: Permanently removes user and ALL associated data
@@ -303,19 +329,21 @@ export async function deleteUserWithDataHandling(
       checkIns: 0,
       tourAssignments: 0,
       tasks: 0,
+      schedules: 0,
     };
 
     if (mode === 'hard_delete') {
       // HARD DELETE: Remove all traces of the user
       console.log(`\n[HARD DELETE] Initiating complete purge...`);
 
-      // Delete in parallel for efficiency
-      const [leaveCount, roleCount, checkinCount, tourCount, taskCount] = await Promise.all([
+      // Delete in parallel for efficiency (CRITICAL: include schedules to prevent ghost entries)
+      const [leaveCount, roleCount, checkinCount, tourCount, taskCount, scheduleCount] = await Promise.all([
         deleteUserLeaveRequests(userId),
         deleteUserRoleAssignments(userId),
         deleteUserCheckIns(userId),
         deleteUserTourAssignments(userId),
         deleteUserTasks(userId),
+        deleteUserSchedules(userId),
       ]);
 
       deletedCounts.leaveRequests = leaveCount;
@@ -323,6 +351,7 @@ export async function deleteUserWithDataHandling(
       deletedCounts.checkIns = checkinCount;
       deletedCounts.tourAssignments = tourCount;
       deletedCounts.tasks = taskCount;
+      deletedCounts.schedules = scheduleCount;
 
       console.log(`[HARD DELETE] Associated data purged:`);
       console.log(`  ✓ Leave requests: ${leaveCount}`);
@@ -330,6 +359,7 @@ export async function deleteUserWithDataHandling(
       console.log(`  ✓ Check-ins: ${checkinCount}`);
       console.log(`  ✓ Tour assignments: ${tourCount}`);
       console.log(`  ✓ Tasks unassigned: ${taskCount}`);
+      console.log(`  ✓ Schedule entries: ${scheduleCount}`);
 
       // Finally, delete the user document
       console.log(`[HARD DELETE] Deleting user document...`);
