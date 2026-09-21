@@ -283,45 +283,60 @@ export async function savePushSubscription(userId: string, subscription: any): P
 }
 
 /**
- * PERMANENT CLEANUP: Delete all ghost/future-dated leave requests and admin requests
- * Removes all seeded/auto-generated requests with future dates and any admin-created entries
- * This ensures the database is clean and only contains real user-submitted requests
+ * AGGRESSIVE PERMANENT CLEANUP: Delete ALL pending requests from database
+ * CRITICAL: All pending requests are legacy seed/test data from development.
+ * Only real-time requests directly submitted by users should exist.
+ * This performs a complete purge of all pending + future + admin entries.
  */
 export async function cleanupGhostRequests(allUsers: any[]): Promise<{ deleted: number; reason: string }> {
   try {
     const today = new Date().toISOString().split('T')[0];
     const batch = writeBatch(db);
-    let count = 0;
+    let totalDeleted = 0;
+    let pendingCount = 0;
+    let futureCount = 0;
+    let adminCount = 0;
 
     const snapshot = await getDocs(collection(db, 'leave_requests'));
 
     for (const docSnap of snapshot.docs) {
       const req = docSnap.data();
       const user = allUsers.find(u => u.id === req.userId);
+      let shouldDelete = false;
 
-      // DELETE if:
-      // 1. Date is in the future (after today), OR
-      // 2. User is an admin/manager (not staff), OR
-      // 3. User doesn't exist or is inactive
-      const isFutureDate = req.date > today;
-      const isAdminOrManager = user && (user.role === 'super_admin' || user.role === 'manager');
-      const isInvalidUser = !user || !user.isActive;
+      // DELETE if ANY condition is true:
+      if (req.status === 'pending') {
+        // AGGRESSIVE: Delete ALL pending requests (all are legacy seed data)
+        shouldDelete = true;
+        pendingCount++;
+      } else if (req.date > today) {
+        // Delete all future-dated entries
+        shouldDelete = true;
+        futureCount++;
+      } else if (user && (user.role === 'super_admin' || user.role === 'manager')) {
+        // Delete all admin/manager requests
+        shouldDelete = true;
+        adminCount++;
+      } else if (!user || !user.isActive) {
+        // Delete requests from deleted/inactive users
+        shouldDelete = true;
+      }
 
-      if (isFutureDate || isAdminOrManager || isInvalidUser) {
+      if (shouldDelete) {
         batch.delete(docSnap.ref);
-        count++;
+        totalDeleted++;
       }
     }
 
     await batch.commit();
-    console.log(`[Cleanup] Deleted ${count} ghost/future/admin requests`);
+    console.log(`[AGGRESSIVE PURGE] Deleted ${totalDeleted} total: ${pendingCount} PENDING (seeded), ${futureCount} future, ${adminCount} admin`);
 
     return {
-      deleted: count,
-      reason: `Removed ${count} ghost requests (future-dated, admin, or invalid user entries)`
+      deleted: totalDeleted,
+      reason: `COMPLETE PURGE: ${totalDeleted} legacy entries removed (${pendingCount} pending seed data, ${futureCount} future, ${adminCount} admin)`
     };
   } catch (error) {
-    console.error('Error cleaning up ghost requests:', error);
+    console.error('Error in aggressive cleanup:', error);
     return { deleted: 0, reason: 'Cleanup failed: ' + String(error) };
   }
 }
