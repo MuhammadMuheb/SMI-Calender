@@ -11,8 +11,39 @@ export function checkStaffingBeforeSubmit(
   roleAssignments: StaffRoleAssignment[],
   jobRoles: { id: string; name: string }[],
 ): string | null {
-  // ========== Check 1: Job Role Daily Limit (Max 2 per role per day) ==========
+  // ========== CRITICAL Check 0: Enforce Minimum 2 Working Staff Per Role ==========
+  // RULE: At least 2 staff members must ALWAYS remain working in any role
+  // This is a HARD CONSTRAINT: working_staff_remaining >= 2, always
   const userJobRoleIds = getUserJobRoleIds(userId, roleAssignments);
+  for (const jobRoleId of userJobRoleIds) {
+    // Count TOTAL employees assigned to this job role
+    const totalStaffInRole = roleAssignments.filter(
+      (a) => a.jobRoleId === jobRoleId
+    ).length;
+
+    // Count staff already on leave (approved) for this date
+    const alreadyOnLeave = requests
+      .filter(r =>
+        r.date === date &&
+        r.status === 'approved'
+      )
+      .filter(r => {
+        const theirRoles = getUserJobRoleIds(r.userId, roleAssignments);
+        return theirRoles.includes(jobRoleId);
+      }).length;
+
+    // If this user takes leave, how many would remain working?
+    const wouldRemainWorking = totalStaffInRole - alreadyOnLeave - 1;
+
+    const jobRoleName = jobRoles.find(jr => jr.id === jobRoleId)?.name || jobRoleId;
+
+    // HARD BLOCK: If remaining would be < 2, reject the request
+    if (wouldRemainWorking < 2) {
+      return `❌ BLOCKED: Role "${jobRoleName}" would have only ${wouldRemainWorking} staff working on ${date}. Minimum 2 must always be present. Request denied.`;
+    }
+  }
+
+  // ========== Check 1: Job Role Daily Limit (Max 2 per role per day) ==========
   for (const jobRoleId of userJobRoleIds) {
     // Count how many approved/pending requests already exist for this date with this same job role
     const otherStaffOnDateWithRole = requests
