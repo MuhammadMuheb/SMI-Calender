@@ -10,6 +10,7 @@ import {
   insertLeaveRequest, updateLeaveRequestDb, insertAuditLog, insertNotification,
   listenLeaveRequests, cancelLeaveRequest, approveLeaveRequest, rejectLeaveRequest,
 } from '../services/firestoreService';
+import { sendPushToUser } from '../utils/pushManager';
 import {
   CYCLE_LENGTH_DAYS as _CYCLE_LENGTH_DAYS, VACATION_ACCRUAL_PER_MONTH,
   isFirstSundayOfMonth, normalizeDateStr,
@@ -125,12 +126,11 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       getVacationAccrual(userId, users),
       getRegularOverride(userId, users),
     );
-    if (leaveType === 'regular_day_off' && balance.regularDaysRemaining <= 0) {
-      return 'No regular days off remaining in this cycle';
-    }
-    if (leaveType === 'paid_vacation' && balance.vacationDaysRemaining <= 0) {
-      return 'No vacation days remaining';
-    }
+
+    // Track if user is exceeding quota (allow it but notify admin)
+    const isExceedingQuota =
+      (leaveType === 'regular_day_off' && balance.regularDaysRemaining < 0) ||
+      (leaveType === 'paid_vacation' && balance.vacationDaysRemaining < 0);
 
     const staffingErr = checkStaffingBeforeSubmit(normalizedDate, userId, requests, staffingRules, roleAssignments, jobRoles);
     if (staffingErr) return staffingErr;
@@ -169,6 +169,13 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     if (autoApprove) {
       const approvedSnapshot = [...requests.filter((r) => r.status === 'approved'), newRequest];
       notifyManagersOfDeduction(newRequest, approvedSnapshot, users);
+    } else {
+      await notifyAdminsOfNewRequest(newRequest, users);
+    }
+
+    // Notify admins if user exceeded their quota
+    if (isExceedingQuota) {
+      await notifyAdminsOfQuotaExceeded(newRequest, balance, leaveType, users);
     }
 
     return null;
@@ -243,6 +250,9 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       .map((r) => (r.id === requestId ? { ...r, status: 'approved' as LeaveStatus } : r))
       .filter((r) => r.status === 'approved');
     notifyManagersOfDeduction(req, approvedSnapshot, users, approver.id);
+
+    // Notify the staff member that their request was approved
+    notifyUserOfApproval(req, approver, note);
   }, [requests, users]);
 
   const reject = useCallback((requestId: string, approver: UserRef, note: string = '') => {
@@ -265,6 +275,11 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       action: 'leave_rejected', entityType: 'leave_request', entityId: requestId,
       description: `${approver.displayName} rejected ${staffName}'s ${typeLabel} for ${dateLabel}`,
     });
+
+    // Notify the staff member that their request was rejected
+    if (req) {
+      notifyUserOfRejection(req, approver, note);
+    }
   }, [requests]);
 
   const overrideReq = useCallback((requestId: string, newStatus: LeaveStatus, admin: UserRef, note: string = '') => {
@@ -449,6 +464,63 @@ export function useLeave(): LeaveContextValue {
   return ctx;
 }
 
+/**
+ * Notify admins when a user exceeds their leave quota
+ * This is a HIGH-PRIORITY notification to alert admins of over-quota requests
+ */
+async function notifyAdminsOfQuotaExceeded(
+  req: { userId: string; userRef: UserRef; date: string; leaveType: LeaveType },
+  balance: { regularDaysRemaining: number; regularDaysAllowed: number; vacationDaysRemaining: number; vacationDaysTotal: number },
+  leaveType: LeaveType,
+  users: { id: string; role: string; isActive: boolean }[],
+): Promise<void> {
+  const dateLabel = new Date(req.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const typeLabel = LEAVE_TYPE_LABELS[leaveType] ?? leaveType;
+
+  let balanceInfo = '';
+  if (leaveType === 'regular_day_off') {
+    balanceInfo = `Regular Days: ${balance.regularDaysRemaining}/${balance.regularDaysAllowed} (exceeded by ${Math.abs(balance.regularDaysRemaining)} day${Math.abs(balance.regularDaysRemaining) === 1 ? '' : 's'})`;
+  } else if (leaveType === 'paid_vacation') {
+    balanceInfo = `Vacation Days: ${balance.vacationDaysRemaining}/${balance.vacationDaysTotal} (exceeded by ${Math.abs(balance.vacationDaysRemaining)} day${Math.abs(balance.vacationDaysRemaining) === 1 ? '' : 's'})`;
+  }
+
+  const title = `URGENT: Quota Exceeded - ${typeLabel}`;
+  const body = `${req.userRef.displayName} requested ${typeLabel.toLowerCase()} for ${dateLabel} but has EXCEEDED their quota.\n\n${balanceInfo}\n\nPlease review and take action.`;
+
+  // Get all active admins and managers
+  const recipients = users.filter((u) =>
+    (u.role === 'manager' || u.role === 'super_admin') && u.isActive,
+  );
+
+  console.log('[NOTIFICATION] Quota exceeded for:', req.userRef.displayName, '|', balanceInfo);
+  console.log('[NOTIFICATION] Notifying', recipients.length, 'admins of quota excess');
+
+  for (const admin of recipients) {
+    try {
+      // Save HIGH-PRIORITY notification to Firestore
+      await insertNotification({
+        userId: admin.id,
+        type: 'balance_adjusted', // Using existing type for quota alerts
+        title,
+        body,
+        isRead: false,
+        confirmStatus: 'pending',
+        rejectReason: '',
+        entityType: 'leave_request',
+        entityId: req.userId,
+        createdAt: new Date().toISOString(),
+      });
+
+      console.log(`[NOTIFICATION] Quota excess notification sent to admin ${admin.id}`);
+
+      // Send push notification with high priority tag
+      await sendPushToUser(admin.id, title, body, 'quota-exceeded');
+    } catch (e) {
+      console.error(`[NOTIFICATION] Failed to notify admin ${admin.id} of quota excess:`, e);
+    }
+  }
+}
+
 function getRegularOverride(userId: string, users: { id: string; regularOverride?: number | null }[]): number | null {
   const user = users.find((u) => u.id === userId);
   return user?.regularOverride ?? null;
@@ -509,6 +581,137 @@ async function notifyManagersOfDeduction(
       console.error('notifyManagersOfDeduction error:', e);
     }
   }
+}
+
+/**
+ * Notify the user when their leave request is approved
+ */
+async function notifyUserOfApproval(
+  req: { userId: string; userRef: UserRef; date: string; leaveType: LeaveType },
+  approver: UserRef,
+  approverNote: string = '',
+): Promise<void> {
+  const dateLabel = new Date(req.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const typeLabel = LEAVE_TYPE_LABELS[req.leaveType] ?? req.leaveType;
+
+  const title = `✅ ${typeLabel} Approved`;
+  const noteText = approverNote ? `\n\nApprover note: ${approverNote}` : '';
+  const body = `Your ${typeLabel.toLowerCase()} request for ${dateLabel} has been approved by ${approver.displayName}.${noteText}`;
+
+  try {
+    // Save notification to Firestore
+    await insertNotification({
+      id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      userId: req.userId,
+      type: 'leave_approved',
+      title,
+      body,
+      data: {
+        entityType: 'leave_request',
+        entityId: req.userId,
+      },
+    });
+
+    // Send push notification to user
+    await sendPushToUser(req.userId, title, body, 'approval');
+  } catch (e) {
+    console.error(`Failed to notify user ${req.userId} of approval:`, e);
+  }
+}
+
+/**
+ * Notify the user when their leave request is rejected
+ */
+async function notifyUserOfRejection(
+  req: { userId: string; userRef: UserRef; date: string; leaveType: LeaveType },
+  approver: UserRef,
+  rejectionReason: string = '',
+): Promise<void> {
+  const dateLabel = new Date(req.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const typeLabel = LEAVE_TYPE_LABELS[req.leaveType] ?? req.leaveType;
+
+  const title = `❌ ${typeLabel} Rejected`;
+  const reasonText = rejectionReason ? `\n\nReason: ${rejectionReason}` : '';
+  const body = `Your ${typeLabel.toLowerCase()} request for ${dateLabel} was rejected by ${approver.displayName}.${reasonText}`;
+
+  try {
+    // Save notification to Firestore
+    await insertNotification({
+      id: `notif_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      userId: req.userId,
+      type: 'leave_rejected',
+      title,
+      body,
+      data: {
+        entityType: 'leave_request',
+        entityId: req.userId,
+      },
+    });
+
+    // Send push notification to user
+    await sendPushToUser(req.userId, title, body, 'rejection');
+  } catch (e) {
+    console.error(`Failed to notify user ${req.userId} of rejection:`, e);
+  }
+}
+
+/**
+ * Notify all active admins and managers when a new request is submitted by staff,
+ * so they see pending requests that require approval immediately.
+ */
+async function notifyAdminsOfNewRequest(
+  req: { userId: string; userRef: UserRef; date: string; leaveType: LeaveType },
+  users: { id: string; role: string; isActive: boolean }[],
+): Promise<void> {
+  const dateLabel = new Date(req.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const typeLabel = LEAVE_TYPE_LABELS[req.leaveType] ?? req.leaveType;
+
+  const title = `New ${typeLabel} Request`;
+  const body = `${req.userRef.displayName} submitted a ${typeLabel.toLowerCase()} request for ${dateLabel}. Review and approve in the admin panel.`;
+
+  // Get all active admins and managers
+  const recipients = users.filter((u) =>
+    (u.role === 'manager' || u.role === 'super_admin') && u.isActive,
+  );
+
+  console.log('[NOTIFICATION] New request from staff:', req.userRef.displayName);
+  console.log('[NOTIFICATION] Total users:', users.length);
+  console.log('[NOTIFICATION] Admin/Manager recipients found:', recipients.length);
+  console.log('[NOTIFICATION] Users with roles:', users.map(u => ({ id: u.id, role: u.role, isActive: u.isActive })));
+
+  if (recipients.length === 0) {
+    console.warn('[NOTIFICATION] No admin/manager recipients found! Check user roles.');
+  }
+
+  for (const admin of recipients) {
+    try {
+      console.log(`[NOTIFICATION] Creating notification for admin ${admin.id}...`);
+
+      // Save notification to Firestore with all required fields
+      const notifId = await insertNotification({
+        userId: admin.id,
+        type: 'new_request_pending',
+        title,
+        body,
+        isRead: false,
+        confirmStatus: 'pending',
+        rejectReason: '',
+        entityType: 'leave_request',
+        entityId: req.userId,
+        createdAt: new Date().toISOString(),
+      });
+
+      console.log(`[NOTIFICATION] Created notification ${notifId} for admin ${admin.id}`);
+
+      // Send push notification to admin
+      const pushResult = await sendPushToUser(admin.id, title, body, 'new-request');
+      console.log(`[NOTIFICATION] Push result:`, pushResult);
+    } catch (e) {
+      console.error(`[NOTIFICATION] Failed to notify admin ${admin.id}:`, e);
+    }
+  }
+
+  console.log('[NOTIFICATION] Done notifying admins for request');
 }
 
 function getVacationAccrual(userId: string, users: { id: string; createdAt: string; vacationOverride?: number | null; vacationOverrideAt?: string | null }[]): number {

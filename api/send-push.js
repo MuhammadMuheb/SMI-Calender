@@ -5,10 +5,21 @@ try {
   // Fallback: will return error below
 }
 
-const { createClient } = require('@supabase/supabase-js');
+const admin = require('firebase-admin');
+const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT || './serviceAccountKey.json';
+let db;
 
-const SUPABASE_URL = 'https://bchjkyavanfaegdbewnj.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjaGpreWF2YW5mYWVnZGJld25qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDEyOTYsImV4cCI6MjA5MTQxNzI5Nn0.WdN1sJeLxwBJ0HlJN_nmvwhvx6xsV1NY-nCH_jHVgVQ';
+try {
+  if (!admin.apps.length) {
+    const serviceAccount = require(serviceAccountPath);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+  }
+  db = admin.firestore();
+} catch (e) {
+  console.error('Failed to initialize Firebase:', e);
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -44,14 +55,24 @@ module.exports = async function handler(req, res) {
   if (!userId || !title) return res.status(400).json({ error: 'userId and title required' });
 
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-    const { data: subs, error } = await supabase
-      .from('push_subscriptions')
-      .select('*')
-      .eq('user_id', userId);
+    if (!db) return res.status(500).json({ error: 'Firebase not initialized' });
 
-    if (error) return res.status(500).json({ error: 'DB: ' + error.message });
-    if (!subs || subs.length === 0) return res.status(200).json({ sent: 0, message: 'No subscriptions' });
+    // Query Firestore for push subscriptions for this user
+    const subsSnapshot = await db.collection('push_subscriptions').doc(userId).get();
+
+    if (!subsSnapshot.exists) {
+      return res.status(200).json({ sent: 0, message: 'No subscriptions found for user' });
+    }
+
+    const subData = subsSnapshot.data();
+    // Handle both single subscription and array of subscriptions
+    const subs = Array.isArray(subData)
+      ? subData
+      : [subData];
+
+    if (!subs || subs.length === 0) {
+      return res.status(200).json({ sent: 0, message: 'No subscriptions' });
+    }
 
     const payload = JSON.stringify({ title, body: body || '', tag: tag || 'smi' });
     let sent = 0;
@@ -59,15 +80,21 @@ module.exports = async function handler(req, res) {
 
     for (const sub of subs) {
       try {
+        if (!sub.endpoint || !sub.auth || !sub.p256dh) {
+          errors.push({ subscription: sub.endpoint || 'unknown', msg: 'Missing required subscription fields' });
+          continue;
+        }
+
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           payload
         );
         sent++;
       } catch (err) {
-        errors.push({ id: sub.id, status: err.statusCode, msg: err.message });
+        errors.push({ endpoint: sub.endpoint, status: err.statusCode, msg: err.message });
+        // Remove invalid subscriptions from Firestore
         if (err.statusCode === 404 || err.statusCode === 410) {
-          await supabase.from('push_subscriptions').delete().eq('id', sub.id);
+          await db.collection('push_subscriptions').doc(userId).delete();
         }
       }
     }

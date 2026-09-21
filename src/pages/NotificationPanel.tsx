@@ -5,6 +5,8 @@ import { alpha } from '../utils/themeColor';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import { useLeave } from '../context/LeaveContext';
+import { insertNotification } from '../services/firestoreService';
+import { sendPushToUser } from '../utils/pushManager';
 import { useAppData } from '../context/AppDataContext';
 import { generateTomorrowSummary } from '../services/notificationService';
 import { ROLES } from '../config/roles';
@@ -36,69 +38,128 @@ export default function NotificationPanel({ open, onClose }: NotificationPanelPr
   // Urgent rejections visible to managers/admin (from all staff)
   const urgentRejections = isAdminOrManager ? getUrgentRejections() : [];
 
-  const handleGenerateSummary = () => {
+  const handleGenerateSummary = async () => {
     const summary = generateTomorrowSummary(
       requests, users, staffingRules, roleAssignments, jobRoles,
     );
-    addNotification(
-      user.id, 'daily_absence_summary',
-      `Tomorrow: ${summary.staffOff.length} off, ${summary.onDuty} on duty`,
-      summary.message,
-      undefined, undefined, user.id,
-    );
+    const title1 = `Tomorrow: ${summary.staffOff.length} off, ${summary.onDuty} on duty`;
+    try {
+      await insertNotification({
+        userId: user.id,
+        type: 'daily_absence_summary',
+        title: title1,
+        body: summary.message,
+        isRead: false,
+        confirmStatus: 'pending',
+        rejectReason: '',
+        createdAt: new Date().toISOString(),
+      });
+      await sendPushToUser(user.id, title1, summary.message, 'summary');
+    } catch (e) {
+      console.error('Failed to create summary notification:', e);
+    }
+
     if (summary.shortages.length > 0) {
-      addNotification(
-        user.id, 'staffing_warning',
-        'Staffing Warning — Tomorrow',
-        `${summary.shortages.map((s) => `${s.roleName}: ${s.scheduled}/${s.required}`).join(', ')}`,
-        undefined, undefined, user.id,
-      );
+      const title2 = 'Staffing Warning — Tomorrow';
+      const body2 = summary.shortages.map((s) => `${s.roleName}: ${s.scheduled}/${s.required}`).join(', ');
+      try {
+        await insertNotification({
+          userId: user.id,
+          type: 'staffing_warning',
+          title: title2,
+          body: body2,
+          isRead: false,
+          confirmStatus: 'pending',
+          rejectReason: '',
+          createdAt: new Date().toISOString(),
+        });
+        await sendPushToUser(user.id, title2, body2, 'staffing-warning');
+      } catch (e) {
+        console.error('Failed to create staffing warning notification:', e);
+      }
     }
     setShowSummary(true);
     setTimeout(() => setShowSummary(false), 2000);
   };
 
-  const handleConfirm = (id: string) => {
+  const handleConfirm = async (id: string) => {
     confirmNotification(id);
     // If it's a coffee offer, send acceptance back to sender
     const notif = myNotifications.find((n) => n.id === id);
     if (notif?.type === 'coffee_offer' && notif.entityId) {
-      addNotification(
-        notif.entityId, // sender's userId
-        'coffee_response',
-        `☕ ${user.displayName} accepted your coffee!`,
-        `${user.displayName} says yes to coffee! Go grab one together.`,
-        'coffee', user.id, user.id,
-      );
+      const title = `☕ ${user.displayName} accepted your coffee!`;
+      const body = `${user.displayName} says yes to coffee! Go grab one together.`;
+      try {
+        await insertNotification({
+          userId: notif.entityId,
+          type: 'coffee_response',
+          title,
+          body,
+          isRead: false,
+          confirmStatus: 'confirmed',
+          rejectReason: '',
+          entityType: 'coffee',
+          entityId: user.id,
+          createdAt: new Date().toISOString(),
+        });
+        await sendPushToUser(notif.entityId, title, body, 'coffee-accepted');
+      } catch (e) {
+        console.error('Failed to send coffee acceptance:', e);
+      }
     }
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (!rejectingId || !rejectReason.trim()) return;
     rejectNotification(rejectingId, rejectReason.trim());
     const notif = myNotifications.find((n) => n.id === rejectingId);
     if (notif?.type === 'coffee_offer' && notif.entityId) {
       // Coffee rejection — send note back to sender only
-      addNotification(
-        notif.entityId,
-        'coffee_response',
-        `☕ ${user.displayName} passed on coffee`,
-        `${user.displayName}: "${rejectReason.trim()}"`,
-        'coffee', user.id, user.id,
-      );
+      const title = `☕ ${user.displayName} passed on coffee`;
+      const body = `${user.displayName}: "${rejectReason.trim()}"`;
+      try {
+        await insertNotification({
+          userId: notif.entityId,
+          type: 'coffee_response',
+          title,
+          body,
+          isRead: false,
+          confirmStatus: 'rejected',
+          rejectReason: rejectReason.trim(),
+          entityType: 'coffee',
+          entityId: user.id,
+          createdAt: new Date().toISOString(),
+        });
+        await sendPushToUser(notif.entityId, title, body, 'coffee-rejected');
+      } catch (e) {
+        console.error('Failed to send coffee rejection:', e);
+      }
     } else {
       // Shift rejection — send urgent to all managers and super admins
       const managersAndAdmins = users.filter((u) =>
         (u.role === ROLES.MANAGER || u.role === ROLES.SUPER_ADMIN) && u.isActive,
       );
-      managersAndAdmins.forEach((mgr) => {
-        addNotification(
-          mgr.id, 'staffing_warning',
-          `⚠️ Shift Rejected — ${user.displayName}`,
-          `Reason: ${rejectReason.trim()}${notif ? ` | Original: ${notif.title}` : ''}`,
-          undefined, undefined, user.id,
-        );
-      });
+      const title = `Shift Rejected — ${user.displayName}`;
+      const body = `Reason: ${rejectReason.trim()}${notif ? ` | Original: ${notif.title}` : ''}`;
+
+      for (const mgr of managersAndAdmins) {
+        try {
+          await insertNotification({
+            userId: mgr.id,
+            type: 'staffing_warning',
+            title,
+            body,
+            isRead: false,
+            confirmStatus: 'pending',
+            rejectReason: rejectReason.trim(),
+            entityId: user.id,
+            createdAt: new Date().toISOString(),
+          });
+          await sendPushToUser(mgr.id, title, body, 'shift-rejected');
+        } catch (e) {
+          console.error(`Failed to notify manager ${mgr.id} of shift rejection:`, e);
+        }
+      }
     }
     setRejectingId(null);
     setRejectReason('');

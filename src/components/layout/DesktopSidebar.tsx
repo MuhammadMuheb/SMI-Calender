@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { theme } from '../../config/theme';
 import { alpha } from '../../utils/themeColor';
 import { ROLES, ROLE_LABELS, type Role } from '../../config/roles';
@@ -26,7 +28,12 @@ interface DesktopSidebarProps {
 export default function DesktopSidebar({
   activeTab, onTabChange, role, displayName, pendingCount, onLogout,
 }: DesktopSidebarProps) {
+  const { user } = useAuth();
+  const { getForUser } = useNotifications();
   const isSuperAdmin = role === ROLES.SUPER_ADMIN;
+
+  // Get unread notification count (not pending requests)
+  const unreadNotificationCount = user ? getForUser(user.id).filter((n) => !n.isRead).length : 0;
 
   // Capability blueprint: a manager's desktop view is a straight port of what
   // they already have on mobile (dashboard, team, calendar, approvals) — the
@@ -36,7 +43,7 @@ export default function DesktopSidebar({
     { id: 'home', label: 'Dashboard', icon: Icons.home },
     { id: 'staff', label: 'Team Overview', icon: Icons.users },
     { id: 'calendar', label: 'Calendar', icon: Icons.calendar },
-    { id: 'requests', label: 'Requests Queue', icon: Icons.bell, badge: pendingCount },
+    { id: 'requests', label: 'Requests Queue', icon: Icons.bell, badge: pendingCount || unreadNotificationCount },
     { id: 'staffManagement', label: 'Team Management', icon: Icons.user, superAdminOnly: true },
     { id: 'staffingRules', label: 'Staffing Rules', icon: Icons.shield, superAdminOnly: true },
     { id: 'autoAssign', label: 'Auto-Assignment', icon: '\u{1F504}', superAdminOnly: true },

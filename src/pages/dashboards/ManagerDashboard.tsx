@@ -5,7 +5,8 @@ import { alpha } from '../../utils/themeColor';
 import { useAuth } from '../../context/AuthContext';
 import { useLeave } from '../../context/LeaveContext';
 import { useAppData } from '../../context/AppDataContext';
-import { useNotifications } from '../../context/NotificationContext';
+import { insertNotification } from '../../services/firestoreService';
+import { sendPushToUser } from '../../utils/pushManager';
 import { LEAVE_STATUS_LABELS, LEAVE_TYPE_LABELS } from '../../models/leave';
 import { safeSort } from '../../utils/safeData';
 import ManagerRequestQueue from '../ManagerRequestQueue';
@@ -28,7 +29,6 @@ export default function ManagerDashboard() {
   const { user } = useAuth();
   const { requests, getPendingRequests, getBalance, getUserRequests } = useLeave();
   const { users } = useAppData();
-  const { addNotification } = useNotifications();
   const [view, setView] = useState<'dashboard' | 'queue' | 'myHistory' | 'attendance' | 'checkins' | 'shiftStatus'>('dashboard');
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [showRequestForm, setShowRequestForm] = useState(false);
@@ -86,11 +86,22 @@ export default function ManagerDashboard() {
       const staff = activeStaff.find((u) => u.id === staffId);
       if (!staff) continue;
       const t = shiftTimes[staffId] ?? { start: '08:00', end: '17:00' };
-      addNotification(
-        staff.id, 'daily_absence_summary',
-        `Tomorrow's Shift — ${tomorrowLabel}`,
-        `You are on duty, ${t.start} – ${t.end}. Please confirm or reject.`,
-      );
+      const title = `Tomorrow's Shift — ${tomorrowLabel}`;
+      const body = `You are on duty, ${t.start} – ${t.end}. Please confirm or reject.`;
+
+      // Save to Firestore and send push notification
+      insertNotification({
+        userId: staff.id,
+        type: 'daily_absence_summary',
+        title,
+        body,
+        isRead: false,
+        confirmStatus: 'pending',
+        rejectReason: '',
+        createdAt: new Date().toISOString(),
+      }).catch((err) => console.error('Failed to send shift notification:', err));
+
+      sendPushToUser(staff.id, title, body, 'shift-assignment').catch(() => {});
     }
   };
 

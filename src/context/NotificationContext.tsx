@@ -3,6 +3,7 @@ import {
 } from 'react';
 import type { Notification, NotificationType, ConfirmStatus } from '../models/notification';
 import { subscribeToPush, sendPushToUser } from '../utils/pushManager';
+import { getFirestore, collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 
 /**
  * STATUS: LOCAL-ONLY NOTIFICATIONS
@@ -84,13 +85,60 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(timer);
   }, []);
 
-  // Load notifications (stub - local only for now)
+  // Load notifications from Firestore in real-time
   const loadNotifications = useCallback(async () => {
-    if (!mountedRef.current) return;
-    setLoading(false);
+    if (!userIdRef.current || !mountedRef.current) return;
+    setLoading(true);
+
+    try {
+      const db = getFirestore();
+      const q = query(collection(db, 'notifications'), where('userId', '==', userIdRef.current));
+
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        if (!mountedRef.current) return;
+
+        console.log('[LISTENER] Firestore snapshot for user', userIdRef.current, ':', snapshot.docs.length, 'notifications');
+
+        const notifs = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          console.log('[LISTENER] Notification:', { id: doc.id, type: data.type, title: data.title, userId: data.userId });
+          return {
+            id: doc.id,
+            userId: data.userId,
+            type: data.type as NotificationType,
+            title: data.title,
+            body: data.body,
+            isRead: data.isRead ?? false,
+            confirmStatus: (data.confirmStatus ?? 'pending') as ConfirmStatus,
+            rejectReason: data.rejectReason ?? '',
+            entityType: data.entityType,
+            entityId: data.entityId,
+            createdAt: data.createdAt ?? new Date().toISOString(),
+          } as Notification;
+        });
+
+        // Sort by createdAt descending (newest first)
+        notifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setNotifications(notifs);
+        setLoading(false);
+      });
+
+      return unsubscribe;
+    } catch (err) {
+      console.error('Failed to load notifications:', err);
+      setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { loadNotifications(); }, [loadNotifications]);
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    loadNotifications().then((unsub) => {
+      unsubscribe = unsub;
+    });
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [loadNotifications]);
 
   const addNotification = useCallback(async (
     userId: string, type: NotificationType,
@@ -113,16 +161,50 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const markAsRead = useCallback((id: string) => {
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
+    // Persist to Firestore
+    try {
+      const db = getFirestore();
+      updateDoc(doc(db, 'notifications', id), { isRead: true }).catch((err) => {
+        console.error(`Failed to persist markAsRead for ${id}:`, err);
+      });
+    } catch (e) {
+      console.error('Error updating notification in Firestore:', e);
+    }
   }, []);
 
   const markAllAsRead = useCallback((userId: string) => {
     setNotifications((prev) => prev.map((n) => n.userId === userId ? { ...n, isRead: true } : n));
-  }, []);
+    // Persist to Firestore for all unread notifications
+    try {
+      const db = getFirestore();
+      notifications
+        .filter((n) => n.userId === userId && !n.isRead)
+        .forEach((n) => {
+          updateDoc(doc(db, 'notifications', n.id), { isRead: true }).catch((err) => {
+            console.error(`Failed to persist markAllAsRead for ${n.id}:`, err);
+          });
+        });
+    } catch (e) {
+      console.error('Error marking all as read in Firestore:', e);
+    }
+  }, [notifications]);
 
   const confirmNotification = useCallback((id: string) => {
     setNotifications((prev) =>
       prev.map((n) => n.id === id ? { ...n, isRead: true, confirmStatus: 'confirmed' as ConfirmStatus } : n),
     );
+    // Persist to Firestore
+    try {
+      const db = getFirestore();
+      updateDoc(doc(db, 'notifications', id), {
+        isRead: true,
+        confirmStatus: 'confirmed'
+      }).catch((err) => {
+        console.error(`Failed to persist confirmNotification for ${id}:`, err);
+      });
+    } catch (e) {
+      console.error('Error confirming notification in Firestore:', e);
+    }
   }, []);
 
   const rejectNotification = useCallback((id: string, reason: string) => {
@@ -132,6 +214,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       } : n),
     );
     playNotificationSound();
+    // Persist to Firestore
+    try {
+      const db = getFirestore();
+      updateDoc(doc(db, 'notifications', id), {
+        isRead: true,
+        confirmStatus: 'rejected',
+        rejectReason: reason,
+      }).catch((err) => {
+        console.error(`Failed to persist rejectNotification for ${id}:`, err);
+      });
+    } catch (e) {
+      console.error('Error rejecting notification in Firestore:', e);
+    }
   }, []);
 
   const getForUser = useCallback(
