@@ -18,7 +18,7 @@ import {
 import { formatDateLocal } from '../utils/dateUtils';
 import { getCycleForDate as getNewCycle } from '../utils/cycleUtils';
 import { useAppData } from './AppDataContext';
-import { useNotification } from './NotificationContext';
+import { useNotifications } from './NotificationContext';
 import { validateLeaveRequests } from '../utils/dataValidation';
 import { checkStaffingBeforeSubmit } from '../services/staffingCheckOnSubmit';
 
@@ -55,7 +55,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const { users, staffingRules, roleAssignments, jobRoles } = useAppData();
-  const { markEntityAsRead } = useNotification();
+  const { markEntityAsRead } = useNotifications();
 
   // Use a ref to store the current users array
   // This allows the listener callback to access the latest users without re-subscribing
