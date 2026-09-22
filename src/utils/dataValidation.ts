@@ -86,19 +86,19 @@ export function validateLeaveRequest(req: any): LeaveRequest | null {
       status: String(req.status || 'pending').trim() as any,
       staffNote: String(req.staffNote || req.staff_note || '').trim(),
       approverNote: String(req.approverNote || req.approver_note || '').trim(),
-      decidedBy: req.decidedBy || req.decided_by ? {
-        id: String(req.decidedBy?.id || req.decided_by?.id || '').trim() || 'unknown',
-        displayName: String(req.decidedBy?.displayName || req.decided_by?.displayName || 'Unknown')
+      decidedBy: (req.decidedBy || req.decided_by) ? {
+        id: String((req.decidedBy || req.decided_by)?.id || '').trim() || 'unknown',
+        displayName: String((req.decidedBy || req.decided_by)?.displayName || 'Unknown')
           .trim() || 'Unknown',
-        role: String(req.decidedBy?.role || req.decided_by?.role || 'staff').trim() as any,
+        role: String((req.decidedBy || req.decided_by)?.role || 'staff').trim() as any,
       } : null,
       decidedAt: req.decidedAt || req.decided_at || null,
       isOverridden: req.isOverridden === true || req.is_overridden === true,
-      overriddenBy: req.overriddenBy || req.overridden_by ? {
-        id: String(req.overriddenBy?.id || req.overridden_by?.id || '').trim() || 'unknown',
-        displayName: String(req.overriddenBy?.displayName || req.overridden_by?.displayName || 'Unknown')
+      overriddenBy: (req.overriddenBy || req.overridden_by) ? {
+        id: String((req.overriddenBy || req.overridden_by)?.id || '').trim() || 'unknown',
+        displayName: String((req.overriddenBy || req.overridden_by)?.displayName || 'Unknown')
           .trim() || 'Unknown',
-        role: String(req.overriddenBy?.role || req.overridden_by?.role || 'staff').trim() as any,
+        role: String((req.overriddenBy || req.overridden_by)?.role || 'staff').trim() as any,
       } : null,
       overriddenAt: req.overriddenAt || req.overridden_at || null,
       createdAt: String(req.createdAt || req.created_at || new Date().toISOString()).trim(),
