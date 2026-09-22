@@ -30,16 +30,25 @@ export async function submitMultiDayLeaveRequest(
     try {
       const id = await insertLeaveRequest({
         userId,
-        type: leaveType,
+        userRef: {
+          id: userId,
+          displayName: userDisplayName || 'Unknown',
+          role: userRole || 'staff',
+        },
+        leaveType,
         date,
-        reason: reason || (dates.length > 1 ? `Multi-day ${leaveType}` : ''),
-        userDisplayName,
-        userRole,
+        status: 'pending',
+        staffNote: reason || (dates.length > 1 ? `Multi-day ${leaveType}` : ''),
+        approverNote: '',
+        decidedBy: null,
+        decidedAt: null,
+        isOverridden: false,
+        overriddenBy: null,
+        overriddenAt: null,
       });
       ids.push(id);
     } catch (error) {
       console.error(`Failed to create leave request for ${date}:`, error);
-      // Continue with next dates, but track that some failed
       throw new Error(`Failed to create leave request for date: ${date}`);
     }
   }
