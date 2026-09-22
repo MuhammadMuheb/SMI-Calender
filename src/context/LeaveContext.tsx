@@ -1,5 +1,5 @@
 import {
-  createContext, useContext, useState, useEffect, useMemo, useCallback, type ReactNode,
+  createContext, useContext, useState, useEffect, useMemo, useCallback, useRef, type ReactNode,
 } from 'react';
 import type { LeaveRequest, LeaveType, LeaveStatus } from '../models/leave';
 import { LEAVE_TYPE_LABELS } from '../models/leave';
@@ -18,6 +18,7 @@ import {
 import { formatDateLocal } from '../utils/dateUtils';
 import { getCycleForDate as getNewCycle } from '../utils/cycleUtils';
 import { useAppData } from './AppDataContext';
+import { useNotification } from './NotificationContext';
 import { validateLeaveRequests } from '../utils/dataValidation';
 import { checkStaffingBeforeSubmit } from '../services/staffingCheckOnSubmit';
 
@@ -54,51 +55,106 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const { users, staffingRules, roleAssignments, jobRoles } = useAppData();
+  const { markEntityAsRead } = useNotification();
 
+  // Use a ref to store the current users array
+  // This allows the listener callback to access the latest users without re-subscribing
+  const usersRef = useRef(users);
+  useEffect(() => {
+    usersRef.current = users;
+    console.log('[USERS_REF] Updated with', users.length, 'users');
+  }, [users]);
+
+  // When users load (transition from 0 to > 0), re-enrich existing requests
+  useEffect(() => {
+    if (users.length > 0 && requests.length > 0) {
+      console.log('[USERS_LOADED] Users just loaded! Re-enriching', requests.length, 'requests');
+
+      const enriched = requests.map((req: LeaveRequest) => {
+        const actualUser = users.find(u => u.id === req.userId);
+        if (actualUser) {
+          return {
+            ...req,
+            userRef: {
+              id: actualUser.id,
+              displayName: actualUser.displayName || actualUser.username || 'Unknown User',
+              role: actualUser.role,
+            },
+          };
+        }
+        return req;
+      });
+
+      console.log('[USERS_LOADED] After re-enrichment:', enriched.length, 'requests');
+      setRequests(enriched);
+    }
+  }, [users.length]); // Only trigger when users count changes
+
+  // CRITICAL FIX: Set up Firestore listener ONCE on mount, never re-subscribe
+  // Use a ref for users to avoid dependency issues
   useEffect(() => {
     setLoading(true);
+    console.log('[LISTENER_EFFECT] Setting up Firestore listener ONCE...');
+    console.log('[LISTENER_EFFECT] Current usersRef at setup:', usersRef.current.length, 'users');
+
     const unsubscribe = listenLeaveRequests(
       (data: any) => {
         try {
+          console.log('[LISTENER_CALLBACK] ===== SNAPSHOT FIRED =====');
+          console.log('[LISTENER_CALLBACK] Raw Firestore data:', data.length, 'documents');
+          console.log('[LISTENER_CALLBACK] Raw data sample:', data.slice(0, 2).map((d: any) => ({
+            id: d.id, status: d.status, userId: d.userId, userRefRole: d.userRef?.role
+          })));
+
           const validated = validateLeaveRequests(data);
+          console.log('[LISTENER_CALLBACK] After validation:', validated.length, 'requests');
+          console.log('[LISTENER_CALLBACK] Validated sample:', validated.slice(0, 2).map(r => ({
+            id: r.id, status: r.status, userId: r.userId, userRefRole: r.userRef?.role
+          })));
 
-          // Enrich leave requests with actual user data from the users collection
-          // CRITICAL: AGGRESSIVE filtering - reject ANY request from deleted/inactive users
-          const enriched = validated
-            .map((req: LeaveRequest) => {
-              const actualUser = users.find(u => u.id === req.userId);
-
-              // Enrich with user data if available, but DON'T filter out requests
-              // Requests should be shown regardless of user status
-              if (actualUser) {
-                return {
-                  ...req,
-                  userRef: {
-                    id: actualUser.id,
-                    displayName: actualUser.displayName || actualUser.username || 'Unknown User',
-                    role: actualUser.role,
-                  },
-                };
-              }
-
-              // User not found, but still include the request
-              // Use existing userRef or create a minimal one
+          // Enrich with current users from ref (not state)
+          // CRITICAL: If users haven't loaded yet, just keep the requests as-is
+          const enriched = validated.map((req: LeaveRequest) => {
+            if (usersRef.current.length === 0) {
+              // Users not loaded yet, keep requests as-is with existing userRef
+              console.log('[LISTENER_CALLBACK] Users not loaded yet for request', req.id, '- keeping existing userRef');
               return req;
-            })
-            .filter((req): req is LeaveRequest => req !== null);
+            }
 
-          console.log(`[Data Integrity] Loaded ${enriched.length} requests from ${users.length} users`);
+            const actualUser = usersRef.current.find(u => u.id === req.userId);
+
+            if (actualUser) {
+              return {
+                ...req,
+                userRef: {
+                  id: actualUser.id,
+                  displayName: actualUser.displayName || actualUser.username || 'Unknown User',
+                  role: actualUser.role,
+                },
+              };
+            }
+
+            // User not found but users ARE loaded, keep existing userRef
+            return req;
+          });
+
+          console.log('[LISTENER_CALLBACK] After enrichment:', enriched.length, 'requests');
           setRequests(enriched);
         } catch (err) {
-          console.error('Error validating leave requests:', err);
+          console.error('[LISTENER_CALLBACK] Error:', err);
           setRequests([]);
         }
         setLoading(false);
       }
     );
 
-    return () => unsubscribe();
-  }, [users]);
+    console.log('[LISTENER_EFFECT] Listener subscribed successfully');
+
+    return () => {
+      console.log('[LISTENER_EFFECT] Unsubscribing listener');
+      unsubscribe();
+    };
+  }, []); // CRITICAL: Empty deps - subscribe ONCE, never re-subscribe
 
   const submitRequest = useCallback(async (
     userId: string, userRef: UserRef, date: string, leaveType: LeaveType, note: string = '', autoApprove: boolean = false,
@@ -197,10 +253,12 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   }, [requests, users, staffingRules, roleAssignments, jobRoles]);
 
   const cancelRequest = useCallback((requestId: string) => {
+    // Mark associated notifications as read when request is cancelled
+    markEntityAsRead(requestId);
     cancelLeaveRequest(requestId).catch((err: any) => {
       console.error('Failed to cancel request:', err);
     });
-  }, []);
+  }, [markEntityAsRead]);
 
   const approve = useCallback((requestId: string, approver: UserRef, note: string = '') => {
     const now = new Date().toISOString();
@@ -459,18 +517,28 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   );
   const getPendingRequests = useCallback(
     () => {
-      return requests.filter((r) => {
-        // CRITICAL FIX: Include ALL pending requests, including future dates
-        // Admins/Managers need to see and approve all pending leave requests
-        // regardless of when they're scheduled for
+      const result = requests.filter((r) => {
+        // CRITICAL FIX: Show ALL pending requests for admin/manager approval queue
+        // Don't filter by user role - admins need to see pending requests from all staff
         const user = users.find(u => u.id === r.userId && u.isActive);
-        return (
+        const passes = (
           r.status === 'pending' &&
-          user &&
-          user.role === 'staff' &&
-          r.userRef?.role === 'staff'
+          user // Only check if user exists and is active, not their role
         );
+        if (r.status === 'pending') {
+          console.log('[PENDING_FILTER] Request', r.id, ':', {
+            status: r.status,
+            userFound: !!user,
+            userRole: user?.role,
+            userActive: user?.isActive,
+            userRefRole: r.userRef?.role,
+            passes
+          });
+        }
+        return passes;
       });
+      console.log('[PENDING_REQUESTS] Total pending after filter:', result.length);
+      return result;
     },
     [requests, users],
   );

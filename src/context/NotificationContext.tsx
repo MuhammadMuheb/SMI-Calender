@@ -24,6 +24,7 @@ interface NotificationContextValue {
   ) => void;
   markAsRead: (id: string) => void;
   markAllAsRead: (userId: string) => void;
+  markEntityAsRead: (entityId: string) => void;
   confirmNotification: (id: string) => void;
   rejectNotification: (id: string, reason: string) => void;
   getForUser: (userId: string) => Notification[];
@@ -253,6 +254,31 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [notifications]);
 
+  const markEntityAsRead = useCallback((entityId: string) => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => n.entityId === entityId ? { ...n, isRead: true } : n);
+      return updated.sort((a, b) => {
+        const timeA = new Date(a.createdAt).getTime();
+        const timeB = new Date(b.createdAt).getTime();
+        if (isNaN(timeA)) return 1;
+        if (isNaN(timeB)) return -1;
+        return timeB - timeA;
+      });
+    });
+    try {
+      const db = getFirestore();
+      notifications
+        .filter((n) => n.entityId === entityId && !n.isRead)
+        .forEach((n) => {
+          updateDoc(doc(db, 'notifications', n.id), { isRead: true }).catch((err) => {
+            console.error(`Failed to persist markEntityAsRead for ${n.id}:`, err);
+          });
+        });
+    } catch (e) {
+      console.error('Error marking entity notifications as read in Firestore:', e);
+    }
+  }, [notifications]);
+
   const confirmNotification = useCallback((id: string) => {
     setNotifications((prev) => {
       const updated = prev.map((n) => n.id === id ? { ...n, isRead: true, confirmStatus: 'confirmed' as ConfirmStatus } : n);
@@ -399,10 +425,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({
     notifications, unreadCount, loading, pushEnabled, addNotification,
-    markAsRead, markAllAsRead, confirmNotification,
+    markAsRead, markAllAsRead, markEntityAsRead, confirmNotification,
     rejectNotification, getForUser, getUrgentRejections,
     refreshNotifications,
-  }), [notifications, unreadCount, loading, pushEnabled, addNotification, markAsRead, markAllAsRead,
+  }), [notifications, unreadCount, loading, pushEnabled, addNotification, markAsRead, markAllAsRead, markEntityAsRead,
     confirmNotification, rejectNotification, getForUser, getUrgentRejections, refreshNotifications]);
 
   return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
