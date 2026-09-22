@@ -34,24 +34,37 @@ export default function ManagerRequestQueue({ onBack }: ManagerRequestQueueProps
   const { user } = useAuth();
   const isAdmin = user?.role === 'super_admin';
 
+  // DEBUG: Check what requests are loaded
+  console.log('[QUEUE_DEBUG] Total requests loaded:', requests.length);
+  console.log('[QUEUE_DEBUG] Requests:', requests.map(r => ({ id: r.id, status: r.status, leaveType: r.leaveType, userId: r.userId, date: r.date })));
+
   // Managers see all requests (not auto_sunday)
   // Super admin sees everything
+  const afterAutoSundayFilter = requests.filter((r) => {
+    // FIX: Handle missing/undefined leaveType - don't filter it out
+    if (!r.leaveType) return true; // Include requests with missing leaveType
+    return r.leaveType !== 'auto_sunday';
+  });
+  console.log('[QUEUE_DEBUG] After auto_sunday filter:', afterAutoSundayFilter.length);
+
   const allRequests = safeSort(
-    requests
-      .filter((r) => r.leaveType !== 'auto_sunday')
-      .filter((r) => {
-        if (isAdmin) return true; // Admin sees all
-        // Manager: exclude own requests only
-        // Show requests from anyone except self
-        const isOwnRequest = r.userId === user?.id;
-        return !isOwnRequest;
-      }),
+    afterAutoSundayFilter.filter((r) => {
+      if (isAdmin) return true; // Admin sees all
+      // Manager: exclude own requests only
+      // Show requests from anyone except self
+      const isOwnRequest = r.userId === user?.id;
+      return !isOwnRequest;
+    }),
     'createdAt',
     true
   );
 
+  console.log('[QUEUE_DEBUG] All requests (final):', allRequests.length);
+  console.log('[QUEUE_DEBUG] allRequests:', allRequests.map(r => ({ id: r.id, status: r.status, leaveType: r.leaveType })));
+
   // Get actual pending requests count (for badge display)
   const pendingCount = allRequests.filter((r) => r.status === 'pending').length;
+  console.log('[QUEUE_DEBUG] Pending count:', pendingCount);
 
   // Filter by active tab
   const filtered = activeTab === 'all'
