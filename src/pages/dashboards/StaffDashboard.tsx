@@ -10,7 +10,7 @@ import { LEAVE_TYPE_LABELS, LEAVE_STATUS_COLORS, LEAVE_STATUS_LABELS } from '../
 import { todayStr, formatDateLocal } from '../../utils/dateUtils';
 import { getCurrentCycle, getWeekNumberInCycle } from '../../utils/cycleUtils';
 import { safeSort } from '../../utils/safeData';
-import RequestFormModal from '../RequestFormModal';
+import RequestFormModalV2 from '../RequestFormModalV2';
 import RequestHistory from '../RequestHistory';
 import SwapSection from '../SwapSection';
 import CoffeeLeaderboard from '../admin/CoffeeLeaderboard';
@@ -176,7 +176,7 @@ export default function StaffDashboard() {
         </div>
       )}
 
-      <RequestFormModal open={showRequestForm} onClose={() => setShowRequestForm(false)} />
+      <RequestFormModalV2 open={showRequestForm} onClose={() => setShowRequestForm(false)} />
 
       <WorkingTodayModal
         open={showWorkingToday} onClose={() => setShowWorkingToday(false)}

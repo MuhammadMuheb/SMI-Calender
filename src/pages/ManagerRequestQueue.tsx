@@ -34,15 +34,17 @@ export default function ManagerRequestQueue({ onBack }: ManagerRequestQueueProps
   const { user } = useAuth();
   const isAdmin = user?.role === 'super_admin';
 
-  // Managers see only staff requests (not their own, not other managers')
+  // Managers see all requests (not auto_sunday)
   // Super admin sees everything
   const allRequests = safeSort(
     requests
       .filter((r) => r.leaveType !== 'auto_sunday')
       .filter((r) => {
         if (isAdmin) return true; // Admin sees all
-        // Manager: only see staff requests, never own requests
-        return r.userRef.role === 'staff' && r.userId !== user?.id;
+        // Manager: exclude own requests only
+        // Show requests from anyone except self
+        const isOwnRequest = r.userId === user?.id;
+        return !isOwnRequest;
       }),
     'createdAt',
     true

@@ -133,6 +133,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             storedUserId: data.userId,
             queryUserId: userId
           });
+
+          // Ensure valid createdAt timestamp
+          let createdAt = data.createdAt;
+          if (!createdAt || typeof createdAt !== 'string') {
+            createdAt = new Date().toISOString();
+          }
+
           return {
             id: doc.id,
             userId: data.userId,
@@ -144,12 +151,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             rejectReason: data.rejectReason ?? '',
             entityType: data.entityType,
             entityId: data.entityId,
-            createdAt: data.createdAt ?? new Date().toISOString(),
+            createdAt,
           } as Notification;
         });
 
-        // Sort by createdAt descending (newest first)
-        notifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // Sort by createdAt descending (newest first) with proper timestamp validation
+        notifs.sort((a, b) => {
+          const timeA = new Date(a.createdAt).getTime();
+          const timeB = new Date(b.createdAt).getTime();
+          // Handle invalid dates by treating them as oldest
+          if (isNaN(timeA)) return 1;
+          if (isNaN(timeB)) return -1;
+          return timeB - timeA;
+        });
         console.log('[LISTENER] Setting state with', notifs.length, 'notifications');
         setNotifications(notifs);
         setLoading(false);
@@ -190,7 +204,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markAsRead = useCallback((id: string) => {
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
+    setNotifications((prev) => {
+      const updated = prev.map((n) => n.id === id ? { ...n, isRead: true } : n);
+      // Re-sort by timestamp to maintain strict descending order
+      return updated.sort((a, b) => {
+        const timeA = new Date(a.createdAt).getTime();
+        const timeB = new Date(b.createdAt).getTime();
+        if (isNaN(timeA)) return 1;
+        if (isNaN(timeB)) return -1;
+        return timeB - timeA;
+      });
+    });
     // Persist to Firestore
     try {
       const db = getFirestore();
@@ -203,7 +227,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markAllAsRead = useCallback((userId: string) => {
-    setNotifications((prev) => prev.map((n) => n.userId === userId ? { ...n, isRead: true } : n));
+    setNotifications((prev) => {
+      const updated = prev.map((n) => n.userId === userId ? { ...n, isRead: true } : n);
+      // Re-sort by timestamp to maintain strict descending order
+      return updated.sort((a, b) => {
+        const timeA = new Date(a.createdAt).getTime();
+        const timeB = new Date(b.createdAt).getTime();
+        if (isNaN(timeA)) return 1;
+        if (isNaN(timeB)) return -1;
+        return timeB - timeA;
+      });
+    });
     // Persist to Firestore for all unread notifications
     try {
       const db = getFirestore();
@@ -220,9 +254,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, [notifications]);
 
   const confirmNotification = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => n.id === id ? { ...n, isRead: true, confirmStatus: 'confirmed' as ConfirmStatus } : n),
-    );
+    setNotifications((prev) => {
+      const updated = prev.map((n) => n.id === id ? { ...n, isRead: true, confirmStatus: 'confirmed' as ConfirmStatus } : n);
+      // Re-sort by timestamp to maintain strict descending order
+      return updated.sort((a, b) => {
+        const timeA = new Date(a.createdAt).getTime();
+        const timeB = new Date(b.createdAt).getTime();
+        if (isNaN(timeA)) return 1;
+        if (isNaN(timeB)) return -1;
+        return timeB - timeA;
+      });
+    });
     // Persist to Firestore
     try {
       const db = getFirestore();
@@ -238,11 +280,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const rejectNotification = useCallback((id: string, reason: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => n.id === id ? {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => n.id === id ? {
         ...n, isRead: true, confirmStatus: 'rejected' as ConfirmStatus, rejectReason: reason,
-      } : n),
-    );
+      } : n);
+      // Re-sort by timestamp to maintain strict descending order
+      return updated.sort((a, b) => {
+        const timeA = new Date(a.createdAt).getTime();
+        const timeB = new Date(b.createdAt).getTime();
+        if (isNaN(timeA)) return 1;
+        if (isNaN(timeB)) return -1;
+        return timeB - timeA;
+      });
+    });
     playNotificationSound();
     // Persist to Firestore
     try {
@@ -260,12 +310,34 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getForUser = useCallback(
-    (userId: string) => notifications.filter((n) => n.userId === userId),
+    (userId: string) => {
+      const filtered = notifications.filter((n) => n.userId === userId);
+      // Ensure strict descending timestamp order with proper validation
+      return filtered.sort((a, b) => {
+        const timeA = new Date(a.createdAt).getTime();
+        const timeB = new Date(b.createdAt).getTime();
+        // Handle invalid dates by treating them as oldest
+        if (isNaN(timeA)) return 1;
+        if (isNaN(timeB)) return -1;
+        return timeB - timeA;
+      });
+    },
     [notifications],
   );
 
   const getUrgentRejections = useCallback(
-    () => notifications.filter((n) => n.confirmStatus === 'rejected'),
+    () => {
+      const filtered = notifications.filter((n) => n.confirmStatus === 'rejected');
+      // Ensure strict descending timestamp order with proper validation
+      return filtered.sort((a, b) => {
+        const timeA = new Date(a.createdAt).getTime();
+        const timeB = new Date(b.createdAt).getTime();
+        // Handle invalid dates by treating them as oldest
+        if (isNaN(timeA)) return 1;
+        if (isNaN(timeB)) return -1;
+        return timeB - timeA;
+      });
+    },
     [notifications],
   );
 
@@ -280,6 +352,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         const unsub = onSnapshot(q, (snapshot) => {
           const notifs = snapshot.docs.map((doc) => {
             const data = doc.data();
+
+            // Ensure valid createdAt timestamp
+            let createdAt = data.createdAt;
+            if (!createdAt || typeof createdAt !== 'string') {
+              createdAt = new Date().toISOString();
+            }
+
             return {
               id: doc.id,
               userId: data.userId,
@@ -291,10 +370,20 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
               rejectReason: data.rejectReason ?? '',
               entityType: data.entityType,
               entityId: data.entityId,
-              createdAt: data.createdAt ?? new Date().toISOString(),
+              createdAt,
             } as Notification;
           });
-          notifs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+          // Sort by createdAt descending (newest first) with proper timestamp validation
+          notifs.sort((a, b) => {
+            const timeA = new Date(a.createdAt).getTime();
+            const timeB = new Date(b.createdAt).getTime();
+            // Handle invalid dates by treating them as oldest
+            if (isNaN(timeA)) return 1;
+            if (isNaN(timeB)) return -1;
+            return timeB - timeA;
+          });
+
           setNotifications(notifs);
           setLoading(false);
           unsub();
