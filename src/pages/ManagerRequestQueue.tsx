@@ -50,12 +50,13 @@ export default function ManagerRequestQueue({ onBack }: ManagerRequestQueueProps
     true
   );
 
-  const filtered =
-    activeTab === 'all'
-      ? allRequests
-      : allRequests.filter((r) => r.status === activeTab);
-
+  // Get actual pending requests count (for badge display)
   const pendingCount = allRequests.filter((r) => r.status === 'pending').length;
+
+  // Filter by active tab
+  const filtered = activeTab === 'all'
+    ? allRequests
+    : allRequests.filter((r) => r.status === activeTab);
 
   return (
     <div className="space-y-3">

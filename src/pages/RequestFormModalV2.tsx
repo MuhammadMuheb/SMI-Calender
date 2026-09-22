@@ -8,6 +8,7 @@ import { useAppData } from '../context/AppDataContext';
 import type { LeaveType } from '../models/leave';
 import { LEAVE_TYPE_LABELS } from '../models/leave';
 import { getPickableDateRange, getCurrentCycle, getCycleLabel, getRemainingQuota } from '../utils/cycleUtils';
+import { submitMultiDayLeaveRequest } from '../services/multiDayLeaveService';
 import VacationDateRangeSelector from '../components/VacationDateRangeSelector';
 
 interface RequestFormModalV2Props { open: boolean; onClose: () => void; }
