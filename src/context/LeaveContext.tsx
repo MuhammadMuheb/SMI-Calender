@@ -517,22 +517,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   );
   const getPendingRequests = useCallback(
     () => {
-      const result = requests.filter((r) => {
-        // Show ALL pending requests for admin/manager approval queue
-        // Even if the user is inactive/missing - admin still needs to review & approve
-        const passes = r.status === 'pending';
-        if (r.status === 'pending') {
-          console.log('[PENDING_FILTER] Request', r.id, ':', {
-            status: r.status,
-            userFound: !!user,
-            userRole: user?.role,
-            userActive: user?.isActive,
-            userRefRole: r.userRef?.role,
-            passes
-          });
-        }
-        return passes;
-      });
+      const result = requests.filter((r) => r.status === 'pending');
       console.log('[PENDING_REQUESTS] Total pending after filter:', result.length);
       return result;
     },
