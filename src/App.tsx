@@ -15,16 +15,16 @@ function AppInner() {
   return user ? (
     <LanguageProvider userId={user.id} username={user.username}>
       <AppDataProvider>
-        <LeaveProvider>
-          <SwapProvider>
-            <TaskProvider>
-          <NotificationProvider>
-              <AppShell />
-              <InstallPrompt />
-            </NotificationProvider>
-          </TaskProvider>
-          </SwapProvider>
-        </LeaveProvider>
+        <NotificationProvider>
+          <LeaveProvider>
+            <SwapProvider>
+              <TaskProvider>
+                <AppShell />
+                <InstallPrompt />
+              </TaskProvider>
+            </SwapProvider>
+          </LeaveProvider>
+        </NotificationProvider>
       </AppDataProvider>
     </LanguageProvider>
   ) : (
