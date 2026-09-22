@@ -459,20 +459,16 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   );
   const getPendingRequests = useCallback(
     () => {
-      const today = formatDateLocal(new Date());
       return requests.filter((r) => {
-        // CRITICAL FILTERS:
-        // 1. Status must be pending
-        // 2. User must be staff (not admin/manager)
-        // 3. Date must be today or earlier (NO future dates)
-        // 4. User must exist and be active
+        // CRITICAL FIX: Include ALL pending requests, including future dates
+        // Admins/Managers need to see and approve all pending leave requests
+        // regardless of when they're scheduled for
         const user = users.find(u => u.id === r.userId && u.isActive);
         return (
           r.status === 'pending' &&
           user &&
           user.role === 'staff' &&
-          r.userRef?.role === 'staff' &&
-          r.date <= today
+          r.userRef?.role === 'staff'
         );
       });
     },
