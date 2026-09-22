@@ -179,18 +179,32 @@ export default function RequestFormModalV2({ open, onClose }: RequestFormModalV2
     }
 
     const fullNote = [note, attachmentUrl ? `Attachment: ${attachmentUrl}` : ''].filter(Boolean).join(' | ');
-    const err = await submitRequest(
-      user.id,
-      { id: user.id, displayName: user.displayName, role: user.role },
-      submitDate,
-      leaveType,
-      fullNote,
-      submitEndDate || undefined
-    );
 
-    if (err) {
-      setError(err);
-    } else {
+    try {
+      if (leaveType === 'paid_vacation') {
+        await submitMultiDayLeaveRequest(
+          user.id,
+          submitDate,
+          submitEndDate,
+          leaveType,
+          user.displayName,
+          user.role,
+          fullNote
+        );
+      } else {
+        const err = await submitRequest(
+          user.id,
+          { id: user.id, displayName: user.displayName, role: user.role },
+          submitDate,
+          leaveType,
+          fullNote
+        );
+        if (err) {
+          setError(err);
+          return;
+        }
+      }
+
       setSuccess(true);
       setDate('');
       setVacationStartDate('');
@@ -198,6 +212,8 @@ export default function RequestFormModalV2({ open, onClose }: RequestFormModalV2
       setNote('');
       setAttachment(null);
       setTimeout(() => onClose(), 1500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit request');
     }
   };
 
