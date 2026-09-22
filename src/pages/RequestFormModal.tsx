@@ -36,6 +36,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
   const [success, setSuccess] = useState(false);
   const [attachment, setAttachment] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   if (!user) return null;
@@ -126,6 +127,8 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
   const isDateInputDisabled = staffingConstraints.isRoleTooSmall;
 
   const handleSubmit = async () => {
+    if (submitting) return; // Prevent double submissions
+    setSubmitting(true);
     setError('');
     setSuccess(false);
 
@@ -135,6 +138,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
     if (leaveType === 'paid_vacation') {
       if (!vacationStartDate || !vacationEndDate) {
         setError('Please select vacation dates');
+        setSubmitting(false);
         return;
       }
       submitDate = vacationStartDate;
@@ -142,6 +146,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
     } else {
       if (!date) {
         setError('Please select a date');
+        setSubmitting(false);
         return;
       }
     }
@@ -149,24 +154,29 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
     // Validate staffing constraints
     if (staffingConstraints.isRoleTooSmall) {
       setError('❌ This role has fewer than 3 staff members. Date requests are locked for compliance.');
+      setSubmitting(false);
       return;
     }
     if (staffingConstraints.lockedDates.has(submitDate)) {
       setError('❌ This date is locked — maximum 2 staff in this role already approved for leave. Request denied.');
+      setSubmitting(false);
       return;
     }
 
     if (leaveType === 'regular_day_off') {
       if (isRegularLocked) {
         setError('Day off requests are locked — contact super admin.');
+        setSubmitting(false);
         return;
       }
       if (isOverQuota) {
         setError(`No days left in current cycle (quota: ${currentCycle?.quota || 0}).`);
+        setSubmitting(false);
         return;
       }
       if (cycleRange && (submitDate < cycleRange.min || submitDate > cycleRange.max)) {
         setError(`Date must be within ${dateLabel}`);
+        setSubmitting(false);
         return;
       }
     }
@@ -201,6 +211,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
         );
         if (err) {
           setError(err);
+          setSubmitting(false);
           return;
         }
       }
@@ -211,9 +222,13 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
       setVacationEndDate('');
       setNote('');
       setAttachment(null);
-      setTimeout(() => onClose(), 1500);
+      setTimeout(() => {
+        onClose();
+        setSubmitting(false);
+      }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit request');
+      setSubmitting(false);
     }
   };
 
@@ -405,9 +420,9 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
         className="w-full mt-4"
         size="lg"
         onClick={handleSubmit}
-        disabled={uploading || (isRegularLocked && leaveType === 'regular_day_off') || (isOverQuota && leaveType === 'regular_day_off')}
+        disabled={submitting || uploading || (isRegularLocked && leaveType === 'regular_day_off') || (isOverQuota && leaveType === 'regular_day_off')}
       >
-        {uploading ? 'Uploading...' : leaveType === 'paid_vacation' ? 'Request Vacation' : 'Submit Request'}
+        {submitting ? 'Submitting...' : uploading ? 'Uploading...' : leaveType === 'paid_vacation' ? 'Request Vacation' : 'Submit Request'}
       </ShadButton>
 
       {/* Messages */}
