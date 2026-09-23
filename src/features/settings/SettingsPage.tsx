@@ -1,12 +1,13 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
+import { useLang } from '@/i18n/LanguageContext';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { BellRing, ChevronRight, KeyRound, LogOut, Monitor, Moon, Send, Sun } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
-import { useAppData } from '@/app/AppDataContext';
 import { useNotifications } from '@/features/notifications/NotificationContext';
 import { ROLE_LABELS } from '@/config/roles';
 import { subscribeToPush, sendPushToUser } from '@/features/notifications/pushManager';
-import { authenticateUser } from '@/features/auth/authService';
+import { serverApi } from '@/lib/serverApi';
 import { useTheme, type ThemeMode } from '@/components/theme/ThemeProvider';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { UserAvatar } from '@/components/shared/UserAvatar';
@@ -44,8 +45,8 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
 ];
 
 export default function SettingsPage() {
+  const { lang, setLang, t } = useLang();
   const { user, logout } = useAuth();
-  const { updateUser } = useAppData();
   const { pushEnabled } = useNotifications();
   const { mode, setMode } = useTheme();
   const [showPinChange, setShowPinChange] = useState(false);
@@ -92,9 +93,8 @@ export default function SettingsPage() {
     if (newPin !== confirmPin) { setPinError('The new PINs don’t match.'); return; }
     if (newPin === currentPin) { setPinError('Choose a PIN that’s different from your current one.'); return; }
     setLoading(true);
-    const verified = await authenticateUser(user.username, currentPin);
-    if (!verified) { setPinError('Your current PIN is incorrect.'); setLoading(false); return; }
-    updateUser(user.id, { pin: newPin }, user.displayName);
+    try { await serverApi('change-pin', { currentPin, newPin }); }
+    catch (error) { setPinError(error instanceof Error ? error.message : 'Unable to change PIN'); setLoading(false); return; }
     setLoading(false);
     setShowPinChange(false);
     resetPinForm();
@@ -122,6 +122,7 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      <label className="flex items-center gap-3">{t('settings.language')}<select className="rounded border p-2" value={lang} onChange={e => setLang(e.target.value === 'it' ? 'it' : 'en')}><option value="en"><TranslatedText text="English" /></option><option value="it"><TranslatedText text="Italiano" /></option></select></label>
       <PageHeader title="Settings" description="Your profile, appearance and notifications." />
 
       <Card>
@@ -138,7 +139,7 @@ export default function SettingsPage() {
             <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>
           </div>
           <Button variant="outline" size="lg" className="w-full justify-between" onClick={() => setShowPinChange(true)}>
-            <span className="flex items-center gap-2"><KeyRound /> Change PIN</span>
+            <span className="flex items-center gap-2"><KeyRound /><TranslatedText text="Change PIN" /></span>
             <ChevronRight className="text-muted-foreground" />
           </Button>
         </CardContent>
@@ -146,7 +147,7 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Appearance</CardTitle>
+          <CardTitle><TranslatedText text="Appearance" /></CardTitle>
           <CardDescription>Choose a theme, or follow your device setting.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -171,7 +172,7 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Notifications</CardTitle>
+          <CardTitle><TranslatedText text="Notifications" /></CardTitle>
           <CardDescription>Get shift reminders even when the app is closed.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -180,7 +181,7 @@ export default function SettingsPage() {
               <BellRing className={status === 'enabled' ? 'size-4 text-success' : 'size-4 text-muted-foreground'} />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">Push notifications</p>
+              <p className="text-sm font-medium"><TranslatedText text="Push notifications" /></p>
               <p className="text-sm text-muted-foreground">{PUSH_STATUS_TEXT[status]}</p>
             </div>
             {status === 'enabled' && (
@@ -210,8 +211,7 @@ export default function SettingsPage() {
         className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
         onClick={logout}
       >
-        <LogOut /> Sign out
-      </Button>
+        <LogOut /><TranslatedText text="Sign out" /></Button>
 
       <p className="text-center text-xs text-muted-foreground">
         Show Me Italy Staff Calendar v1.0.0
@@ -224,7 +224,7 @@ export default function SettingsPage() {
         description="You’ll be signed out after changing it."
         size="sm"
         footer={<>
-          <Button variant="outline" size="lg" onClick={closePinModal}>Cancel</Button>
+          <Button variant="outline" size="lg" onClick={closePinModal}><TranslatedText text="Cancel" /></Button>
           <Button size="lg" onClick={handlePinChange} disabled={loading}>
             {loading && <Spinner />}
             {loading ? 'Checking…' : 'Update PIN'}

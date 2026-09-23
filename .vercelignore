@@ -1,0 +1,11 @@
+.env
+.env.*
+.private-backups
+firebase-service-account.json
+firebase-admin-key.json
+scripts/firebase-admin-key.json
+*.local.json
+*.local.log
+tests
+
+*.local

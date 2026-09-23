@@ -1,53 +1,37 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import type { User, AuthState } from '@/features/auth/types';
-import { authenticateUser } from '@/features/auth/authService';
-
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import type { User, AuthState } from './types';
+import { authenticateUser } from './authService';
 const AuthContext = createContext<AuthState | null>(null);
-
-const SESSION_KEY = 'smi_session';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const stored = localStorage.getItem(SESSION_KEY);
-      return stored ? (JSON.parse(stored) as User) : null;
-    } catch {
-      return null;
-    }
-  });
-
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
-    if (user) {
-      localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(SESSION_KEY);
-    }
-  }, [user]);
-
-  const login = async (username: string, pin: string): Promise<string | null> => {
-    const match = await authenticateUser(username, pin);
-    if (!match) {
-      return 'Invalid username or PIN';
-    }
-    setUser({
-      id: match.id,
-      username: match.username,
-      displayName: match.displayName,
-      role: match.role,
-      jobRole: match.jobRole,
+    localStorage.removeItem('smi_session');
+    let stopProfile = () => {};
+    const stopAuth = onAuthStateChanged(auth, (session) => {
+      stopProfile();
+      setUser(null);
+      if (!session || session.isAnonymous) { setLoading(false); return; }
+      stopProfile = onSnapshot(doc(db, 'users', session.uid), (snapshot) => {
+        const profile = snapshot.data();
+        if (!profile?.isActive || !['staff', 'manager', 'super_admin', 'spectator'].includes(profile.role)) { void signOut(auth); setUser(null); }
+        else setUser({ id: session.uid, username: profile.username, displayName: profile.displayName,
+          role: profile.role, jobRole: profile.jobRole || [] });
+        setLoading(false);
+      }, () => { setUser(null); setLoading(false); void signOut(auth); });
     });
-    return null;
+    return () => { stopAuth(); stopProfile(); };
+  }, []);
+  const login = async (username: string, pin: string) => {
+    try { await authenticateUser(username, pin); return null; }
+    catch (error) { return error instanceof Error ? error.message : 'Unable to sign in'; }
   };
-
-  const logout = () => setUser(null);
-
-  return (
-    <AuthContext.Provider value={{ user, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const logout = () => { setUser(null); void signOut(auth); };
+  return <AuthContext.Provider value={{ user, login, logout }}>{loading ? <p role="status" className="p-8">Loading session...</p> : children}</AuthContext.Provider>;
 }
-
 export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used inside AuthProvider');

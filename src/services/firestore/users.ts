@@ -1,7 +1,8 @@
+import { serverApi } from '@/lib/serverApi';
 import {
-  collection, doc, getDocs, getDoc, setDoc, updateDoc, writeBatch, query, where,
+  type DocumentReference, collection, getDocs, writeBatch, query, where,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import type { StaffUser } from '@/models/user';
 import type { Role } from '@/config/roles';
 
@@ -21,7 +22,7 @@ export async function fetchUsers(): Promise<StaffUser[]> {
           id,
           username,
           displayName,
-          pin: (data.pinHash ?? data.pin ?? '') as string,
+          pin: '',
           role: (data.role ?? 'staff') as Role,
           isActive: data.isActive !== false,
           createdAt: (data.createdAt ?? new Date().toISOString()) as string,
@@ -80,102 +81,14 @@ export async function insertUser(user: {
   pin: string;
   role: Role;
 }): Promise<string> {
-  try {
-    const userRef = doc(db, 'users', user.username.toLowerCase());
-    await setDoc(userRef, {
-      id: user.id,
-      username: user.username.toLowerCase(),
-      displayName: user.displayName,
-      pinHash: user.pin,
-      role: user.role,
-      isActive: true,
-      jobRole: [],
-      vacationOverride: null,
-      regularOverride: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    return user.id;
-  } catch (err) {
-    console.error('insertUser ERROR:', err);
-    throw err;
-  }
+  await serverApi('users', { action: 'create', id: user.id, updates: user });
+  return user.id;
 }
-
-export async function updateUserDb(
-  id: string,
-  updates: Record<string, unknown>,
-): Promise<void> {
-  const mapped: Record<string, unknown> = { updatedAt: new Date().toISOString() };
-  if ('displayName' in updates) mapped.displayName = updates.displayName;
-  if ('role' in updates) mapped.role = updates.role;
-  if ('isActive' in updates) mapped.isActive = updates.isActive;
-  if ('pin' in updates) mapped.pinHash = updates.pin;
-  if ('vacationOverride' in updates) mapped.vacationOverride = updates.vacationOverride;
-  if ('vacationOverrideAt' in updates) mapped.vacationOverrideAt = updates.vacationOverrideAt;
-  if ('regularOverride' in updates) mapped.regularOverride = updates.regularOverride;
-  if ('jobRole' in updates) mapped.jobRole = updates.jobRole;
-
-  // Some users exist as two documents (keyed by username and by id) that share
-  // the same `id` field. Update every copy so reads stay consistent.
-  const matches = await getDocs(query(collection(db, 'users'), where('id', '==', id)));
-  const refs = matches.docs.map((d) => d.ref);
-  if (refs.length === 0) {
-    const direct = await getDoc(doc(db, 'users', id));
-    if (!direct.exists()) throw new Error(`User ${id} not found`);
-    refs.push(direct.ref);
-  }
-  const batch = writeBatch(db);
-  refs.forEach((ref) => batch.update(ref, mapped));
-  await batch.commit();
+export async function updateUserDb(id: string, updates: Record<string, unknown>): Promise<void> {
+  await serverApi('users', { action: 'update', id, updates });
 }
-
 export async function deleteUserDb(id: string): Promise<void> {
-  try {
-    // CRITICAL FIX: Query Firestore directly to find user (bypasses fetchUsers filter)
-    // This prevents "not found" errors when user is already inactive
-    const userSnap = await getDocs(query(collection(db, 'users'), where('id', '==', id)));
-
-    if (userSnap.empty) {
-      throw new Error(`User with ID "${id}" not found in Firestore`);
-    }
-
-    const userData = userSnap.docs[0].data();
-    const username = userData.username || userData.name;
-    const actualDocId = userSnap.docs[0].id; // Use the actual document ID from query
-
-    if (!username) {
-      throw new Error(`User record exists but has no username - cannot delete. ID: ${id}`);
-    }
-
-    console.log(`[User Deletion] Found user: username="${username}", actualDocId="${actualDocId}", userId="${id}"`);
-
-    // CRITICAL: Use actual document ID from query result - this is the most reliable method
-    const userRef = doc(db, 'users', actualDocId);
-    const docSnapshot = await getDoc(userRef);
-
-    if (!docSnapshot.exists()) {
-      // Document not found with actual ID, this should not happen if query succeeded
-      throw new Error(`[CRITICAL] Query returned user but document not found: users/${actualDocId}`);
-    }
-
-    // Delete user document
-    console.log(`[User Deletion] Deleting document: ${actualDocId}`);
-    const batch = writeBatch(db);
-    batch.delete(userRef);
-    await batch.commit();
-
-    // Verify deletion succeeded
-    const verifySnap = await getDoc(userRef);
-    if (verifySnap.exists()) {
-      throw new Error(`[CRITICAL] User document still exists after deletion attempt: ${actualDocId}`);
-    }
-
-    console.log(`[User Deletion] ✓ User document successfully deleted: ${actualDocId}`);
-  } catch (err) {
-    console.error(`[Firestore Delete] CRITICAL ERROR: ${(err as any)?.message || String(err)}`);
-    throw err;
-  }
+  await serverApi('users', { action: 'delete', id });
 }
 
 /**
@@ -193,7 +106,7 @@ export async function deleteUserRoleAssignments(userId: string): Promise<number>
     return snapshot.size;
   } catch (err) {
     console.error(`Error deleting role assignments:`, err);
-    return 0;
+    throw err;
   }
 }
 
@@ -212,7 +125,7 @@ export async function deleteUserLeaveRequests(userId: string): Promise<number> {
     return snapshot.size;
   } catch (err) {
     console.error(`Error deleting leave requests:`, err);
-    return 0;
+    throw err;
   }
 }
 
@@ -231,7 +144,7 @@ export async function deleteUserCheckIns(userId: string): Promise<number> {
     return snapshot.size;
   } catch (err) {
     console.error(`Error deleting check-ins:`, err);
-    return 0;
+    throw err;
   }
 }
 
@@ -250,7 +163,7 @@ export async function deleteUserTourAssignments(userId: string): Promise<number>
     return snapshot.size;
   } catch (err) {
     console.error(`Error deleting tour assignments:`, err);
-    return 0;
+    throw err;
   }
 }
 
@@ -260,18 +173,16 @@ export async function deleteUserTourAssignments(userId: string): Promise<number>
  */
 export async function deleteUserTasks(userId: string): Promise<number> {
   try {
-    const q = query(collection(db, 'tasks'), where('assignedTo', '==', userId));
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) return 0;
+    const snapshots = await Promise.all(['assignedTo', 'assigned_to'].map(field => getDocs(query(collection(db, 'tasks'), where(field, '==', userId)))));
+    const docs = [...new Map(snapshots.flatMap(s => s.docs).map(d => [d.id, d])).values()];
+    if (!docs.length) return 0;
     const batch = writeBatch(db);
-    snapshot.docs.forEach((docSnap) => {
-      batch.update(docSnap.ref, { assignedTo: null, updatedAt: new Date().toISOString() });
-    });
+    docs.forEach(d => batch.update(d.ref, { assignedTo: null, assigned_to: null, assignedToName: '', assigned_to_name: '', updatedAt: new Date().toISOString() }));
     await batch.commit();
-    return snapshot.size;
+    return docs.length;
   } catch (err) {
     console.error(`Error updating task assignments:`, err);
-    return 0;
+    throw err;
   }
 }
 
@@ -287,7 +198,7 @@ export async function deleteUserSchedules(userId: string): Promise<number> {
     const userSnap = await getDocs(query(collection(db, 'users'), where('id', '==', userId)));
     if (userSnap.empty) return 0;
 
-    const user = userSnap.docs[0].data() as any;
+    const user = userSnap.docs[0].data();
     const displayName = user.displayName || user.name;
     if (!displayName) return 0;
 
@@ -304,7 +215,7 @@ export async function deleteUserSchedules(userId: string): Promise<number> {
     return snapshot.size;
   } catch (err) {
     console.error(`Error deleting schedules:`, err);
-    return 0;
+    throw err;
   }
 }
 
@@ -328,6 +239,7 @@ export async function deleteUserWithDataHandling(
   userId: string,
   mode: 'hard_delete' | 'soft_delete'
 ): Promise<{ success: boolean; deletedCounts: Record<string, number>; message: string }> {
+  if (auth.currentUser?.uid === userId) throw new Error('You cannot delete or archive your own account');
   try {
     // CRITICAL FIX: Query Firestore directly to find user (not fetchUsers which filters inactive)
     // This prevents "not found" errors when attempting to delete already-inactive users
@@ -337,13 +249,13 @@ export async function deleteUserWithDataHandling(
       throw new Error(`User with ID "${userId}" not found in Firestore`);
     }
 
-    const userData = userSnap.docs[0].data() as any;
+    const userData = userSnap.docs[0].data();
     const user = {
       id: userData.id || userSnap.docs[0].id,
       username: userData.username || userData.name || userSnap.docs[0].id,
       displayName: userData.displayName || userData.name || userData.username || userSnap.docs[0].id,
       isActive: userData.isActive !== false,
-    } as any;
+    };
 
     console.log(`\n${'═'.repeat(60)}`);
     console.log(`USER DELETION - ${mode.toUpperCase()}`);
@@ -411,7 +323,7 @@ export async function deleteUserWithDataHandling(
         console.log(`  ✓ Schedule entries: ${scheduleCount}`);
       } catch (cascadeErr) {
         console.error(`[HARD DELETE] ✗ CASCADE DELETION FAILED - aborting user document deletion`);
-        throw new Error(`Cascade deletion failed: ${(cascadeErr as any)?.message}`);
+        throw new Error(`Cascade deletion failed: ${(cascadeErr instanceof Error ? cascadeErr.message : String(cascadeErr))}`);
       }
 
       // Only delete user document if ALL cascade deletes succeeded
@@ -440,11 +352,7 @@ export async function deleteUserWithDataHandling(
       // SOFT DELETE: Just mark as inactive (data remains but hidden)
       console.log(`\n[SOFT DELETE] Marking account as inactive...`);
 
-      const userRef = doc(db, 'users', user.username.toLowerCase());
-      await updateDoc(userRef, {
-        isActive: false,
-        updatedAt: new Date().toISOString(),
-      });
+      await updateUserDb(userId, { isActive: false });
 
       deletedCounts.user = 1;
       console.log(`  ✓ User marked as inactive`);
@@ -465,7 +373,7 @@ export async function deleteUserWithDataHandling(
     console.error(`\n${'═'.repeat(60)}`);
     console.error(`✗ USER DELETION FAILED - ${mode.toUpperCase()}`);
     console.error(`${'═'.repeat(60)}`);
-    console.error(`Error: ${(err as any)?.message || String(err)}`);
+    console.error(`Error: ${(err instanceof Error ? err.message : String(err))}`);
     console.error(`${'═'.repeat(60)}\n`);
 
     throw err;
@@ -484,7 +392,7 @@ export async function cleanupOrphanedSchedules(): Promise<number> {
     );
 
     const schedules = await getDocs(collection(db, 'schedules'));
-    const orphanedDocs: any[] = [];
+    const orphanedDocs: DocumentReference[] = [];
 
     schedules.docs.forEach(doc => {
       const guide = (doc.data().guide || '').toLowerCase();
@@ -496,25 +404,15 @@ export async function cleanupOrphanedSchedules(): Promise<number> {
     if (orphanedDocs.length === 0) return 0;
 
     // Delete in batches to respect Firestore limits
-    let batch = writeBatch(db);
-    let batchCount = 0;
-
-    orphanedDocs.forEach((docRef, idx) => {
-      batch.delete(docRef);
-      batchCount++;
-
-      // Commit every 500 deletions
-      if (batchCount === 500 || idx === orphanedDocs.length - 1) {
-        batch.commit();
-        batch = writeBatch(db);
-        batchCount = 0;
-      }
-    });
-
+    for (let offset = 0; offset < orphanedDocs.length; offset += 450) {
+      const batch = writeBatch(db);
+      orphanedDocs.slice(offset, offset + 450).forEach(ref => batch.delete(ref));
+      await batch.commit();
+    }
     console.log(`[Orphan Cleanup] Deleted ${orphanedDocs.length} orphaned schedule entries`);
     return orphanedDocs.length;
   } catch (err) {
     console.error(`Error cleaning up orphaned schedules:`, err);
-    return 0;
+    throw err;
   }
 }

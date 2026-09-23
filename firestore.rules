@@ -1,146 +1,73 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
-    function isAuthenticated() {
-      return request.auth != null;
+    function member() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous'
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isActive == true;
     }
-
-    function isSuperAdmin() {
-      return isAuthenticated() && request.auth.token.role == 'super_admin';
+    function role() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role; }
+    function admin() { return member() && role() == 'super_admin'; }
+    function manager() { return member() && role() in ['super_admin', 'manager']; }
+    function worker() { return member() && role() in ['super_admin', 'manager', 'staff']; }
+    function owner(id) { return worker() && request.auth.uid == id; }
+    match /users/{id} {
+      allow read: if member();
+      // Roles and credentials are changed exclusively by the authenticated server.
+      allow update: if member() && request.auth.uid == id && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lang']) && request.resource.data.lang in ['en', 'it'];
     }
-
-    function isManager() {
-      return isAuthenticated() && request.auth.token.role in ['manager', 'super_admin'];
+    match /leave_requests/{id} {
+      allow read: if member();
+      allow create, update: if false; // Validated by the leave API, including staffing and approvals.
+      allow delete: if admin();
     }
-
-    function isStaff() {
-      return isAuthenticated() && request.auth.token.role in ['staff', 'manager', 'super_admin'];
+    match /swaps/{id} {
+      allow read: if member();
+      allow write: if false; // Server transaction transfers the original leave.
     }
-
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    match /check_ins/{id} {
+      allow read: if member();
+      allow create: if owner(request.resource.data.userId)
+        && request.resource.data.checkOutAt == null
+        && !request.resource.data.keys().hasAny(['autoCheckedOut', 'editedBy']);
+      allow update: if owner(resource.data.userId)
+        && resource.data.checkOutAt == null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['checkOutAt', 'checkOutLat', 'checkOutLng', 'updatedAt'])
+        && request.resource.data.checkOutAt is string;
+      allow delete: if admin();
     }
-
-    // ===== Users Collection =====
-    match /users/{userId} {
-      // Allow authenticated users to read (app controls access via UI)
-      allow read: if isAuthenticated();
-      // Allow authenticated users to update/delete (app controls access via UI + audit trail)
-      allow update, delete: if isAuthenticated();
-      // Allow creating users: normally via Cloud Function, but also direct creation for testing/admin setup
-      // SECURITY: In production, restrict this further and use Cloud Function only
-      allow create: if isAuthenticated();
+    match /notifications/{id} {
+      allow read: if member() && (resource.data.userId == request.auth.uid || manager() || (role() == 'spectator' && resource.data.type == 'daily_absence_summary'));
+      allow create: if worker() && request.resource.data.userId is string;
+      allow update: if member() && resource.data.userId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'isRead', 'readAt', 'confirmStatus', 'rejectReason']);
+      allow delete: if member() && (resource.data.userId == request.auth.uid || admin());
     }
-
-    // ===== Leave Requests =====
-    match /leave_requests/{requestId} {
-      allow read, create, update, delete: if request.auth != null;
+    match /push_subscriptions/{id} {
+      allow read, write: if owner(id);
     }
-
-    // ===== Notifications =====
-    match /notifications/{notificationId} {
-      allow read, create, update, delete: if request.auth != null;
+    match /audit_log/{id} {
+      allow read: if manager();
+      allow create: if worker() && request.resource.data.actorId == request.auth.uid;
     }
-
-    // ===== Swaps =====
-    match /swaps/{swapId} {
-      allow read, create, update, delete: if request.auth != null;
+    match /tasks/{id} {
+      allow read: if member();
+      allow create, delete: if manager();
+      allow update: if manager() || (worker()
+        && (resource.data.get('assignedTo', '') == request.auth.uid || resource.data.get('assigned_to', '') == request.auth.uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'checklistItems', 'checklist_items', 'checklistProgress', 'checklist_progress', 'completedAt', 'completed_at', 'completedBy', 'completed_by', 'completedByName', 'completed_by_name', 'handoverNote', 'handover_note', 'notes', 'updatedAt', 'updated_at']));
     }
-
-    // ===== Tasks =====
-    match /tasks/{taskId} {
-      allow read, create, update, delete: if request.auth != null;
+    match /task_comments/{id} {
+      allow update: if worker() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reaction']);
     }
-
-    // ===== Staff Management (Users read with role) =====
-    match /staffing_rules/{ruleId} {
-      allow read, create, update, delete: if request.auth != null;
+    match /{name}/{id} {
+      allow read: if member() && name in ['jobRoles', 'role_assignments', 'staffing_rules', 'special_days', 'holidays', 'notificationSettings', 'schedules', 'tour_assignments', 'locations', 'task_templates', 'task_categories', 'task_comments', 'task_activity', 'task_attachments', 'vacation_adjustments', 'shift_responses'];
+      allow write: if admin() && name in ['jobRoles', 'role_assignments', 'staffing_rules', 'locations', 'schedules', 'tour_assignments', 'vacation_adjustments'];
+      allow write: if manager() && name in ['special_days', 'holidays', 'notificationSettings', 'task_templates', 'task_categories'];
+      allow create: if worker() && name in ['task_comments', 'task_activity', 'task_attachments']
+        && request.resource.data.get('userId', request.resource.data.get('user_id', request.resource.data.get('actor_id', ''))) == request.auth.uid;
     }
-
-    match /role_assignments/{assignmentId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    match /special_days/{dayId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    // ===== Vacation Adjustments =====
-    match /vacation_adjustments/{adjustmentId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    // ===== Audit Log =====
-    match /audit_log/{logId} {
-      allow read, create, delete: if request.auth != null;
-    }
-
-    // ===== Check-ins =====
-    match /check_ins/{checkInId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    // ===== Job Roles =====
-    match /jobRoles/{roleId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    // ===== Holidays =====
-    match /holidays/{holidayId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    // ===== Notification Settings =====
-    match /notificationSettings/{settingId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    // ===== Push Subscriptions =====
-    match /push_subscriptions/{subscriptionId} {
-      allow read, write, create: if request.auth != null;
-    }
-
-    // ===== Task Management =====
-    match /task_templates/{templateId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    match /task_categories/{categoryId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    match /task_comments/{commentId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    match /task_activity/{activityId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    match /task_attachments/{attachmentId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    // ===== Locations =====
-    match /locations/{locationId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    // ===== Schedules =====
-    match /schedules/{scheduleId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    // ===== Tour Assignments =====
-    match /tour_assignments/{assignmentId} {
-      allow read, create, update, delete: if request.auth != null;
-    }
-
-    // ===== Deny everything else =====
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    match /{document=**} { allow read, write: if false; }
   }
 }

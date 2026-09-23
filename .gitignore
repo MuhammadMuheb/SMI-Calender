@@ -39,3 +39,8 @@ firebase-admin-key.json
 scripts/firebase-admin-key.json
 .env.*
 .env
+
+.private-backups/
+
+*.local.json
+!.env.example

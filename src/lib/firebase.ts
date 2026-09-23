@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getFunctions } from 'firebase/functions';
 import { getAnalytics, type Analytics } from 'firebase/analytics';
 
 // Firebase's web config is meant to be public — real access control lives in
@@ -28,7 +27,6 @@ const firebaseConfig = {
 export const firebaseApp = initializeApp(firebaseConfig);
 export const auth = getAuth(firebaseApp);
 export const db = getFirestore(firebaseApp);
-export const functions = getFunctions(firebaseApp);
 
 let analytics: Analytics | undefined;
 if (import.meta.env.PROD) {
@@ -39,8 +37,3 @@ if (import.meta.env.PROD) {
   }
 }
 export { analytics };
-
-// Firestore rules require a signed-in (anonymous) Firebase user.
-signInAnonymously(auth).catch((error) => {
-  console.warn('Anonymous sign-in failed:', error.code, error.message);
-});

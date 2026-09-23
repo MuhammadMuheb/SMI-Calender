@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, type FormEvent } from 'react';
 import { AlertCircle, LogIn } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
@@ -21,7 +22,7 @@ export default function LoginPage() {
     if (pin.length < 4) { setError('Your PIN has at least 4 digits.'); return; }
     setLoading(true);
     const err = await login(username.trim(), pin);
-    if (err) setError('That username and PIN don’t match. Check both and try again.');
+    if (err) setError(err);
     setLoading(false);
   };
 
@@ -37,7 +38,7 @@ export default function LoginPage() {
             <img src="/icons/logo.png" alt="" aria-hidden="true" className="size-12 rounded-xl border object-cover" />
             <div>
               <h1 className="text-xl font-semibold tracking-tight">Show Me Italy</h1>
-              <p className="text-sm text-muted-foreground">Staff calendar</p>
+              <p className="text-sm text-muted-foreground"><TranslatedText text="Staff calendar" /></p>
             </div>
           </div>
 
@@ -47,7 +48,7 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} noValidate>
             <FieldGroup>
               <Field data-invalid={!!error && !username.trim() ? true : undefined}>
-                <FieldLabel htmlFor="username">Username</FieldLabel>
+                <FieldLabel htmlFor="username"><TranslatedText text="Username" /></FieldLabel>
                 <Input
                   id="username"
                   autoComplete="username"
@@ -60,7 +61,7 @@ export default function LoginPage() {
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="pin">PIN</FieldLabel>
+                <FieldLabel htmlFor="pin"><TranslatedText text="PIN" /></FieldLabel>
                 <Input
                   id="pin"
                   type="password"
