@@ -1,3 +1,7 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { localDayRange } from '@/features/attendance/services/checkInsService';
 import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
@@ -142,9 +146,7 @@ export default function CalendarPage() {
         description="Tap a day to see who's off."
         actions={(
           <Button size="lg" onClick={() => setShowRequestForm(true)}>
-            <Plus data-icon="inline-start" />
-            Request time off
-          </Button>
+            <Plus data-icon="inline-start" /><TranslatedText text="Request time off" /></Button>
         )}
       />
 
@@ -296,15 +298,17 @@ function useDayAttendanceCounts(date: string) {
   const [counts, setCounts] = useState<{ date: string; office: number; remote: number } | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      // TODO: Migrate to Firestore check-ins query
-      await Promise.resolve();
-      if (cancelled) return;
-      setCounts({ date, office: 0, remote: 0 });
-    }
-    load();
-    return () => { cancelled = true; };
+    const [start, end] = localDayRange(date);
+    return onSnapshot(query(collection(db, 'check_ins'), where('checkInAt', '>=', start), where('checkInAt', '<=', end)), snapshot => {
+      const latest = new Map<string, { isWfh: boolean; checkInAt: string }>();
+      snapshot.docs.forEach(d => {
+        const row = d.data();
+        const prior = latest.get(row.userId);
+        if (!prior || row.checkInAt > prior.checkInAt) latest.set(row.userId, { isWfh: !!row.isWfh, checkInAt: row.checkInAt });
+      });
+      const remote = [...latest.values()].filter(r => r.isWfh).length;
+      setCounts({ date, office: latest.size - remote, remote });
+    }, () => setCounts(null));
   }, [date]);
 
   // Counts for a previous date are stale while the new date loads.
@@ -419,7 +423,7 @@ function DayPreviewPanel({
                     <ItemActions>
                       {canSeeType
                         ? <LeaveTypeBadge type={r.leaveType} withIcon={false} className={cn(isPending && 'opacity-70')} />
-                        : <Badge variant="secondary">Off</Badge>}
+                        : <Badge variant="secondary"><TranslatedText text="Off" /></Badge>}
                     </ItemActions>
                   </Item>
                 );

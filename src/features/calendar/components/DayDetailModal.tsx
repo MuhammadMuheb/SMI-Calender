@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, useMemo, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { ArrowLeftRight, CalendarCheck, Flag, MapPin, Plus, Star, Trash } from 'lucide-react';
@@ -342,7 +343,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
                   )}
                 </Field>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={resetSwap}>Cancel</Button>
+                  <Button variant="outline" onClick={resetSwap}><TranslatedText text="Cancel" /></Button>
                   <Button onClick={handleSwapRequest} disabled={!selectedMyDay}>Send swap request</Button>
                 </div>
               </FieldGroup>
@@ -405,7 +406,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
               <h3 className="mb-3 text-sm font-medium">Assign day off for {formatShortDate(day)}</h3>
               <FieldGroup className="gap-3">
                 <Field data-invalid={assignError ? true : undefined}>
-                  <FieldLabel htmlFor="assign-person">Person</FieldLabel>
+                  <FieldLabel htmlFor="assign-person"><TranslatedText text="Person" /></FieldLabel>
                   {assignableUsers.length === 0 ? (
                     <FieldDescription>Everyone already has this day off or a pending request.</FieldDescription>
                   ) : (
@@ -439,7 +440,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
                   </Select>
                 </Field>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={resetAssign} disabled={assigning}>Cancel</Button>
+                  <Button variant="outline" onClick={resetAssign} disabled={assigning}><TranslatedText text="Cancel" /></Button>
                   <Button onClick={handleAssign} disabled={assigning || assignableUsers.length === 0}>
                     {assigning && <Spinner data-icon="inline-start" />}
                     Assign

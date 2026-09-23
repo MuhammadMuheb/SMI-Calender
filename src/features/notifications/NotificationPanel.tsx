@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -153,7 +154,7 @@ export default function NotificationPanel({ open, onClose }: NotificationPanelPr
   };
 
   const handleConfirm = async (id: string) => {
-    confirmNotification(id);
+    try { await confirmNotification(id); } catch { toast.error('Unable to save your response'); return; }
     // If it's a coffee offer, send acceptance back to sender
     const notif = myNotifications.find((n) => n.id === id);
     if (notif?.type === 'coffee_offer' && notif.entityId) {
@@ -192,7 +193,7 @@ export default function NotificationPanel({ open, onClose }: NotificationPanelPr
     if (!rejectingId || !rejectReason.trim()) return;
     const reason = rejectReason.trim();
     setSendingReject(true);
-    rejectNotification(rejectingId, reason);
+    try { await rejectNotification(rejectingId, reason); } catch { toast.error('Unable to save your response'); setSendingReject(false); return; }
     const notif = myNotifications.find((n) => n.id === rejectingId);
     if (notif?.type === 'coffee_offer' && notif.entityId) {
       // Coffee rejection — send note back to sender only
@@ -286,7 +287,7 @@ export default function NotificationPanel({ open, onClose }: NotificationPanelPr
                 <Badge variant="outline" className="border-success/30 text-success">Confirmed</Badge>
               )}
               {notif.confirmStatus === 'rejected' && (
-                <Badge variant="destructive">Rejected</Badge>
+                <Badge variant="destructive"><TranslatedText text="Rejected" /></Badge>
               )}
               {!notif.isRead && (
                 <span className="mt-1.5 size-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />
@@ -344,9 +345,7 @@ export default function NotificationPanel({ open, onClose }: NotificationPanelPr
                 : 'This is sent as urgent to all managers and admins.'}
             </p>
             <div className="flex gap-2">
-              <Button variant="outline" size="lg" className="flex-1" onClick={cancelReject} disabled={sendingReject}>
-                Cancel
-              </Button>
+              <Button variant="outline" size="lg" className="flex-1" onClick={cancelReject} disabled={sendingReject}><TranslatedText text="Cancel" /></Button>
               <Button
                 size="lg"
                 variant={isCoffeeNotif ? 'default' : 'destructive'}
@@ -375,7 +374,7 @@ export default function NotificationPanel({ open, onClose }: NotificationPanelPr
       >
         <SheetHeader className="border-b pr-12">
           <div className="flex items-center justify-between gap-2">
-            <SheetTitle>Notifications</SheetTitle>
+            <SheetTitle><TranslatedText text="Notifications" /></SheetTitle>
             <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
@@ -435,7 +434,7 @@ export default function NotificationPanel({ open, onClose }: NotificationPanelPr
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as 'unread' | 'all')}>
             <TabsList className="w-full">
-              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="all"><TranslatedText text="All" /></TabsTrigger>
               <TabsTrigger value="unread">
                 Unread
                 {unread.length > 0 && (

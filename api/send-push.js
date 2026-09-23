@@ -5,32 +5,21 @@ try {
   // Fallback: will return error below
 }
 
-const admin = require('firebase-admin');
-const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT || './serviceAccountKey.json';
-let db;
-
-try {
-  if (!admin.apps.length) {
-    const serviceAccount = require(serviceAccountPath);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-  }
-  db = admin.firestore();
-} catch (e) {
-  console.error('Failed to initialize Firebase:', e);
-}
+const { services, requireUser } = require('../server/firebase.cjs');
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   // Health check
   if (req.method === 'GET') {
-    return res.status(200).json({
-      status: 'ok',
+    let firebase = false;
+    try { firebase = !!services().db; } catch { /* Report configuration readiness without exposing credentials. */ }
+    return res.status(firebase ? 200 : 503).json({
+      status: firebase ? 'ok' : 'not-configured',
+      firebase,
       webpush: !!webpush,
       hasVapidPublic: !!process.env.VAPID_PUBLIC_KEY,
       hasVapidPrivate: !!process.env.VAPID_PRIVATE_KEY,
@@ -40,6 +29,11 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   if (!webpush) return res.status(500).json({ error: 'web-push module not available' });
+
+  let db;
+  let actor;
+  try { actor = await requireUser(req); db = services().db; }
+  catch (error) { return res.status(error.status || 503).json({ error: 'Sign in required' }); }
 
   const vapidPublic = process.env.VAPID_PUBLIC_KEY;
   const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
@@ -52,6 +46,7 @@ module.exports = async function handler(req, res) {
   }
 
   const { userId, title, body, tag } = req.body || {};
+  if (userId !== actor.id && !['manager', 'super_admin'].includes(actor.role)) return res.status(403).json({ error: 'Permission denied' });
   if (!userId || !title) return res.status(400).json({ error: 'userId and title required' });
 
   try {

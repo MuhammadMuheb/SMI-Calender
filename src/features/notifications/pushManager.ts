@@ -1,3 +1,4 @@
+import { auth } from '@/lib/firebase';
 import { setDoc, doc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -67,7 +68,7 @@ export async function sendPushToUser(userId: string, title: string, body: string
   try {
     const res = await fetch('/api/send-push', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await auth.currentUser?.getIdToken()}` },
       body: JSON.stringify({ userId, title, body, tag }),
     });
     if (!res.ok) return { ok: false, error: `API error: ${res.status}` };

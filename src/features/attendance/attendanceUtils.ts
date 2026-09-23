@@ -1,3 +1,4 @@
+import { serverApi } from '@/lib/serverApi';
 import { fetchCheckInsForDate, fetchRecentCheckIns } from '@/features/attendance/services/checkInsService';
 import { getDocs, collection, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -71,69 +72,15 @@ export async function getWorkersForDate(date: string) {
   }
 }
 
-export async function recordAutoCheckout(checkInId: string, newCheckoutTime: string) {
-  try {
-    const checkInRef = collection(db, 'check_ins');
-    const q = query(checkInRef, where('id', '==', checkInId));
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) return null;
-
-    const doc = snapshot.docs[0];
-    const data = doc.data();
-
-    return {
-      ...data,
-      checkOutAt: newCheckoutTime,
-      autoCheckedOut: true,
-    };
-  } catch (error) {
-    console.error('recordAutoCheckout error:', error);
-    return null;
-  }
+export async function recordAutoCheckout(_checkInId: string, _newCheckoutTime: string) {
+  return serverApi('attendance', { action: 'run', checkInId: _checkInId, requestedTime: _newCheckoutTime });
 }
-
 export async function fixMissingCheckout(checkInId: string, checkoutTime: string) {
-  try {
-    const checkInRef = collection(db, 'check_ins');
-    const q = query(checkInRef, where('id', '==', checkInId));
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) return null;
-
-    const doc = snapshot.docs[0];
-    return {
-      ...doc.data(),
-      checkOutAt: checkoutTime,
-      fixedMissingCheckout: true,
-    };
-  } catch (error) {
-    console.error('fixMissingCheckout error:', error);
-    return null;
-  }
+  return serverApi('attendance', { action: 'save', id: checkInId, data: { checkOutAt: checkoutTime }, reason: 'Repair missing checkout' });
 }
-
-export async function sendLateAlerts(date: string) {
-  try {
-    const checkIns = await fetchCheckInsForDate(date);
-    const late = checkIns.filter(c => {
-      const time = new Date(c.checkInAt);
-      return time.getHours() >= 9; // After 9 AM is late
-    });
-    return late.length;
-  } catch (error) {
-    console.error('sendLateAlerts error:', error);
-    return 0;
-  }
+export async function sendLateAlerts(_date: string) {
+  return serverApi('attendance', { action: 'run', date: _date });
 }
-
-export async function sendCheckoutReminders(date: string) {
-  try {
-    const checkIns = await fetchCheckInsForDate(date);
-    const noCheckout = checkIns.filter(c => !c.checkOutAt);
-    return noCheckout.length;
-  } catch (error) {
-    console.error('sendCheckoutReminders error:', error);
-    return 0;
-  }
+export async function sendCheckoutReminders(_date: string) {
+  return serverApi('attendance', { action: 'run', date: _date });
 }

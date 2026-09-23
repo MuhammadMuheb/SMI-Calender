@@ -1,5 +1,6 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, useEffect, useMemo } from 'react';
-import { House, Info, MapPin, Users } from 'lucide-react';
+import { House, MapPin, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchCheckInsBetween, localDayRange, type CheckInData } from '@/features/attendance/services/checkInsService';
 import { useAppData } from '@/app/AppDataContext';
@@ -10,7 +11,7 @@ import { StatCard } from '@/components/shared/StatCard';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { LoadingState } from '@/components/shared/LoadingState';
 import { UserAvatar } from '@/components/shared/UserAvatar';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import AttendanceEditor from './AttendanceEditor';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -51,6 +52,7 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
   const [rawRecords, setRawRecords] = useState<CheckInData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(() => todayStr());
+  const [refresh, setRefresh] = useState(0);
   const [now, setNow] = useState(() => Date.now());
 
   const isSuperAdmin = currentUserRole === 'super_admin';
@@ -78,7 +80,7 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
     if (!isToday) return () => { cancelled = true; };
     const interval = setInterval(load, 30000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [selectedDate, isToday]);
+  }, [selectedDate, isToday, refresh]);
 
   const records: CheckInRecord[] = useMemo(() => {
     const byId = new Map(users.map((u) => [u.id, u]));
@@ -135,13 +137,7 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
         }
       />
 
-      {isSuperAdmin && (
-        <Alert>
-          <Info />
-          <AlertTitle>Manual edits aren’t available yet</AlertTitle>
-          <AlertDescription>Adding, editing or deleting check-ins by hand will come in a later update.</AlertDescription>
-        </Alert>
-      )}
+      {isSuperAdmin && <AttendanceEditor records={rawRecords} onSaved={() => setRefresh(n => n + 1)} />}
 
       <div className="grid grid-cols-3 gap-3">
         <StatCard label="On site now" value={checkedIn.length} tone="primary" />
@@ -218,12 +214,12 @@ function RecordSection({ title, records, now, open = false }: { title: string; r
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Roles</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>In</TableHead>
-                <TableHead>Out</TableHead>
-                <TableHead className="text-right">Duration</TableHead>
+                <TableHead><TranslatedText text="Name" /></TableHead>
+                <TableHead><TranslatedText text="Roles" /></TableHead>
+                <TableHead><TranslatedText text="Location" /></TableHead>
+                <TableHead><TranslatedText text="In" /></TableHead>
+                <TableHead><TranslatedText text="Out" /></TableHead>
+                <TableHead className="text-right"><TranslatedText text="Duration" /></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -262,7 +258,7 @@ function RecordSection({ title, records, now, open = false }: { title: string; r
 function RecordBadges({ record }: { record: CheckInRecord }) {
   return (
     <>
-      {record.isWfh && <Badge className="bg-info/15 text-info">WFH</Badge>}
+      {record.isWfh && <Badge className="bg-info/15 text-info"><TranslatedText text="WFH" /></Badge>}
       {record.autoCheckedOut && <Badge className="bg-warning/15 text-warning">Auto checked out</Badge>}
     </>
   );

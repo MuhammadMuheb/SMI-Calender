@@ -1,8 +1,8 @@
 {
   "name": "functions",
-  "description": "Cloud Functions for SMI Calendar — PIN-based auth bridge to Firebase Auth custom tokens.",
+  "description": "Cloud Functions for SMI Calendar \u2014 PIN-based auth bridge to Firebase Auth custom tokens.",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node ../scripts/copy-function-runtime.cjs",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",

@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, useEffect, useMemo } from 'react';
 import { CalendarDays, ChevronRight, Download, House, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
@@ -196,7 +197,7 @@ export default function AttendanceSummary({ currentUserId, currentUserRole }: At
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL_STAFF}>All staff</SelectItem>
+                  <SelectItem value={ALL_STAFF}><TranslatedText text="All staff" /></SelectItem>
                   {staffList.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.display_name}{s.job_role.length > 0 ? ` (${s.job_role.join(', ')})` : ''}
@@ -299,7 +300,7 @@ function StaffCard({ staff }: { staff: StaffSummary }) {
                           </div>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground tabular-nums">
                             <span>
-                              {formatTime(entry.check_in_at)}–{entry.check_out_at ? formatTime(entry.check_out_at) : <span className="font-medium text-primary">ongoing</span>}
+                              {formatTime(entry.check_in_at)}–{entry.check_out_at ? formatTime(entry.check_out_at) : <span className="font-medium text-primary"><TranslatedText text="ongoing" /></span>}
                             </span>
                             {!h.isOpen && (
                               <>

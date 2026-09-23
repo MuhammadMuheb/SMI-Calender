@@ -29,8 +29,8 @@ interface NotificationContextValue {
   markAsRead: (id: string) => void;
   markAllAsRead: (userId: string) => void;
   markEntityAsRead: (entityId: string) => void;
-  confirmNotification: (id: string) => void;
-  rejectNotification: (id: string, reason: string) => void;
+  confirmNotification: (id: string) => Promise<void>;
+  rejectNotification: (id: string, reason: string) => Promise<void>;
   getForUser: (userId: string) => Notification[];
   getUrgentRejections: () => Notification[];
   refreshNotifications: () => void;
@@ -173,18 +173,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     markWhere((n) => n.entityId === entityId);
   }, [markWhere]);
 
-  const confirmNotification = useCallback((id: string) => {
+  const confirmNotification = useCallback(async (id: string) => {
+    await updateDoc(doc(db, 'notifications', id), { isRead: true, confirmStatus: 'confirmed' });
     setNotifications((prev) => prev.map((n) => (
       n.id === id ? { ...n, isRead: true, confirmStatus: 'confirmed' as ConfirmStatus } : n
     )));
-    persist(id, { isRead: true, confirmStatus: 'confirmed' });
   }, []);
 
-  const rejectNotification = useCallback((id: string, reason: string) => {
+  const rejectNotification = useCallback(async (id: string, reason: string) => {
+    await updateDoc(doc(db, 'notifications', id), { isRead: true, confirmStatus: 'rejected', rejectReason: reason });
     setNotifications((prev) => prev.map((n) => (
       n.id === id ? { ...n, isRead: true, confirmStatus: 'rejected' as ConfirmStatus, rejectReason: reason } : n
     )));
-    persist(id, { isRead: true, confirmStatus: 'rejected', rejectReason: reason });
   }, []);
 
   const getForUser = useCallback(

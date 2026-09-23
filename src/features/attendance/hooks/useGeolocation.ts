@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getDocs, collection } from 'firebase/firestore';
+import { onSnapshot, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export interface Location {
@@ -49,26 +49,15 @@ export function useGeolocation(userJobRoles: string[], autoWatch = true) {
   const locationsRef = useRef<Location[]>([]);
 
   useEffect(() => {
-    async function fetchLocations() {
-      try {
-        const snapshot = await getDocs(collection(db, 'locations'));
-        const locations = snapshot.docs.map(doc => ({
-          id: doc.id,
-          name: doc.data().name || '',
-          address: doc.data().address || null,
-          latitude: doc.data().latitude || 0,
-          longitude: doc.data().longitude || 0,
-          radius_meters: doc.data().radius_meters || 100,
-          allowed_roles: doc.data().allowed_roles || [],
-        }));
-        locationsRef.current = locations;
-        setState(prev => ({ ...prev, allLocations: locations }));
-      } catch (error) {
-        console.error('Failed to fetch locations:', error);
-        locationsRef.current = [];
-      }
-    }
-    fetchLocations();
+    return onSnapshot(collection(db, 'locations'), snapshot => {
+      const locations = snapshot.docs.filter(d => d.data().isActive !== false).map(d => {
+        const v = d.data(); return { id: d.id, name: v.name || '', address: v.address || null,
+          latitude: v.latitude ?? 0, longitude: v.longitude ?? 0, radius_meters: v.radius_meters ?? v.radius ?? 100,
+          allowed_roles: v.allowed_roles ?? v.allowedRoles ?? [] };
+      });
+      locationsRef.current = locations;
+      setState(prev => ({ ...prev, allLocations: locations }));
+    }, () => { locationsRef.current = []; setState(prev => ({ ...prev, allLocations: [], nearbyLocations: [], error: 'Unable to load check-in locations' })); });
   }, []);
 
   const checkProximity = useCallback((lat: number, lng: number) => {

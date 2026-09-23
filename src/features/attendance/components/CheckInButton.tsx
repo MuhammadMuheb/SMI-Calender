@@ -1,3 +1,5 @@
+import { insertNotification } from '@/services/firestore/core';
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, query, where, limit, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { House, LogIn, LogOut, MapPin, MapPinOff } from 'lucide-react';
@@ -90,38 +92,11 @@ async function loadActiveCheckIn(userId: string): Promise<ActiveCheckIn | null> 
 
 async function notifyManagers(type: 'check_in' | 'check_out', name: string, location: string, isWfh: boolean) {
   try {
-    const q = query(
-      collection(db, 'users'),
-      where('role', 'in', ['super_admin', 'manager']),
-      where('pushSubscription', '!=', null)
-    );
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) return;
-
-    const wfhTag = isWfh ? ' (WFH)' : '';
-    const title = type === 'check_in' ? `Staff arrived${wfhTag}` : `Staff left${wfhTag}`;
-    const body = type === 'check_in' ? `${name} checked in at ${location}` : `${name} checked out from ${location}`;
-
-    for (const managerDoc of snapshot.docs) {
-      const manager = managerDoc.data();
-      if (!manager.pushSubscription) continue;
-      try {
-        await fetch('/api/send-push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            subscription: manager.pushSubscription,
-            title,
-            body,
-          }),
-        });
-      } catch {
-        // Silently fail on individual notification
-      }
-    }
-  } catch {
-    // Notifications are best-effort; the check-in itself already succeeded.
-  }
+    const snapshot = await getDocs(query(collection(db, 'users'), where('role', 'in', ['manager', 'super_admin']), where('isActive', '==', true)));
+    await Promise.all(snapshot.docs.map(d => insertNotification({ userId: d.id, type: 'system_announcement',
+      title: type === 'check_in' ? 'Staff arrived' : 'Staff left', body: `${name}: ${location}${isWfh ? ' (Remote)' : ''}`,
+      isRead: false, confirmStatus: 'pending', rejectReason: '' })));
+  } catch { /* The check-in itself has already been saved. */ }
 }
 
 function formatClock(iso: string) {
@@ -410,9 +385,7 @@ export default function CheckInButton({ userId, userName, userJobRoles }: CheckI
           <div className="flex flex-col gap-2 rounded-lg bg-muted/60 p-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm">Check in as working from home?</p>
             <div className="flex gap-2">
-              <Button variant="ghost" className="h-10 flex-1 sm:flex-none" onClick={() => setShowWfhChoice(false)} disabled={actionLoading !== null}>
-                Cancel
-              </Button>
+              <Button variant="ghost" className="h-10 flex-1 sm:flex-none" onClick={() => setShowWfhChoice(false)} disabled={actionLoading !== null}><TranslatedText text="Cancel" /></Button>
               <Button className="h-10 flex-1 sm:flex-none" onClick={handleWfhCheckIn} disabled={actionLoading !== null}>
                 {actionLoading === 'wfh' ? <Spinner /> : <House />}
                 {actionLoading === 'wfh' ? 'Checking in…' : 'Confirm'}
@@ -450,9 +423,7 @@ export default function CheckInButton({ userId, userName, userJobRoles }: CheckI
                 onClick={() => setShowWfhChoice(true)}
                 disabled={actionLoading !== null}
               >
-                <House />
-                Work from home
-              </Button>
+                <House /><TranslatedText text="Work from home" /></Button>
             )}
           </div>
         )}
