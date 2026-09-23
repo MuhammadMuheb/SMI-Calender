@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 
 // Retained names disable previously deployed insecure legacy endpoints.
 const retired = () => onCall({ region: 'us-central1' }, () => {
@@ -15,6 +15,9 @@ export const decideLeaveRequest = retired();
 export const cancelLeaveRequest = retired();
 export const acceptSwap = retired();
 export const adjustVacationBalance = retired();
+export const migrateData = onRequest({ region: 'us-central1' }, (_req, res) => {
+  res.status(410).json({ error: 'Legacy migration endpoint retired' });
+});
 
 initializeApp();
 export const attendanceScheduler = onSchedule({ schedule: 'every 30 minutes', timeZone: 'Europe/Rome', region: 'us-central1' }, async () => {

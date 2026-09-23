@@ -11,8 +11,8 @@ export default defineConfig(({ command, mode }) => {
   }
   return {
   server: {
-    watch: { ignored: ['**/*.local/**', '**/.private-backups/**'] },
-    fs: { deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/.private-backups/**', '**/*.local/**', '**/*service-account*.json', '**/*admin-key*.json'] },
+    watch: { ignored: ['**/*.local/**', '**/.private-backups/**', '**/.vercel/**'] },
+    fs: { deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/.private-backups/**', '**/.vercel/**', '**/*.local/**', '**/*service-account*.json', '**/*admin-key*.json'] },
   },
   plugins: [react(), tailwindcss(), localApi()],
   build: { rolldownOptions: { output: { codeSplitting: { groups: [

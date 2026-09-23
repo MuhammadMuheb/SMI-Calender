@@ -1,6 +1,7 @@
 .env
 .env.*
 .private-backups
+.vercel
 firebase-service-account.json
 firebase-admin-key.json
 scripts/firebase-admin-key.json

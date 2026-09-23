@@ -44,3 +44,4 @@ scripts/firebase-admin-key.json
 
 *.local.json
 !.env.example
+.vercel
