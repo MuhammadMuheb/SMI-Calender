@@ -6,6 +6,7 @@ try {
 }
 
 const { services, requireUser } = require('../server/firebase.cjs');
+const { createECDH } = require('node:crypto');
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -17,12 +18,25 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     let firebase = false;
     try { firebase = !!services().db; } catch { /* Report configuration readiness without exposing credentials. */ }
+    let vapidKeysMatch = false;
+    let vapidPublicKey;
+    try {
+      const key = createECDH('prime256v1');
+      const privateKey = Buffer.from(process.env.VAPID_PRIVATE_KEY || '', 'base64url');
+      if (privateKey.length !== 32) throw new Error('Invalid VAPID private key length');
+      key.setPrivateKey(privateKey);
+      vapidPublicKey = key.getPublicKey().toString('base64url');
+      vapidKeysMatch = key.getPublicKey().equals(Buffer.from(process.env.VAPID_PUBLIC_KEY || '', 'base64url'));
+    } catch { /* Missing or malformed push keys are reported separately from Firebase. */ }
     return res.status(firebase ? 200 : 503).json({
       status: firebase ? 'ok' : 'not-configured',
       firebase,
       webpush: !!webpush,
       hasVapidPublic: !!process.env.VAPID_PUBLIC_KEY,
       hasVapidPrivate: !!process.env.VAPID_PRIVATE_KEY,
+      vapidKeysMatch,
+      // VAPID public keys are intentionally shared with browsers for subscriptions.
+      ...(vapidPublicKey ? { vapidPublicKey } : {}),
     });
   }
 

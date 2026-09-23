@@ -28,12 +28,21 @@ export async function subscribeToPush(userId: string): Promise<{ ok: boolean; er
 
     const registration = await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
+    const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+    if (subscription) {
+      const existingKey = subscription.options.applicationServerKey;
+      const bytes = existingKey ? new Uint8Array(existingKey) : null;
+      if (!bytes || bytes.length !== applicationServerKey.length || bytes.some((value, index) => value !== applicationServerKey[index])) {
+        if (!await subscription.unsubscribe()) return { ok: false, error: 'Unable to replace the old push subscription. Please try again.' };
+        subscription = null;
+      }
+    }
 
     if (!subscription) {
       try {
         subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as BufferSource,
+          applicationServerKey: applicationServerKey as BufferSource,
         });
       } catch (subErr) {
         return { ok: false, error: `Subscribe failed: ${(subErr as Error).message}` };

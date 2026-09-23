@@ -52,6 +52,7 @@ const swaps = require('../api/swaps.js');
 const session = require('../api/session.js');
 const users = require('../api/users.js');
 const attendance = require('../api/attendance.js');
+const push = require('../api/send-push.js');
 async function call(handler, token, body, method = 'POST') {
   const result = { statusCode: 200 };
   const res = { setHeader() {}, status(code) { result.statusCode = code; return this; }, json(value) { result.body = value; return this; } };
@@ -68,6 +69,32 @@ beforeEach(() => {
 test('PINs are salted, verified, and plaintext is refused', () => {
   const one = hashPin('4321'), two = hashPin('4321');
   assert.notEqual(one, two); assert(verifyPin('4321', one)); assert(!verifyPin('1234', one)); assert(!verifyPin('4321', '4321'));
+});
+
+test('push readiness validates key pairs without exposing the private key', async (t) => {
+  const previous = { public: process.env.VAPID_PUBLIC_KEY, private: process.env.VAPID_PRIVATE_KEY };
+  t.after(() => {
+    for (const [name, value] of [['VAPID_PUBLIC_KEY', previous.public], ['VAPID_PRIVATE_KEY', previous.private]]) {
+      if (value === undefined) delete process.env[name]; else process.env[name] = value;
+    }
+  });
+  const keys = require('web-push').generateVAPIDKeys();
+  process.env.VAPID_PUBLIC_KEY = keys.publicKey;
+  process.env.VAPID_PRIVATE_KEY = keys.privateKey;
+  const ready = await call(push, null, null, 'GET');
+  assert.equal(ready.body.vapidKeysMatch, true);
+  assert.equal(ready.body.vapidPublicKey, keys.publicKey);
+  assert(!JSON.stringify(ready.body).includes(keys.privateKey));
+  const otherKeys = require('web-push').generateVAPIDKeys();
+  process.env.VAPID_PRIVATE_KEY = otherKeys.privateKey;
+  const mismatched = await call(push, null, null, 'GET');
+  assert.equal(mismatched.body.vapidKeysMatch, false);
+  assert.equal(mismatched.body.vapidPublicKey, otherKeys.publicKey);
+  assert(!JSON.stringify(mismatched.body).includes(otherKeys.privateKey));
+  process.env.VAPID_PRIVATE_KEY = 'invalid';
+  const invalid = await call(push, null, null, 'GET');
+  assert.equal(invalid.body.vapidKeysMatch, false);
+  assert.equal(invalid.body.vapidPublicKey, undefined);
 });
 test('missing, anonymous and forged role sessions cannot administer users', async () => {
   assert.equal((await call(users, null, { action: 'delete', id: 'b' })).statusCode, 401);
