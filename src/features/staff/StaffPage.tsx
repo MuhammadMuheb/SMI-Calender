@@ -23,6 +23,7 @@ import { todayStr, formatDateLocal } from '@/utils/dateUtils';
 import StaffLeaveDetailModal from '@/features/leave/components/StaffLeaveDetailModal';
 import type { StaffUser } from '@/models/user';
 import { fetchRecentCheckIns } from '@/features/attendance/services/checkInsService';
+import { getDayOffUsage } from './dayOffUsage';
 
 const ATTENDANCE_WINDOW_DAYS = 30;
 
@@ -154,10 +155,8 @@ export default function StaffPage({ onBack }: StaffPageProps = {}) {
   const view = filteredRows.map(({ user: u, roles, bal, pendingCount, onLeaveToday, attendancePct }) => {
     const displayName = u.displayName ?? u.username ?? 'Unknown';
     const role = (u.role ?? 'staff') as Role;
-    const used = bal?.regularDaysUsed ?? 0;
-    const allowed = bal?.regularDaysAllowed ?? 0;
-    const regularPct = allowed > 0 ? Math.min(100, (used / allowed) * 100) : 0;
-    return { u, displayName, role, roles, used, allowed, regularPct, pendingCount, onLeaveToday, attendancePct };
+    const usage = getDayOffUsage(bal?.regularDaysUsed ?? 0, bal?.regularDaysAllowed ?? 0);
+    return { u, displayName, role, roles, usage, pendingCount, onLeaveToday, attendancePct };
   });
 
   return (
@@ -246,8 +245,8 @@ export default function StaffPage({ onBack }: StaffPageProps = {}) {
                   <TableCell><PresenceLabel onLeave={r.onLeaveToday} /></TableCell>
                   <TableCell>
                     <div className="flex w-40 items-center gap-2">
-                      <Progress value={r.regularPct} aria-label="Days off used" className="flex-1" />
-                      <span className="text-xs text-muted-foreground tabular-nums">{r.used}/{r.allowed}</span>
+                      <Progress value={r.usage.percentage} aria-label={r.usage.description} className="flex-1" />
+                      <span title={r.usage.description} className="text-xs text-muted-foreground tabular-nums">{r.usage.used}/{r.usage.allowed}</span>
                     </div>
                   </TableCell>
                   <TableCell className={cn('text-right font-medium tabular-nums', r.attendancePct < 90 && 'text-warning')}>
@@ -284,9 +283,9 @@ export default function StaffPage({ onBack }: StaffPageProps = {}) {
                     {r.roles.length > 0 && <span className="truncate">{r.roles.join(', ')}</span>}
                   </div>
                   <div className="mt-1 flex max-w-56 items-center gap-2">
-                    <Progress value={r.regularPct} aria-label="Days off used" className="flex-1" />
-                    <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                      {r.used}/{r.allowed} days off
+                    <Progress value={r.usage.percentage} aria-label={r.usage.description} className="flex-1" />
+                    <span title={r.usage.description} className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                      {r.usage.used}/{r.usage.allowed} days off
                     </span>
                   </div>
                 </ItemContent>
