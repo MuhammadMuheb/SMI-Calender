@@ -11,13 +11,13 @@ npm run build      # type-check + production build
 npm run lint
 ```
 
-Firebase config falls back to the `smi-calender` project defaults. To point at another project, copy `.env.example` to `.env.local` and fill in real values (untouched `your_…` placeholders are ignored).
+Firebase web config falls back to the `smi-calender` project defaults. Copy `.env.example` to `.env.local` and configure the server-only Firebase credentials for local PIN login. Untouched `your_…` frontend placeholders are ignored. Production credentials belong in Vercel environment variables; never prefix private credentials with `VITE_`.
 
 ## Tech stack
 
 - React 19, TypeScript, Vite
 - Tailwind CSS v4 + [shadcn/ui](https://ui.shadcn.com) (Radix, lucide icons, Geist) — see [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)
-- Firebase Firestore (live listeners) + anonymous Firebase Auth; PIN login against the `users` collection
+- Firebase Firestore with protected rules and live listeners; server-verified PIN login using private credential records and Firebase Auth custom tokens
 - Web push via `api/send-push.js` (Vercel serverless function)
 
 ## Project structure
@@ -73,3 +73,5 @@ Imports use the `@/` alias for `src/`.
 ## Deployment
 
 Deployed on Vercel (`vercel.json`). Firestore rules and indexes deploy with `firebase deploy --only firestore`.
+
+See [the security and workflow rollout record](docs/SECURITY_AND_WORKFLOW_FIXES.md) for the coordinated Functions, rules, credential migration and Vercel deployment procedure.

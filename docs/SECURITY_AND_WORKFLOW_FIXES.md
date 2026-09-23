@@ -18,6 +18,8 @@ Actual device notification delivery still requires testing on a browser/device w
 
 ## Implemented
 
+Team Overview's regular-day allowance indicator is bounded on both desktop and mobile: approved history exceeding a six-day allowance displays `6/6`, with the original count retained in its tooltip, accessible description and leave details. Explicit administrator allowances are respected; no historical leave records are cancelled by this display correction.
+
 | Issue | Change |
 | --- | --- |
 | 1–2 | Server verifies PINs, rate-limits login and issues Firebase custom tokens. PIN hashes live in a server-only collection. Anonymous access is denied. Current protected profiles determine permissions; browser-stored roles are ignored. User provisioning and PIN changes run on the server. |
@@ -53,6 +55,7 @@ The scheduled Firebase function runs independently of an open browser. The authe
 - Production frontend build and Functions TypeScript build.
 - ESLint with zero warnings.
 - Thirteen server regression tests: credentials, login limits, authorization, staffing/sick leave, swaps, attendance, Rome/DST handling and push key validation.
+- Two Team Overview regression tests cover historical allowance overflow, zero/invalid values and explicit administrator allowances.
 - Nine Firestore emulator permission tests and one emulator migration test, including dry-run, canonical references, credential preservation, backups and repeated application.
 - Local HTTP checks: application loads, Firebase initializes using the supplied environment, and unauthenticated mutations return 401.
 - Production migration applied with a local backup; follow-up dry-run is clean. Live workflow checks and fixture cleanup are recorded above.
