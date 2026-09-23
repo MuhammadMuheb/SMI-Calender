@@ -46,9 +46,7 @@ export function checkStaffingForDate(
       const assignedUsers = allAssignments.filter(
         (a) => a.jobRoleId === rule.jobRoleId,
       );
-      const scheduled = assignedUsers.filter(
-        (a) => !usersOff.has(a.userId),
-      ).length;
+      const scheduled = new Set(assignedUsers.filter(a => !usersOff.has(a.userId)).map(a => a.userId)).size;
 
       return {
         date,

@@ -1,3 +1,4 @@
+declare global { interface Window { verifyCalendarData?: typeof verifyCalendarData; verifyExpectedCounts?: typeof verifyExpectedCounts; cleanupOrphanedSchedules?: typeof cleanupOrphanedSchedules; } }
 /**
  * CALENDAR DATA VERIFICATION
  *
@@ -195,9 +196,9 @@ export async function verifyExpectedCounts(expectedUsers: number, expectedRoles:
 
 // Expose to window for development testing
 if (import.meta.env.MODE === 'development') {
-  (window as any).verifyCalendarData = verifyCalendarData;
-  (window as any).verifyExpectedCounts = verifyExpectedCounts;
-  (window as any).cleanupOrphanedSchedules = cleanupOrphanedSchedules;
+  window.verifyCalendarData = verifyCalendarData;
+  window.verifyExpectedCounts = verifyExpectedCounts;
+  window.cleanupOrphanedSchedules = cleanupOrphanedSchedules;
   console.log('💡 Verification commands available:');
   console.log('   - await verifyCalendarData() - Verify data integrity');
   console.log('   - await verifyExpectedCounts(users, roles, august, sept) - Verify exact counts');

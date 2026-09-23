@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { EyeOff, Plus, Tags, Trash2 } from 'lucide-react';
@@ -142,7 +143,7 @@ export default function RoleManagement({ onBack }: Props) {
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="pl-4">Job role</TableHead>
                   <TableHead>Shift</TableHead>
-                  <TableHead>People</TableHead>
+                  <TableHead><TranslatedText text="People" /></TableHead>
                   <TableHead>Hidden</TableHead>
                   <TableHead className="w-12 pr-4"><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
@@ -242,7 +243,7 @@ export default function RoleManagement({ onBack }: Props) {
         description="People with this role can be assigned to its shifts."
         footer={(
           <>
-            <Button variant="outline" size="lg" onClick={closeAdd} disabled={saving}>Cancel</Button>
+            <Button variant="outline" size="lg" onClick={closeAdd} disabled={saving}><TranslatedText text="Cancel" /></Button>
             <Button type="submit" form="job-role-form" size="lg" disabled={saving}>Add job role</Button>
           </>
         )}
@@ -250,7 +251,7 @@ export default function RoleManagement({ onBack }: Props) {
         <form id="job-role-form" onSubmit={handleAdd} noValidate>
           <FieldGroup>
             <Field data-invalid={formError ? true : undefined}>
-              <FieldLabel htmlFor="role-name">Name</FieldLabel>
+              <FieldLabel htmlFor="role-name"><TranslatedText text="Name" /></FieldLabel>
               <Input
                 id="role-name"
                 placeholder="For example, Guide"
@@ -310,7 +311,7 @@ export default function RoleManagement({ onBack }: Props) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel><TranslatedText text="Cancel" /></AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={() => { if (confirmDelete) void handleDelete(confirmDelete); }}>
               Delete role
             </AlertDialogAction>

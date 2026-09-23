@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useMemo, useState, type FormEvent } from 'react';
 import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
 import { toast } from 'sonner';
@@ -111,9 +112,7 @@ function RowActions({ name, onEdit, onDelete }: { name: string; onEdit: () => vo
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuItem onSelect={onEdit}>
-          <Pencil />
-          Edit
-        </DropdownMenuItem>
+          <Pencil /><TranslatedText text="Edit" /></DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={onDelete}>
           <Trash2 />
@@ -278,7 +277,7 @@ export default function StaffManagement({ onBack }: Props) {
       }
       for (const roleId of formJobRoles) {
         const existing = currentAssignments.find((a) => a.jobRoleId === roleId);
-        if (!existing) await assignRole(editingStaff.id, roleId, roleId === formPrimaryRole, actorName);
+        if (!existing || existing.isPrimary !== (roleId === formPrimaryRole)) await assignRole(editingStaff.id, roleId, roleId === formPrimaryRole, actorName);
       }
 
       toast.success('Changes saved');
@@ -331,7 +330,7 @@ export default function StaffManagement({ onBack }: Props) {
     <form id="staff-form" onSubmit={handleSubmit} noValidate>
       <FieldGroup>
         <Field>
-          <FieldLabel htmlFor="staff-name">Name</FieldLabel>
+          <FieldLabel htmlFor="staff-name"><TranslatedText text="Name" /></FieldLabel>
           <Input
             id="staff-name"
             placeholder="Full name"
@@ -343,7 +342,7 @@ export default function StaffManagement({ onBack }: Props) {
         </Field>
 
         <Field data-disabled={isEditing ? true : undefined}>
-          <FieldLabel htmlFor="staff-username">Username</FieldLabel>
+          <FieldLabel htmlFor="staff-username"><TranslatedText text="Username" /></FieldLabel>
           <Input
             id="staff-username"
             placeholder="Used to sign in"
@@ -407,7 +406,7 @@ export default function StaffManagement({ onBack }: Props) {
         {isEditing && (
           <Field orientation="horizontal">
             <FieldContent>
-              <FieldLabel htmlFor="staff-active">Active</FieldLabel>
+              <FieldLabel htmlFor="staff-active"><TranslatedText text="Active" /></FieldLabel>
               <FieldDescription>Inactive people can’t sign in.</FieldDescription>
             </FieldContent>
             <Switch id="staff-active" checked={formActive} onCheckedChange={setFormActive} />
@@ -416,7 +415,7 @@ export default function StaffManagement({ onBack }: Props) {
 
         {jobRoles.length > 0 && (
           <FieldSet>
-            <FieldLegend variant="label">Job roles</FieldLegend>
+            <FieldLegend variant="label"><TranslatedText text="Job roles" /></FieldLegend>
             <FieldDescription>Optional. The positions they work; mark one as their primary role.</FieldDescription>
             <div className="divide-y rounded-lg border">
               {jobRoles.map((jr) => {
@@ -463,9 +462,7 @@ export default function StaffManagement({ onBack }: Props) {
         onBack={onBack}
         actions={(
           <Button onClick={openAdd}>
-            <UserPlus data-icon="inline-start" />
-            Add person
-          </Button>
+            <UserPlus data-icon="inline-start" /><TranslatedText text="Add person" /></Button>
         )}
       />
 
@@ -476,9 +473,7 @@ export default function StaffManagement({ onBack }: Props) {
           description="Add the first person so they can sign in and request time off."
           action={(
             <Button onClick={openAdd}>
-              <UserPlus data-icon="inline-start" />
-              Add person
-            </Button>
+              <UserPlus data-icon="inline-start" /><TranslatedText text="Add person" /></Button>
           )}
         />
       ) : (
@@ -488,11 +483,11 @@ export default function StaffManagement({ onBack }: Props) {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="pl-4">Name</TableHead>
-                  <TableHead>Username</TableHead>
+                  <TableHead className="pl-4"><TranslatedText text="Name" /></TableHead>
+                  <TableHead><TranslatedText text="Username" /></TableHead>
                   <TableHead>Permission</TableHead>
-                  <TableHead>Job roles</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead><TranslatedText text="Job roles" /></TableHead>
+                  <TableHead><TranslatedText text="Status" /></TableHead>
                   <TableHead className="w-12 pr-4"><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
               </TableHeader>
@@ -554,7 +549,7 @@ export default function StaffManagement({ onBack }: Props) {
         description={isEditing ? undefined : 'Create an account they can sign in with.'}
         footer={(
           <>
-            <Button variant="outline" size="lg" onClick={closeForm} disabled={saving}>Cancel</Button>
+            <Button variant="outline" size="lg" onClick={closeForm} disabled={saving}><TranslatedText text="Cancel" /></Button>
             <Button type="submit" form="staff-form" size="lg" disabled={saving}>
               {saving && <Spinner />}
               {isEditing ? 'Save changes' : 'Add person'}

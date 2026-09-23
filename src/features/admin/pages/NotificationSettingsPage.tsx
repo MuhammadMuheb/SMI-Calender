@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, type FormEvent } from 'react';
 import { Info } from 'lucide-react';
 import { toast } from 'sonner';
@@ -107,12 +108,12 @@ export default function NotificationSettingsPage({ onBack }: Props) {
             <CardContent>
               <dl className="space-y-3 text-sm">
                 <div className="flex items-center justify-between gap-2">
-                  <dt className="text-muted-foreground">Status</dt>
+                  <dt className="text-muted-foreground"><TranslatedText text="Status" /></dt>
                   <dd>
                     {notificationSettings.dailyReminderEnabled ? (
-                      <Badge variant="secondary" className="border-transparent bg-success/12 text-success">Active</Badge>
+                      <Badge variant="secondary" className="border-transparent bg-success/12 text-success"><TranslatedText text="Active" /></Badge>
                     ) : (
-                      <Badge variant="secondary" className="border-transparent bg-muted text-muted-foreground">Off</Badge>
+                      <Badge variant="secondary" className="border-transparent bg-muted text-muted-foreground"><TranslatedText text="Off" /></Badge>
                     )}
                   </dd>
                 </div>

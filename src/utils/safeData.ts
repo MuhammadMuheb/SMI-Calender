@@ -9,7 +9,7 @@ export const safeString = (str: string | null | undefined, fallback = 'Unknown')
   return (typeof str === 'string' && str.trim()) ? str : fallback;
 };
 
-export const safeObject = <T extends Record<string, any>>(obj: T | null | undefined, defaults: Partial<T>): T => {
+export const safeObject = <T extends object>(obj: T | null | undefined, defaults: Partial<T>): T => {
   return { ...defaults, ...obj } as T;
 };
 
@@ -25,8 +25,8 @@ export const safeFilter = <T>(arr: T[] | null | undefined, fn: (item: T) => bool
   return safeArray(arr).filter(fn);
 };
 
-export const safeSort = <T extends Record<string, any>>(arr: T[] | null | undefined, key: keyof T, descending = true): T[] => {
-  return safeArray(arr).sort((a, b) => {
+export const safeSort = <T extends object>(arr: T[] | null | undefined, key: keyof T, descending = true): T[] => {
+  return [...safeArray(arr)].sort((a, b) => {
     const aVal = a[key];
     const bVal = b[key];
 

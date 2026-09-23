@@ -1,4 +1,8 @@
-import { getFirestore, collection, getDocs, addDoc, writeBatch, doc, setDoc, updateDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { validateLeaveRequests } from '@/utils/dataValidation';
+import { serverApi } from '@/lib/serverApi';
+import { auth } from '@/lib/firebase';
+import type { LeaveRequest } from '@/models/leave';
+import { getFirestore, collection, getDocs, addDoc, writeBatch, doc, setDoc, onSnapshot, query, orderBy } from 'firebase/firestore';
 import type { TourAssignment } from '@/models/tourAssignment';
 import type { Schedule } from '@/models/schedule';
 
@@ -66,6 +70,7 @@ export async function insertAuditLog(entry: {
   try {
     await addDoc(collection(db, 'audit_log'), {
       ...entry,
+      actorId: auth.currentUser?.uid ?? '',
       createdAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -102,7 +107,7 @@ export async function fetchSchedules(): Promise<Schedule[]> {
 /**
  * Insert batch of schedules
  */
-export async function insertSchedulesBatch(schedules: any[]) {
+export async function insertSchedulesBatch(schedules: Schedule[]) {
   try {
     const batch = writeBatch(db);
 
@@ -118,130 +123,41 @@ export async function insertSchedulesBatch(schedules: any[]) {
     await batch.commit();
   } catch (error) {
     console.error('Error inserting schedules batch:', error);
+    throw error;
   }
 }
 
 /**
  * Insert a new leave request
  */
-export async function insertLeaveRequest(request: any): Promise<string> {
-  try {
-    // Never persist a client-side placeholder id — the Firestore doc id is the id.
-    const payload = { ...(request ?? {}) };
-    delete payload.id;
-    const docRef = await addDoc(collection(db, 'leave_requests'), {
-      ...payload,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    return docRef.id;
-  } catch (error) {
-    console.error('Error inserting leave request:', error);
-    throw error;
-  }
+export async function insertLeaveRequest(request: Omit<LeaveRequest, 'id'>): Promise<string> {
+  return (await serverApi<{ id: string }>('leave', { action: 'create', data: request })).id;
 }
-
-/**
- * Update leave request
- */
-export async function updateLeaveRequestDb(id: string, updates: any): Promise<void> {
-  try {
-    const docRef = doc(db, 'leave_requests', id);
-    await updateDoc(docRef, {
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('Error updating leave request:', error);
-    throw error;
-  }
+export async function updateLeaveRequestDb(id: string, updates: Partial<LeaveRequest>): Promise<void> {
+  await serverApi('leave', { action: 'update', id, data: updates });
 }
-
-/**
- * Cancel leave request
- */
-export async function cancelLeaveRequest(id: string): Promise<void> {
-  try {
-    const docRef = doc(db, 'leave_requests', id);
-    await updateDoc(docRef, {
-      status: 'cancelled',
-      updatedAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error('Error cancelling leave request:', error);
-    throw error;
-  }
+export function cancelLeaveRequest(id: string): Promise<void> {
+  return updateLeaveRequestDb(id, { status: 'cancelled' });
 }
-
 interface DecisionActor { id: string; displayName: string; role: string }
-
-/**
- * Record an approve/reject decision on a leave request.
- */
-async function decideLeaveRequest(
-  id: string, status: 'approved' | 'rejected', decidedBy: DecisionActor, note: string,
-): Promise<void> {
-  const now = new Date().toISOString();
-  await updateDoc(doc(db, 'leave_requests', id), {
-    status,
-    decidedBy: { id: decidedBy.id, displayName: decidedBy.displayName, role: decidedBy.role },
-    decidedAt: now,
-    approverNote: note,
-    updatedAt: now,
-  });
+export function approveLeaveRequest(id: string, _actor: DecisionActor, note = ''): Promise<void> {
+  return updateLeaveRequestDb(id, { status: 'approved', approverNote: note });
 }
-
-export function approveLeaveRequest(id: string, decidedBy: DecisionActor, note = ''): Promise<void> {
-  return decideLeaveRequest(id, 'approved', decidedBy, note);
-}
-
-export function rejectLeaveRequest(id: string, decidedBy: DecisionActor, note = ''): Promise<void> {
-  return decideLeaveRequest(id, 'rejected', decidedBy, note);
-}
-
-/**
- * Ensure LeaveRequest has safe userRef with displayName fallback
- */
-function ensureSafeUserRef(data: any) {
-  if (!data.userRef) {
-    return { id: data.userId ?? 'unknown', displayName: data.user_display_name ?? 'Unknown', role: 'staff' };
-  }
-  return {
-    id: data.userRef.id ?? data.userId ?? 'unknown',
-    displayName: data.userRef.displayName ?? data.user_display_name ?? 'Unknown',
-    role: data.userRef.role ?? 'staff',
-  };
+export function rejectLeaveRequest(id: string, _actor: DecisionActor, note = ''): Promise<void> {
+  return updateLeaveRequestDb(id, { status: 'rejected', approverNote: note });
 }
 
 /**
  * Listen to leave requests changes
  */
 export function listenLeaveRequests(
-  callback: (requests: any[]) => void,
+  callback: (requests: LeaveRequest[]) => void,
   onError?: (error: Error) => void,
 ) {
   try {
     const q = query(collection(db, 'leave_requests'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
-      const requests = snapshot.docs.map(d => {
-        const data = d.data();
-        return {
-          ...data,
-          // The document id always wins over any legacy `id` field stored in the doc.
-          id: d.id,
-          userRef: ensureSafeUserRef(data),
-          decidedBy: data.decidedBy ? {
-            id: data.decidedBy.id ?? 'unknown',
-            displayName: data.decidedBy.displayName ?? 'Unknown',
-            role: data.decidedBy.role ?? 'staff',
-          } : null,
-          overriddenBy: data.overriddenBy ? {
-            id: data.overriddenBy.id ?? 'unknown',
-            displayName: data.overriddenBy.displayName ?? 'Unknown',
-            role: data.overriddenBy.role ?? 'staff',
-          } : null,
-        };
-      });
+      const requests = validateLeaveRequests(snapshot.docs.map(d => ({ ...d.data(), id: d.id })));
       callback(requests);
     }, (error) => {
       console.error('Leave request listener error:', error);
@@ -256,7 +172,7 @@ export function listenLeaveRequests(
 /**
  * Insert notification
  */
-export async function insertNotification(notification: any): Promise<string> {
+export async function insertNotification(notification: Record<string, unknown>): Promise<string> {
   try {
     const docRef = await addDoc(collection(db, 'notifications'), {
       ...notification,
@@ -272,7 +188,7 @@ export async function insertNotification(notification: any): Promise<string> {
 /**
  * Save push subscription
  */
-export async function savePushSubscription(userId: string, subscription: any): Promise<void> {
+export async function savePushSubscription(userId: string, subscription: Record<string, unknown>): Promise<void> {
   try {
     const docRef = doc(db, 'push_subscriptions', userId);
     await setDoc(docRef, {

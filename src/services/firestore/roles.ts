@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
+  collection, doc, getDocs, setDoc, updateDoc, deleteDoc, writeBatch, query, where,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { JobRole, StaffRoleAssignment } from '@/models/jobRole';
@@ -68,10 +68,18 @@ export async function updateJobRoleDb(
 
 export async function deleteJobRoleDb(id: string): Promise<void> {
   try {
-    const roleRef = doc(db, 'jobRoles', id);
-    await deleteDoc(roleRef);
+    const [assignments, rules] = await Promise.all([
+      getDocs(query(collection(db, 'role_assignments'), where('jobRoleId', '==', id))),
+      getDocs(query(collection(db, 'staffing_rules'), where('jobRoleId', '==', id))),
+    ]);
+    const batch = writeBatch(db);
+    assignments.docs.forEach(d => batch.delete(d.ref));
+    rules.docs.forEach(d => batch.delete(d.ref));
+    batch.delete(doc(db, 'jobRoles', id));
+    await batch.commit();
   } catch (err) {
     console.error('deleteJobRole:', err);
+    throw err;
   }
 }
 
@@ -122,5 +130,6 @@ export async function deleteRoleAssignmentDb(id: string): Promise<void> {
     await deleteDoc(assignRef);
   } catch (err) {
     console.error('deleteRoleAssignment:', err);
+    throw err;
   }
 }

@@ -63,6 +63,7 @@ export async function updateStaffingRuleDb(
     await updateDoc(ruleRef, mapped);
   } catch (err) {
     console.error('updateStaffingRule:', err);
+    throw err;
   }
 }
 
@@ -72,5 +73,6 @@ export async function deleteStaffingRuleDb(id: string): Promise<void> {
     await deleteDoc(ruleRef);
   } catch (err) {
     console.error('deleteStaffingRule:', err);
+    throw err;
   }
 }

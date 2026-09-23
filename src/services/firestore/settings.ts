@@ -1,5 +1,5 @@
 import {
-  collection, doc, getDocs, setDoc, updateDoc, deleteDoc,
+  collection, doc, getDocs, setDoc, deleteDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Holiday, SpecialDay } from '@/models/holiday';
@@ -84,6 +84,7 @@ export async function deleteSpecialDayDb(id: string): Promise<void> {
     await deleteDoc(dayRef);
   } catch (err) {
     console.error('deleteSpecialDay:', err);
+    throw err;
   }
 }
 
@@ -138,8 +139,9 @@ export async function updateNotificationSettingsDb(updates: {
     }
 
     const settingsRef = doc(db, 'notificationSettings', 'global');
-    await updateDoc(settingsRef, mapped);
+    await setDoc(settingsRef, mapped, { merge: true });
   } catch (err) {
     console.error('updateNotificationSettings:', err);
+    throw err;
   }
 }

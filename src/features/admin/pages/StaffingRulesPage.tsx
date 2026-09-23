@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { Lock, Minus, Plus, ShieldCheck, Trash2, TriangleAlert } from 'lucide-react';
@@ -152,9 +153,7 @@ export default function StaffingRulesPage({ onBack }: Props) {
 
   const addButton = (
     <Button onClick={openAdd} disabled={jobRoles.length === 0}>
-      <Plus data-icon="inline-start" />
-      Add rule
-    </Button>
+      <Plus data-icon="inline-start" /><TranslatedText text="Add rule" /></Button>
   );
 
   const renderRoleName = (id: string) => {
@@ -205,7 +204,7 @@ export default function StaffingRulesPage({ onBack }: Props) {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="pl-4">Job role</TableHead>
-                  <TableHead className="text-right">People</TableHead>
+                  <TableHead className="text-right"><TranslatedText text="People" /></TableHead>
                   {DAY_SHORT.map((d, i) => (
                     <TableHead key={d} className="w-16 text-center">
                       <abbr title={DAY_NAMES[i]} className="no-underline">{d}</abbr>
@@ -348,8 +347,8 @@ export default function StaffingRulesPage({ onBack }: Props) {
         description="Set how many people with a job role must stay on shift."
         footer={(
           <>
-            <Button variant="outline" size="lg" onClick={closeAdd} disabled={saving}>Cancel</Button>
-            <Button type="submit" form="staffing-rule-form" size="lg" disabled={!formRoleId || saving}>Add rule</Button>
+            <Button variant="outline" size="lg" onClick={closeAdd} disabled={saving}><TranslatedText text="Cancel" /></Button>
+            <Button type="submit" form="staffing-rule-form" size="lg" disabled={!formRoleId || saving}><TranslatedText text="Add rule" /></Button>
           </>
         )}
       >
@@ -383,7 +382,7 @@ export default function StaffingRulesPage({ onBack }: Props) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Every day</SelectItem>
+                  <SelectItem value="all"><TranslatedText text="Every day" /></SelectItem>
                   {DAY_NAMES.map((name, d) => <SelectItem key={d} value={String(d)}>{name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -463,7 +462,7 @@ export default function StaffingRulesPage({ onBack }: Props) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel><TranslatedText text="Cancel" /></AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={() => { if (confirmDelete) void handleDelete(confirmDelete); }}>
               Delete rule
             </AlertDialogAction>

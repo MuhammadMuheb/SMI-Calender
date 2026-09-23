@@ -1,205 +1,56 @@
-/**
- * BULLETPROOF data validation layer
- * Ensures all data flowing through the app is safe and never causes displayName crashes
- */
-
-import type { StaffUser } from '@/models/user';
-import type { LeaveRequest } from '@/models/leave';
-
-/**
- * Validate and sanitize a single user object
- * NEVER returns undefined displayName
- */
-export function validateUser(user: any): StaffUser {
-  if (!user || typeof user !== 'object') {
-    return {
-      id: 'unknown',
-      username: 'unknown',
-      displayName: 'Unknown User',
-      pin: '',
-      role: 'staff',
-      isActive: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  }
-
-  return {
-    id: String(user.id || user.userId || 'unknown').trim() || 'unknown',
-    username: String(user.username || user.userName || 'unknown').trim() || 'unknown',
-    displayName: String(user.displayName || user.name || user.display_name || user.userName || user.username || 'Unknown User')
-      .trim() || 'Unknown User',
-    pin: String(user.pin || user.pin_hash || '').trim(),
-    role: String(user.role || 'staff').trim() as any,
-    isActive: user.isActive !== false && user.is_active !== false,
-    createdAt: String(user.createdAt || user.created_at || new Date().toISOString()).trim(),
-    updatedAt: String(user.updatedAt || user.updated_at || new Date().toISOString()).trim(),
-    vacationOverride: typeof user.vacationOverride === 'number' ? user.vacationOverride : null,
-    regularOverride: typeof user.regularOverride === 'number' ? user.regularOverride : null,
-    jobRole: Array.isArray(user.jobRole) ? user.jobRole : Array.isArray(user.job_role) ? user.job_role : ['Office'],
-  };
+import type { StaffUser, UserRef } from '@/models/user';
+import type { LeaveRequest, LeaveType, LeaveStatus } from '@/models/leave';
+import type { Role } from '@/config/roles';
+export function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
-
-/**
- * Validate and sanitize an array of users
- * GUARANTEES every user has valid displayName
- */
-export function validateUsers(users: any[]): StaffUser[] {
-  if (!Array.isArray(users)) return [];
-
-  return users
-    .filter(u => {
-      try {
-        return u && (u.id || u.userId || u.username || u.display_name);
-      } catch {
-        return false;
-      }
-    })
-    .map(u => {
-      try {
-        return validateUser(u);
-      } catch (err) {
-        console.error('Error validating user:', err);
-        return validateUser(null);
-      }
-    });
+function text(value: unknown, fallback = ''): string { return typeof value === 'string' && value.trim() ? value.trim() : fallback; }
+function role(value: unknown): Role { return value === 'manager' || value === 'super_admin' || value === 'spectator' ? value : 'staff'; }
+export function getDisplayName(value: unknown): string {
+  if (typeof value === 'string') return value.trim() || 'Unknown User';
+  const u = asRecord(value);
+  return text(u.displayName ?? u.name ?? u.display_name ?? u.userName ?? u.username, 'Unknown User');
 }
-
-/**
- * Validate a leave request with safe userRef
- */
-export function validateLeaveRequest(req: any): LeaveRequest | null {
-  if (!req || typeof req !== 'object') return null;
-
-  try {
-    return {
-      id: String(req.id || '').trim() || `lr_${Date.now()}`,
-      userId: String(req.userId || req.user_id || '').trim() || 'unknown',
-      userRef: {
-        id: String(req.userRef?.id || req.userId || req.user_id || '').trim() || 'unknown',
-        displayName: String(req.userRef?.displayName || req.user_display_name || req.userName || 'Unknown User')
-          .trim() || 'Unknown User',
-        role: String(req.userRef?.role || req.user_role || 'staff').trim() as any,
-      },
-      date: String(req.date || '').trim(),
-      leaveType: String(req.leaveType || req.leave_type || 'regular_day_off').trim() as any,
-      status: String(req.status || 'pending').trim() as any,
-      staffNote: String(req.staffNote || req.staff_note || '').trim(),
-      approverNote: String(req.approverNote || req.approver_note || '').trim(),
-      decidedBy: (req.decidedBy || req.decided_by) ? {
-        id: String((req.decidedBy || req.decided_by)?.id || '').trim() || 'unknown',
-        displayName: String((req.decidedBy || req.decided_by)?.displayName || 'Unknown')
-          .trim() || 'Unknown',
-        role: String((req.decidedBy || req.decided_by)?.role || 'staff').trim() as any,
-      } : null,
-      decidedAt: req.decidedAt || req.decided_at || null,
-      isOverridden: req.isOverridden === true || req.is_overridden === true,
-      overriddenBy: (req.overriddenBy || req.overridden_by) ? {
-        id: String((req.overriddenBy || req.overridden_by)?.id || '').trim() || 'unknown',
-        displayName: String((req.overriddenBy || req.overridden_by)?.displayName || 'Unknown')
-          .trim() || 'Unknown',
-        role: String((req.overriddenBy || req.overridden_by)?.role || 'staff').trim() as any,
-      } : null,
-      overriddenAt: req.overriddenAt || req.overridden_at || null,
-      createdAt: String(req.createdAt || req.created_at || new Date().toISOString()).trim(),
-      updatedAt: String(req.updatedAt || req.updated_at || new Date().toISOString()).trim(),
-    };
-  } catch (err) {
-    console.error('Error validating leave request:', err);
-    return null;
-  }
+export function getUserId(value: unknown): string {
+  const u = asRecord(value); return text(u.id ?? u.userId ?? u.user_id, 'unknown');
 }
-
-/**
- * Validate an array of leave requests
- */
-export function validateLeaveRequests(requests: any[]): LeaveRequest[] {
-  if (!Array.isArray(requests)) return [];
-
-  return requests
-    .map(req => {
-      try {
-        return validateLeaveRequest(req);
-      } catch (err) {
-        console.error('Error validating leave request:', err);
-        return null;
-      }
-    })
-    .filter((req): req is LeaveRequest => req !== null);
+export function getUserRef(value: unknown): UserRef {
+  return { id: getUserId(value), displayName: getDisplayName(value), role: role(asRecord(value).role) };
 }
-
-/**
- * Safe map operation for users
- * Prevents displayName crashes in .map()
- */
-export function safeMapUsers<T>(
-  users: any[] | null | undefined,
-  mapper: (user: StaffUser) => T
-): T[] {
-  if (!Array.isArray(users)) return [];
-
-  return users
-    .map(user => {
-      try {
-        const validated = validateUser(user);
-        return mapper(validated);
-      } catch (err) {
-        console.error('Error mapping user:', err);
-        return null;
-      }
-    })
-    .filter((item): item is T => item !== null);
+export function validateUser(value: unknown): StaffUser {
+  const u = asRecord(value);
+  const jobs = u.jobRole ?? u.job_role;
+  return { id: getUserId(u), username: text(u.username ?? u.userName, 'unknown'), displayName: getDisplayName(u), pin: '',
+    role: role(u.role), isActive: Object.keys(u).length > 0 && u.isActive !== false && u.is_active !== false,
+    createdAt: text(u.createdAt ?? u.created_at), updatedAt: text(u.updatedAt ?? u.updated_at),
+    vacationOverride: typeof u.vacationOverride === 'number' ? u.vacationOverride : null,
+    regularOverride: typeof u.regularOverride === 'number' ? u.regularOverride : null,
+    jobRole: Array.isArray(jobs) ? jobs.filter((v): v is string => typeof v === 'string') : [] };
 }
-
-/**
- * Safe map operation for leave requests
- */
-export function safeMapRequests<T>(
-  requests: any[] | null | undefined,
-  mapper: (request: LeaveRequest) => T
-): T[] {
-  if (!Array.isArray(requests)) return [];
-
-  return requests
-    .map(req => {
-      try {
-        const validated = validateLeaveRequest(req);
-        if (!validated) return null;
-        return mapper(validated);
-      } catch (err) {
-        console.error('Error mapping leave request:', err);
-        return null;
-      }
-    })
-    .filter((item): item is T => item !== null);
+export function validateUsers(values: unknown): StaffUser[] {
+  return Array.isArray(values) ? values.filter(v => { const u = asRecord(v); return !!(u.id || u.userId || u.username); }).map(validateUser) : [];
 }
-
-/**
- * Extract displayName safely from any user-like object
- */
-export function getDisplayName(user: any): string {
-  if (!user) return 'Unknown User';
-  if (typeof user === 'string') return user;
-
-  const name = user.displayName || user.name || user.display_name || user.userName || user.username;
-  return (typeof name === 'string' && name.trim()) ? name.trim() : 'Unknown User';
+export function validateLeaveRequest(value: unknown): LeaveRequest | null {
+  const r = asRecord(value);
+  if (!Object.keys(r).length) return null;
+  const type = text(r.leaveType ?? r.leave_type ?? r.type);
+  const aliases: Record<string, LeaveType> = { day_off: 'regular_day_off', vacation: 'paid_vacation', sick: 'sick_day' };
+  const types: LeaveType[] = ['regular_day_off','paid_vacation','sick_day','auto_assigned','auto_sunday','special_day'];
+  const leaveType = aliases[type] ?? (types.includes(type as LeaveType) ? type as LeaveType : 'regular_day_off');
+  const states: LeaveStatus[] = ['pending','approved','rejected','cancelled'];
+  const status = states.includes(r.status as LeaveStatus) ? r.status as LeaveStatus : 'pending';
+  const userId = text(r.userId ?? r.user_id, 'unknown');
+  return { id: text(r.id), userId, userRef: r.userRef ? getUserRef(r.userRef) : getUserRef({ id: userId, displayName: r.user_display_name ?? r.userName, role: r.user_role }),
+    date: text(r.date), leaveType, status, staffNote: text(r.staffNote ?? r.staff_note), approverNote: text(r.approverNote ?? r.approver_note),
+    decidedBy: r.decidedBy || r.decided_by ? getUserRef(r.decidedBy ?? r.decided_by) : null,
+    decidedAt: text(r.decidedAt ?? r.decided_at) || null,
+    isOverridden: r.isOverridden === true || r.is_overridden === true,
+    overriddenBy: r.overriddenBy || r.overridden_by ? getUserRef(r.overriddenBy ?? r.overridden_by) : null,
+    overriddenAt: text(r.overriddenAt ?? r.overridden_at) || null,
+    createdAt: text(r.createdAt ?? r.created_at), updatedAt: text(r.updatedAt ?? r.updated_at) };
 }
-
-/**
- * Extract userId safely
- */
-export function getUserId(user: any): string {
-  if (!user) return 'unknown';
-  return String(user.id || user.userId || user.user_id || 'unknown').trim() || 'unknown';
+export function validateLeaveRequests(values: unknown): LeaveRequest[] {
+  return Array.isArray(values) ? values.map(validateLeaveRequest).filter((v): v is LeaveRequest => v !== null) : [];
 }
-
-/**
- * Get safe user reference with all required fields
- */
-export function getUserRef(user: any) {
-  return {
-    id: getUserId(user),
-    displayName: getDisplayName(user),
-    role: String(user.role || 'staff').trim(),
-  };
-}
+export function safeMapUsers<T>(values: unknown, mapper: (user: StaffUser) => T): T[] { return validateUsers(values).map(mapper); }
+export function safeMapRequests<T>(values: unknown, mapper: (request: LeaveRequest) => T): T[] { return validateLeaveRequests(values).map(mapper); }

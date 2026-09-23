@@ -1,3 +1,4 @@
+declare global { interface Window { ingestAllCalendarData?: typeof ingestAllCalendarData; } }
 /**
  * CALENDAR DATA INGESTION
  *
@@ -23,19 +24,19 @@ import {
  * Using "reza" as canonical username
  */
 export const CALENDAR_USERS = [
-  { username: 'desiree', displayName: 'Desiree', pin: '1001', role: 'staff' },
-  { username: 'nabeel', displayName: 'Nabeel', pin: '1002', role: 'staff' },
-  { username: 'umer', displayName: 'Umer', pin: '1003', role: 'staff' },
-  { username: 'michael', displayName: 'Michael', pin: '1004', role: 'staff' },
-  { username: 'tiziano', displayName: 'Tiziano', pin: '1005', role: 'staff' },
-  { username: 'reza', displayName: 'Reza', pin: '1006', role: 'staff' }, // Raza/Reza - same person
-  { username: 'gunzan', displayName: 'Gunzan', pin: '1007', role: 'staff' },
-  { username: 'zack', displayName: 'Zack', pin: '1008', role: 'staff' },
-  { username: 'rihab', displayName: 'Rihab', pin: '1009', role: 'staff' },
-  { username: 'jo', displayName: 'JO', pin: '1010', role: 'staff' },
-  { username: 'sherry', displayName: 'sherry', pin: '1011', role: 'staff' },
-  { username: 'kristina', displayName: 'Kristina', pin: '1012', role: 'staff' },
-  { username: 'hb', displayName: 'HB', pin: '1013', role: 'staff' },
+  { username: 'desiree', displayName: 'Desiree', role: 'staff' },
+  { username: 'nabeel', displayName: 'Nabeel', role: 'staff' },
+  { username: 'umer', displayName: 'Umer', role: 'staff' },
+  { username: 'michael', displayName: 'Michael', role: 'staff' },
+  { username: 'tiziano', displayName: 'Tiziano', role: 'staff' },
+  { username: 'reza', displayName: 'Reza', role: 'staff' }, // Raza/Reza - same person
+  { username: 'gunzan', displayName: 'Gunzan', role: 'staff' },
+  { username: 'zack', displayName: 'Zack', role: 'staff' },
+  { username: 'rihab', displayName: 'Rihab', role: 'staff' },
+  { username: 'jo', displayName: 'JO', role: 'staff' },
+  { username: 'sherry', displayName: 'sherry', role: 'staff' },
+  { username: 'kristina', displayName: 'Kristina', role: 'staff' },
+  { username: 'hb', displayName: 'HB', role: 'staff' },
 ];
 
 /**
@@ -264,46 +265,8 @@ export const SEPTEMBER_SCHEDULES = [
 /**
  * Ingest users from calendar PDFs with validation
  */
-export async function ingestCalendarUsers() {
-  console.log(`\n${'═'.repeat(60)}`);
-  console.log(`INGESTING CALENDAR USERS FROM PDFs`);
-  console.log(`${'═'.repeat(60)}`);
-
-  const db = getFirestore();
-  let created = 0;
-  let skipped = 0;
-
-  for (const user of CALENDAR_USERS) {
-    try {
-      const userRef = doc(db, 'users', user.username.toLowerCase());
-      const now = new Date().toISOString();
-
-      await setDoc(userRef, {
-        id: `usr_${user.username}`,
-        username: user.username.toLowerCase(),
-        displayName: user.displayName,
-        pinHash: user.pin,
-        role: user.role,
-        isActive: true,
-        jobRole: [],
-        createdAt: now,
-        updatedAt: now,
-        vacationOverride: null,
-        regularOverride: null,
-      }, { merge: true });
-
-      console.log(`✓ Created: ${user.displayName} (${user.username})`);
-      created++;
-    } catch (err) {
-      console.error(`✗ ${user.displayName}: ${(err as any)?.message}`);
-      skipped++;
-    }
-  }
-
-  console.log(`\nUsers ingested: ${created} created, ${skipped} failed`);
-  console.log(`${'═'.repeat(60)}\n`);
-
-  return { created, skipped };
+export async function ingestCalendarUsers(): Promise<{ created: number; skipped: number }> {
+  throw new Error('Create users through the People screen; bundled credential imports are disabled.');
 }
 
 /**
@@ -337,7 +300,7 @@ export async function ingestCalendarJobRoles() {
       console.log(`✓ Created role: ${role.name}`);
       created++;
     } catch (err) {
-      console.error(`✗ Role ${role.name}: ${(err as any)?.message}`);
+      console.error(`✗ Role ${role.name}: ${(err instanceof Error ? err.message : String(err))}`);
       skipped++;
     }
   }
@@ -381,7 +344,7 @@ export async function ingestCalendarSchedules() {
       console.log(`✓ Schedule: ${schedule.date} - ${schedule.staffName} (${schedule.role})`);
       created++;
     } catch (err) {
-      console.error(`✗ Schedule ${schedule.date}: ${(err as any)?.message}`);
+      console.error(`✗ Schedule ${schedule.date}: ${(err instanceof Error ? err.message : String(err))}`);
       skipped++;
     }
   }
@@ -424,6 +387,6 @@ export async function ingestAllCalendarData() {
 
 // Expose to window for development testing
 if (import.meta.env.MODE === 'development') {
-  (window as any).ingestAllCalendarData = ingestAllCalendarData;
+  window.ingestAllCalendarData = ingestAllCalendarData;
   console.log('💡 Dev tip: Type "await ingestAllCalendarData()" in the console to ingest calendar data');
 }

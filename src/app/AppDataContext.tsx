@@ -18,7 +18,7 @@ import {
 } from '@/services/firestore/users';
 import {
   fetchJobRoles, insertJobRole, updateJobRoleDb, deleteJobRoleDb,
-  fetchRoleAssignments, insertRoleAssignment, deleteRoleAssignmentDb,
+  fetchRoleAssignments, deleteRoleAssignmentDb,
 } from '@/services/firestore/roles';
 import {
   fetchStaffingRules, insertStaffingRule, updateStaffingRuleDb, deleteStaffingRuleDb,
@@ -33,13 +33,15 @@ import {
   fetchSchedules,
   insertSchedulesBatch,
 } from '@/services/firestore/core';
-import { augustSchedules, septemberSchedules } from '@/data/scheduleData';
+import { collection, onSnapshot, doc, writeBatch } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { toast } from 'sonner';
 
 /**
  * STATUS: FIREBASE FIRESTORE ONLY
  * Loads all data from Firestore on mount.
  * All mutations write to both local state AND Firestore.
- * Auto-restores job roles from backup if collection is empty.
+ * Empty collections remain empty; imports are explicit administrator actions.
  */
 
 interface AppDataContextValue {
@@ -112,45 +114,16 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
       // Deleted/inactive users are hidden from every view.
       const activeUsers = u.filter((user) => user.isActive);
-      let jr: JobRole[] = jrFetched;
+      const jr: JobRole[] = jrFetched;
 
-      if (jr.length === 0) {
-        const defaultRoles: JobRole[] = [
-          { id: 'role_checkin', name: 'Check In', color: '#3B82F6', isHidden: false, shiftStartTime: '08:00', shiftEndTime: '17:00', createdAt: now(), updatedAt: now() },
-          { id: 'role_backoffice', name: 'Back Office', color: '#F59E0B', isHidden: false, shiftStartTime: '09:00', shiftEndTime: '18:00', createdAt: now(), updatedAt: now() },
-          { id: 'role_backoffice_extra', name: 'Back Office Extra', color: '#EA580C', isHidden: false, shiftStartTime: '09:00', shiftEndTime: '18:00', createdAt: now(), updatedAt: now() },
-          { id: 'role_office', name: 'Office', color: '#8B5CF6', isHidden: false, shiftStartTime: '08:00', shiftEndTime: '17:00', createdAt: now(), updatedAt: now() },
-        ];
-        try {
-          for (const role of defaultRoles) {
-            await insertJobRole({ id: role.id, name: role.name, color: role.color, isHidden: role.isHidden, shiftStart: role.shiftStartTime, shiftEnd: role.shiftEndTime }).catch(() => null);
-          }
-          jr = defaultRoles;
-        } catch (seedErr) {
-          console.error('Failed to seed job roles:', seedErr);
-        }
-      }
       // CRITICAL: Use only ACTIVE users - filter out all deleted/inactive
       const validatedUsers = validateUsers(Array.isArray(activeUsers) ? activeUsers : SAFE_EMPTY_USERS);
       setUsers(validatedUsers);
 
       setJobRoles(Array.isArray(jr) ? jr : []);
-      let finalRoleAssignments = Array.isArray(ra) ? ra : [];
+      const finalRoleAssignments = Array.isArray(ra) ? ra : [];
 
-      if (finalRoleAssignments.length === 0) {
-        try {
-          const response = await fetch('./role-assignments-from-supabase.json');
-          if (response.ok) {
-            const backupAssignments = await response.json();
-            await Promise.all((backupAssignments as StaffRoleAssignment[]).map((assignment) => insertRoleAssignment(assignment).catch(() => null)));
-            finalRoleAssignments = backupAssignments;
-          }
-        } catch (err) {
-          console.error('Could not restore role assignments:', err);
-        }
-      }
-
-      setRoleAssignments(finalRoleAssignments);
+      setRoleAssignments(finalRoleAssignments.filter(a => activeUsers.some(u => u.id === a.userId)));
       setStaffingRules(Array.isArray(sr) ? sr : []);
       setHolidays(Array.isArray(h) ? h : []);
       setSpecialDays(Array.isArray(sd) ? sd : []);
@@ -159,17 +132,6 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       const scheduleData = Array.isArray(sched) ? sched : [];
       setSchedules(scheduleData);
 
-      if (scheduleData.length === 0 && (augustSchedules.length > 0 || septemberSchedules.length > 0)) {
-        try {
-          const allSchedules = [...augustSchedules, ...septemberSchedules];
-          if (allSchedules && allSchedules.length > 0) {
-            setSchedules(allSchedules);
-            await insertSchedulesBatch(allSchedules).catch(err => console.error('Failed to save schedules:', err));
-          }
-        } catch (importErr) {
-          console.error('Failed to auto-import schedules:', importErr);
-        }
-      }
     } catch (err) {
       console.error('Failed to load app data:', err);
     }
@@ -177,24 +139,39 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Initial fetch; loadData only sets state after its awaits resolve.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    let stopped = false;
+    let running = false;
+    let queued = false;
+    const refresh = async () => {
+      if (stopped) return;
+      if (running) { queued = true; return; }
+      running = true;
+      await loadData();
+      running = false;
+      if (queued && !stopped) { queued = false; void refresh(); }
+    };
+    const stops = ['users', 'jobRoles', 'role_assignments', 'staffing_rules', 'holidays', 'special_days', 'notificationSettings', 'tour_assignments', 'schedules'].map(name =>
+      onSnapshot(collection(db, name), () => { clearTimeout(timer); timer = setTimeout(() => void refresh(), 80); }, () => toast.error('Live updates disconnected. Please reload.')));
+    return () => { stopped = true; clearTimeout(timer); stops.forEach(stop => stop()); };
+  }, [loadData]);
 
   // ─── Users ───────────────────────────────────────────
   const addUser = useCallback(async (user: Omit<StaffUser, 'id' | 'createdAt' | 'updatedAt'>, actorName: string) => {
     const id = `usr_${Date.now()}`;
-    const newUser: StaffUser = { ...user, id, createdAt: now(), updatedAt: now() };
+    const newUser: StaffUser = { ...user, pin: '', id, createdAt: now(), updatedAt: now() };
     // CRITICAL: Always filter through getSafeUsers
-    setUsers((prev) => getSafeUsers([...prev, newUser]));
     await insertUser({ id, username: user.username, displayName: user.displayName, pin: user.pin, role: user.role });
+    setUsers((prev) => getSafeUsers([...prev, newUser]));
     await insertAuditLog({ actorId: 'admin', actorName, action: 'user_created', entityType: 'user', entityId: id, description: `Created user ${newUser.displayName}` });
     return id;
   }, []);
 
   const updateUser = useCallback(async (id: string, updates: Partial<StaffUser>, actorName: string) => {
     // CRITICAL: Always filter through getSafeUsers
-    setUsers((prev) => getSafeUsers(prev.map((u) => u.id === id ? { ...u, ...updates, updatedAt: now() } : u)));
     await updateUserDb(id, updates);
+    setUsers((prev) => getSafeUsers(prev.map((u) => u.id === id ? { ...u, ...updates, pin: '', updatedAt: now() } : u)));
     await insertAuditLog({ actorId: 'admin', actorName, action: 'user_updated', entityType: 'user', entityId: id, description: `Updated user ${id}` });
   }, []);
 
@@ -278,32 +255,34 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const addJobRole = useCallback(async (role: Omit<JobRole, 'id' | 'createdAt' | 'updatedAt'>, actorName: string) => {
     const id = `role_${Date.now()}`;
     const newRole: JobRole = { ...role, id, createdAt: now(), updatedAt: now() };
-    setJobRoles((prev) => [...prev, newRole]);
     await insertJobRole({ id, name: role.name, color: role.color, isHidden: role.isHidden, shiftStart: role.shiftStartTime, shiftEnd: role.shiftEndTime });
+    setJobRoles((prev) => [...prev, newRole]);
     await insertAuditLog({ actorId: 'admin', actorName, action: 'role_assigned', entityType: 'user', entityId: id, description: `Created job role ${newRole.name}` });
   }, []);
 
   const updateJobRole = useCallback(async (id: string, updates: Partial<JobRole>, actorName: string) => {
-    setJobRoles((prev) => prev.map((r) => r.id === id ? { ...r, ...updates, updatedAt: now() } : r));
     await updateJobRoleDb(id, updates);
+    setJobRoles((prev) => prev.map((r) => r.id === id ? { ...r, ...updates, updatedAt: now() } : r));
     await insertAuditLog({ actorId: 'admin', actorName, action: 'role_assigned', entityType: 'user', entityId: id, description: `Updated job role ${id}` });
   }, []);
 
   const deleteJobRole = useCallback(async (id: string, actorName: string) => {
+    await deleteJobRoleDb(id);
     setJobRoles((prev) => prev.filter((r) => r.id !== id));
     setRoleAssignments((prev) => prev.filter((a) => a.jobRoleId !== id));
-    await deleteJobRoleDb(id);
     await insertAuditLog({ actorId: 'admin', actorName, action: 'role_removed', entityType: 'user', entityId: id, description: `Deleted job role ${id}` });
   }, []);
 
   // ─── Role Assignments ────────────────────────────────
   const assignRole = useCallback(async (userId: string, jobRoleId: string, isPrimary: boolean, actorName: string) => {
     const existing = roleAssignments.find((a) => a.userId === userId && a.jobRoleId === jobRoleId);
-    if (existing) return;
-    const id = `assign_${Date.now()}`;
+    const id = existing?.id ?? `assign_${crypto.randomUUID()}`;
+    const batch = writeBatch(db);
+    if (isPrimary) roleAssignments.filter(a => a.userId === userId && a.id !== id && a.isPrimary).forEach(a => batch.update(doc(db, 'role_assignments', a.id), { isPrimary: false }));
+    batch.set(doc(db, 'role_assignments', id), { id, userId, jobRoleId, isPrimary, assignedAt: now() });
+    await batch.commit();
     const newAssign = { id, userId, jobRoleId, isPrimary, assignedAt: now() };
-    setRoleAssignments((prev) => [...prev, newAssign]);
-    await insertRoleAssignment({ id, userId, jobRoleId, isPrimary });
+    setRoleAssignments((prev) => [...prev.filter(a => a.id !== id).map(a => isPrimary && a.userId === userId ? { ...a, isPrimary: false } : a), newAssign]);
     await insertAuditLog({ actorId: 'admin', actorName, action: 'role_assigned', entityType: 'role_assignment', entityId: id, description: `Assigned role ${jobRoleId} to user ${userId}` });
   }, [roleAssignments]);
 
@@ -320,20 +299,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const addStaffingRule = useCallback(async (rule: Omit<StaffingRule, 'id' | 'createdAt' | 'updatedAt'>, actorName: string) => {
     const id = `sr_${Date.now()}`;
     const newRule: StaffingRule = { ...rule, id, createdAt: now(), updatedAt: now() };
-    setStaffingRules((prev) => [...prev, newRule]);
     await insertStaffingRule({ id, jobRoleId: rule.jobRoleId, dayOfWeek: rule.dayOfWeek, minimumRequired: rule.minimumRequired, enforcement: rule.enforcement });
+    setStaffingRules((prev) => [...prev, newRule]);
     await insertAuditLog({ actorId: 'admin', actorName, action: 'staffing_rule_created', entityType: 'staffing_rule', entityId: id, description: `Created staffing rule` });
   }, []);
 
   const updateStaffingRule = useCallback(async (id: string, updates: Partial<StaffingRule>, actorName: string) => {
-    setStaffingRules((prev) => prev.map((r) => r.id === id ? { ...r, ...updates, updatedAt: now() } : r));
     await updateStaffingRuleDb(id, updates);
+    setStaffingRules((prev) => prev.map((r) => r.id === id ? { ...r, ...updates, updatedAt: now() } : r));
     await insertAuditLog({ actorId: 'admin', actorName, action: 'staffing_rule_updated', entityType: 'staffing_rule', entityId: id, description: `Updated staffing rule ${id}` });
   }, []);
 
   const deleteStaffingRule = useCallback(async (id: string, actorName: string) => {
-    setStaffingRules((prev) => prev.filter((r) => r.id !== id));
     await deleteStaffingRuleDb(id);
+    setStaffingRules((prev) => prev.filter((r) => r.id !== id));
     await insertAuditLog({ actorId: 'admin', actorName, action: 'staffing_rule_deleted', entityType: 'staffing_rule', entityId: id, description: `Deleted staffing rule ${id}` });
   }, []);
 
@@ -341,14 +320,14 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const addSpecialDay = useCallback(async (day: Omit<SpecialDay, 'id' | 'createdAt'>, actorName: string) => {
     const id = `sp_${Date.now()}`;
     const newDay: SpecialDay = { ...day, id, createdAt: now() };
-    setSpecialDays((prev) => [...prev, newDay]);
     await insertSpecialDay({ id, name: day.name, date: day.date, consumesBalance: day.consumesBalance, appliesToAll: day.appliesToAll, appliesTo: day.appliesTo, createdBy: day.createdBy });
+    setSpecialDays((prev) => [...prev, newDay]);
     await insertAuditLog({ actorId: 'admin', actorName, action: 'special_day_created', entityType: 'special_day', entityId: id, description: `Created special day: ${newDay.name}` });
   }, []);
 
   const deleteSpecialDay = useCallback(async (id: string, actorName: string) => {
-    setSpecialDays((prev) => prev.filter((d) => d.id !== id));
     await deleteSpecialDayDb(id);
+    setSpecialDays((prev) => prev.filter((d) => d.id !== id));
     await insertAuditLog({ actorId: 'admin', actorName, action: 'special_day_deleted', entityType: 'special_day', entityId: id, description: `Deleted special day ${id}` });
   }, []);
 
@@ -356,8 +335,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const updateNotificationSettingsHandler = useCallback(async (
     updates: Partial<NotificationSettings>, actorId: string, actorName: string,
   ) => {
-    setNotificationSettings((prev) => ({ ...prev, ...updates, updatedAt: now(), updatedBy: actorId }));
     await updateNotificationSettingsDb({ ...updates, updatedBy: actorId } as { updatedBy: string; dailyReminderTime?: string; dailyReminderEnabled?: boolean });
+    setNotificationSettings((prev) => ({ ...prev, ...updates, updatedAt: now(), updatedBy: actorId }));
     await insertAuditLog({ actorId, actorName, action: 'notification_setting_changed', entityType: 'notification_setting', entityId: 'global', description: `Updated notification settings` });
   }, []);
 

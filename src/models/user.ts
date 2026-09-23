@@ -9,7 +9,7 @@ export interface StaffUser {
     id: string;
     username: string;
     displayName: string;
-    pin: string; // Will be hashed in production
+    pin: string; // Write-only form input; reads return an empty string.
     role: Role;
     isActive: boolean;
     createdAt: string; // ISO date
