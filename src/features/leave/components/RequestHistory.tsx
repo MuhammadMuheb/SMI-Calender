@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useMemo, useState } from 'react';
 import { CalendarClock, Inbox, Plus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -77,9 +78,7 @@ export default function RequestHistory({ onBack }: RequestHistoryProps) {
 
   const requestButton = (
     <Button size="lg" onClick={() => setShowRequestForm(true)}>
-      <Plus data-icon="inline-start" />
-      Request time off
-    </Button>
+      <Plus data-icon="inline-start" /><TranslatedText text="Request time off" /></Button>
   );
 
   return (
@@ -93,7 +92,7 @@ export default function RequestHistory({ onBack }: RequestHistoryProps) {
 
       <Tabs value={view} onValueChange={(v) => setView(v as 'requests' | 'balance')} className="gap-4">
         <TabsList className="h-9! w-full sm:w-fit">
-          <TabsTrigger value="requests">Requests</TabsTrigger>
+          <TabsTrigger value="requests"><TranslatedText text="Requests" /></TabsTrigger>
           <TabsTrigger value="balance">Balance</TabsTrigger>
         </TabsList>
 
@@ -168,7 +167,7 @@ export default function RequestHistory({ onBack }: RequestHistoryProps) {
                     {(req.status === 'pending' || canMove) && (
                       <ItemActions>
                         {req.status === 'pending' && (
-                          <Button variant="outline" onClick={() => setCancelTarget(req)}>Cancel</Button>
+                          <Button variant="outline" onClick={() => setCancelTarget(req)}><TranslatedText text="Cancel" /></Button>
                         )}
                         {canMove && (
                           <Button variant="outline" onClick={() => setMoveRequest(req)}>Move</Button>

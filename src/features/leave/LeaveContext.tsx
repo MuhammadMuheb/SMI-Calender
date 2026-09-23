@@ -143,7 +143,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     );
     if (existing) return 'You already have a request for this date';
 
-    if (isFirstSundayOfMonth(normalizedDate)) {
+    if (leaveType !== 'sick_day' && isFirstSundayOfMonth(normalizedDate)) {
       return 'First Sunday of each month is automatically assigned off';
     }
 
@@ -156,7 +156,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       (leaveType === 'regular_day_off' && balance.regularDaysRemaining < 0) ||
       (leaveType === 'paid_vacation' && balance.vacationDaysRemaining < 0);
 
-    const staffingErr = checkStaffingBeforeSubmit(normalizedDate, userId, requests, staffingRules, roleAssignments, jobRoles);
+    const staffingErr = leaveType === 'sick_day' ? null : checkStaffingBeforeSubmit(normalizedDate, userId, requests, staffingRules, roleAssignments, jobRoles);
     if (staffingErr) return staffingErr;
 
     let saved: LeaveRequest;
@@ -204,7 +204,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     if (clash) return `You already have a request on ${shortDate(clash)}`;
 
     for (const d of dates) {
-      const staffingErr = checkStaffingBeforeSubmit(d, userRef.id, requests, staffingRules, roleAssignments, jobRoles);
+      const staffingErr = leaveType === 'sick_day' ? null : checkStaffingBeforeSubmit(d, userRef.id, requests, staffingRules, roleAssignments, jobRoles);
       if (staffingErr) return `${shortDate(d)}: ${staffingErr}`;
     }
 
@@ -233,7 +233,6 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
 
   const cancelRequest = useCallback(async (requestId: string): Promise<string | null> => {
     markEntityAsRead(requestId);
-    setRawRequests((prev) => prev.map((r) => (r.id === requestId ? { ...r, status: 'cancelled' as LeaveStatus } : r)));
     try {
       await cancelLeaveRequest(requestId);
       return null;
@@ -248,9 +247,6 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     if (!req) return 'Request not found';
     if (!canDecide(approver, req)) return 'Only a super admin can decide on this request';
 
-    const staffName = req.userRef?.displayName ?? 'Unknown';
-    const dateLabel = shortDate(req.date);
-    const typeLabel = LEAVE_TYPE_LABELS[req.leaveType] ?? req.leaveType;
 
     try {
       await approveLeaveRequest(requestId, approver, note);
@@ -259,31 +255,6 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       return 'Could not approve the request — please try again';
     }
     markEntityAsRead(requestId);
-
-    // Auto-rebalance: if the user now has 6+ approved days this month, drop the
-    // most recent auto-assigned day off in favour of the manually requested one.
-    const reqMonth = req.date.slice(0, 7);
-    const userApproved = requests.filter(
-      (r) => r.userId === req.userId && r.date.startsWith(reqMonth) && r.status === 'approved' && r.id !== requestId,
-    );
-    if (userApproved.length >= 6) {
-      const autoAssigned = userApproved.filter((r) => r.staffNote?.includes('Auto') || r.approverNote?.includes('Auto'));
-      const toCancel = autoAssigned[autoAssigned.length - 1];
-      if (toCancel) {
-        await updateLeaveRequestDb(toCancel.id, { status: 'cancelled' });
-        insertAuditLog({
-          actorId: approver.id, actorName: approver.displayName,
-          action: 'leave_rebalanced', entityType: 'leave_request', entityId: toCancel.id,
-          description: `Auto-rebalance: cancelled ${staffName}'s auto-assigned day off on ${shortDate(toCancel.date)} (swapped for manually requested ${dateLabel})`,
-        });
-      }
-    }
-
-    insertAuditLog({
-      actorId: approver.id, actorName: approver.displayName,
-      action: 'leave_approved', entityType: 'leave_request', entityId: requestId,
-      description: `${approver.displayName} approved ${staffName}'s ${typeLabel} for ${dateLabel}`,
-    });
 
     const approvedSnapshot = requests
       .map((r) => (r.id === requestId ? { ...r, status: 'approved' as LeaveStatus } : r))

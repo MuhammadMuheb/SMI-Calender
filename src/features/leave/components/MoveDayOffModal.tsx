@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
@@ -60,7 +61,7 @@ export default function MoveDayOffModal({ request, open, onClose }: Props) {
       size="sm"
       footer={
         <>
-          <Button variant="outline" size="lg" onClick={handleClose} disabled={submitting}>Cancel</Button>
+          <Button variant="outline" size="lg" onClick={handleClose} disabled={submitting}><TranslatedText text="Cancel" /></Button>
           <Button size="lg" onClick={handleSubmit} disabled={submitting}>
             {submitting && <Spinner />}
             {submitting ? 'Sending…' : 'Send move request'}

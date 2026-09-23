@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react';
+import { TranslatedText } from '@/i18n/LanguageContext';
+import { useState, lazy, Suspense, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Bell, ChevronRight, Coffee, FileUp, History, MapPin, Palmtree, ShieldCheck, Sparkles, Star, Tags,
@@ -6,18 +7,20 @@ import {
 import { useAuth } from '@/features/auth/AuthContext';
 import { ROLES } from '@/config/roles';
 import { PageHeader } from '@/components/shared/PageHeader';
-import RoleManagement from '@/features/admin/pages/RoleManagement';
-import StaffingRulesPage from '@/features/admin/pages/StaffingRulesPage';
-import SpecialDayEditor from '@/features/admin/pages/SpecialDayEditor';
-import VacationAdjustment from '@/features/admin/pages/VacationAdjustment';
-import NotificationSettingsPage from '@/features/admin/pages/NotificationSettingsPage';
-import AutoAssignment from '@/features/admin/pages/AutoAssignment';
-import AuditLogPage from '@/features/admin/pages/AuditLogPage';
-import CoffeeLeaderboard from '@/features/admin/pages/CoffeeLeaderboard';
-import LocationManager from '@/features/attendance/components/LocationManager';
-import ScheduleImport from '@/features/admin/pages/ScheduleImport';
+const RoleManagement = lazy(() => import('@/features/admin/pages/RoleManagement'));
+const StaffingRulesPage = lazy(() => import('@/features/admin/pages/StaffingRulesPage'));
+const SpecialDayEditor = lazy(() => import('@/features/admin/pages/SpecialDayEditor'));
+const VacationAdjustment = lazy(() => import('@/features/admin/pages/VacationAdjustment'));
+const NotificationSettingsPage = lazy(() => import('@/features/admin/pages/NotificationSettingsPage'));
+const AutoAssignment = lazy(() => import('@/features/admin/pages/AutoAssignment'));
+const AuditLogPage = lazy(() => import('@/features/admin/pages/AuditLogPage'));
+const CoffeeLeaderboard = lazy(() => import('@/features/admin/pages/CoffeeLeaderboard'));
+const LocationManager = lazy(() => import('@/features/attendance/components/LocationManager'));
+const ScheduleImport = lazy(() => import('@/features/admin/pages/ScheduleImport'));
 
-type AdminView = 'menu' | 'roles' | 'staffing' | 'special' | 'vacation' | 'notifications' | 'auto' | 'audit' | 'coffee' | 'locations' | 'schedules';
+const OverridePage = lazy(() => import('./OverridePage'));
+
+type AdminView = 'override' | 'menu' | 'roles' | 'staffing' | 'special' | 'vacation' | 'notifications' | 'auto' | 'audit' | 'coffee' | 'locations' | 'schedules';
 
 interface MenuItem {
   id: Exclude<AdminView, 'menu'>;
@@ -28,6 +31,7 @@ interface MenuItem {
 }
 
 const MENU_ITEMS: MenuItem[] = [
+  { id: 'override', label: 'Override leave decision', description: 'Change a leave decision with an audit reason.', icon: ShieldCheck, superAdminOnly: true },
   { id: 'roles', label: 'Job roles', description: 'Positions, colors and shift times, including hidden roles.', icon: Tags, superAdminOnly: true },
   { id: 'staffing', label: 'Staffing rules', description: 'Minimum coverage per job role for each day.', icon: ShieldCheck, superAdminOnly: true },
   { id: 'locations', label: 'Check-in locations', description: 'GPS check-in locations and who can use them.', icon: MapPin, superAdminOnly: true },
@@ -53,6 +57,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const backToMenu = () => setView('menu');
 
   const views: Record<Exclude<AdminView, 'menu'>, ReactNode> = {
+    override: <OverridePage onBack={backToMenu} />,
     roles: <RoleManagement onBack={backToMenu} />,
     staffing: <StaffingRulesPage onBack={backToMenu} />,
     schedules: <ScheduleImport onBack={backToMenu} />,
@@ -74,7 +79,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
     ),
   };
 
-  if (view !== 'menu') return <>{views[view]}</>;
+  if (view !== 'menu') return <Suspense fallback={<p role="status"><TranslatedText text="Loading..." /></p>}>{views[view]}</Suspense>;
 
   return (
     <div className="space-y-6">

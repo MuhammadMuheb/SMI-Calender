@@ -1,24 +1,25 @@
-import { useState, type ReactNode } from 'react';
+import { useText } from '@/i18n/LanguageContext';
+import { useState, lazy, Suspense, type ReactNode } from 'react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { useLeave } from '@/features/leave/LeaveContext';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
-import SuperAdminDashboard from '@/features/dashboard/SuperAdminDashboard';
-import ManagerDashboard from '@/features/dashboard/ManagerDashboard';
-import StaffDashboard from '@/features/dashboard/StaffDashboard';
-import SpectatorDashboard from '@/features/dashboard/SpectatorDashboard';
-import CalendarPage from '@/features/calendar/CalendarPage';
-import TaskBoard from '@/features/tasks/TaskBoard';
-import StaffPage from '@/features/staff/StaffPage';
-import SettingsPage from '@/features/settings/SettingsPage';
-import ManagerRequestQueue from '@/features/leave/pages/ManagerRequestQueue';
-import AdminPanel from '@/features/admin/pages/AdminPanel';
-import StaffManagement from '@/features/admin/pages/StaffManagement';
-import StaffingRulesPage from '@/features/admin/pages/StaffingRulesPage';
-import AutoAssignment from '@/features/admin/pages/AutoAssignment';
-import AuditLogPage from '@/features/admin/pages/AuditLogPage';
-import CycleManager from '@/features/leave/components/CycleManager';
+const SuperAdminDashboard = lazy(() => import('@/features/dashboard/SuperAdminDashboard'));
+const ManagerDashboard = lazy(() => import('@/features/dashboard/ManagerDashboard'));
+const StaffDashboard = lazy(() => import('@/features/dashboard/StaffDashboard'));
+const SpectatorDashboard = lazy(() => import('@/features/dashboard/SpectatorDashboard'));
+const CalendarPage = lazy(() => import('@/features/calendar/CalendarPage'));
+const TaskBoard = lazy(() => import('@/features/tasks/TaskBoard'));
+const StaffPage = lazy(() => import('@/features/staff/StaffPage'));
+const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'));
+const ManagerRequestQueue = lazy(() => import('@/features/leave/pages/ManagerRequestQueue'));
+const AdminPanel = lazy(() => import('@/features/admin/pages/AdminPanel'));
+const StaffManagement = lazy(() => import('@/features/admin/pages/StaffManagement'));
+const StaffingRulesPage = lazy(() => import('@/features/admin/pages/StaffingRulesPage'));
+const AutoAssignment = lazy(() => import('@/features/admin/pages/AutoAssignment'));
+const AuditLogPage = lazy(() => import('@/features/admin/pages/AuditLogPage'));
+const CycleManager = lazy(() => import('@/features/leave/components/CycleManager'));
 import { ROLES } from '@/config/roles';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { AppSidebar } from './AppSidebar';
@@ -28,6 +29,7 @@ import { BrandMark } from './BrandMark';
 import { NAV_ITEMS, canAccess, type TabId } from './navigation';
 
 export default function AppShell() {
+  const translate = useText();
   const { user, logout } = useAuth();
   const { getPendingRequests } = useLeave();
   const [tab, setTab] = useState<TabId>('home');
@@ -76,7 +78,7 @@ export default function AppShell() {
           <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mx-1 self-center data-[orientation=vertical]:h-4" />
-            <h1 className="truncate text-sm font-medium">{title}</h1>
+            <h1 className="truncate text-sm font-medium">{translate(title)}</h1>
             <div className="ml-auto flex items-center gap-1">
               <ThemeToggle />
               <NotificationBell />
@@ -84,7 +86,7 @@ export default function AppShell() {
           </header>
           <CycleManager />
           <main key={tab} className="mx-auto w-full max-w-6xl flex-1 px-6 py-6">
-            {page}
+            <Suspense fallback={<p role="status">Loading...</p>}>{page}</Suspense>
           </main>
         </SidebarInset>
       </SidebarProvider>
@@ -96,7 +98,7 @@ export default function AppShell() {
       <header className="sticky top-0 z-30 border-b bg-background/95 pt-safe backdrop-blur supports-backdrop-filter:bg-background/80">
         <div className="mx-auto flex h-14 max-w-2xl items-center gap-2.5 px-4">
           <BrandMark className="size-7" />
-          <h1 className="truncate text-base font-semibold">{title}</h1>
+          <h1 className="truncate text-base font-semibold">{translate(title)}</h1>
           <div className="ml-auto flex items-center">
             <ThemeToggle />
             <NotificationBell />
@@ -105,7 +107,7 @@ export default function AppShell() {
       </header>
       <CycleManager />
       <main key={tab} className="mx-auto w-full max-w-2xl px-4 py-4">
-        {page}
+        <Suspense fallback={<p role="status">Loading...</p>}>{page}</Suspense>
       </main>
       <MobileTabBar
         role={user.role}

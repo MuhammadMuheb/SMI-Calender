@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, useMemo, useRef, type FormEvent } from 'react';
 import { AlertCircle, Paperclip, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -13,7 +14,6 @@ import {
 import { ResponsiveDialog } from '@/components/shared/ResponsiveDialog';
 import { useAuth } from '@/features/auth/AuthContext';
 import { useLeave } from '@/features/leave/LeaveContext';
-import { useAppData } from '@/app/AppDataContext';
 import { leaveTypeMeta } from '@/features/leave/leaveMeta';
 import { cn } from '@/lib/utils';
 import type { LeaveType } from '@/models/leave';
@@ -38,7 +38,6 @@ function getYearEnd(): string {
 export default function RequestFormModal({ open, onClose }: RequestFormModalProps) {
   const { user } = useAuth();
   const { submitRequest, submitRangeRequest, requests } = useLeave();
-  const { roleAssignments } = useAppData();
 
   const [leaveType, setLeaveType] = useState<RequestableType>('regular_day_off');
   const [date, setDate] = useState('');
@@ -52,45 +51,8 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
 
   const userId = user?.id ?? '';
 
-  // Staffing constraints
-  const staffingConstraints = useMemo(() => {
-    const userRoles = roleAssignments.filter((a) => a.userId === userId).map((a) => a.jobRoleId);
-
-    if (userRoles.length === 0) {
-      return { isRoleTooSmall: true, lockedDates: new Set<string>() };
-    }
-
-    let isRoleTooSmall = false;
-    for (const roleId of userRoles) {
-      const staffCount = roleAssignments.filter((a) => a.jobRoleId === roleId).length;
-      if (staffCount < 3) {
-        isRoleTooSmall = true;
-        break;
-      }
-    }
-
-    const lockedDates = new Set<string>();
-    if (!isRoleTooSmall) {
-      for (const roleId of userRoles) {
-        const approvedForRole = requests.filter(
-          (r) =>
-            r.status === 'approved' &&
-            roleAssignments.some((a) => a.userId === r.userId && a.jobRoleId === roleId),
-        );
-
-        const dateCount = new Map<string, number>();
-        for (const req of approvedForRole) {
-          dateCount.set(req.date, (dateCount.get(req.date) ?? 0) + 1);
-        }
-
-        for (const [d, count] of dateCount.entries()) {
-          if (count >= 2) lockedDates.add(d);
-        }
-      }
-    }
-
-    return { isRoleTooSmall, lockedDates };
-  }, [userId, roleAssignments, requests]);
+  // The submit service applies configured staffing rules to planned leave.
+  const staffingConstraints = { isRoleTooSmall: false, lockedDates: new Set<string>() };
 
   // Cycle-aware date range
   const cycleRange = useMemo(() => getPickableDateRange(), []);
@@ -246,9 +208,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
       size="md"
       footer={
         <>
-          <Button type="button" variant="outline" size="lg" onClick={handleClose} disabled={submitting}>
-            Cancel
-          </Button>
+          <Button type="button" variant="outline" size="lg" onClick={handleClose} disabled={submitting}><TranslatedText text="Cancel" /></Button>
           <Button type="submit" form={FORM_ID} size="lg" disabled={submitDisabled}>
             {submitting && <Spinner />}
             {submitting ? 'Sending…' : leaveType === 'paid_vacation' ? 'Request vacation' : 'Send request'}
@@ -309,7 +269,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
               )}
 
               <Field data-disabled={isDateInputDisabled || isRegularLocked ? true : undefined}>
-                <FieldLabel htmlFor="request-date">Date</FieldLabel>
+                <FieldLabel htmlFor="request-date"><TranslatedText text="Date" /></FieldLabel>
                 <Input
                   id="request-date"
                   type="date"
@@ -356,7 +316,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
           {leaveType === 'sick_day' && (
             <>
               <Field>
-                <FieldLabel htmlFor="sick-date">Date</FieldLabel>
+                <FieldLabel htmlFor="sick-date"><TranslatedText text="Date" /></FieldLabel>
                 <Input
                   id="sick-date"
                   type="date"

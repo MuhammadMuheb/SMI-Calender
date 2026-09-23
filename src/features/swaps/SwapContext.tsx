@@ -1,8 +1,11 @@
 import {
-  createContext, useContext, useState, useCallback, useMemo, type ReactNode,
+  createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode,
 } from 'react';
-import type { DaySwap, SwapStatus } from '@/models/swap';
-import { logAction } from '@/features/admin/services/auditService';
+import type { DaySwap } from '@/models/swap';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { serverApi } from '@/lib/serverApi';
+import { toast } from 'sonner';
 
 /**
  * STATUS: IN-MEMORY STORE (MOCK)
@@ -17,9 +20,9 @@ interface SwapContextValue {
     proposerId: string, proposerName: string,
     receiverId: string, receiverName: string,
     date: string, originalRequestId: string, commonJobRoleId: string,
-  ) => string | null;
-  acceptSwap: (swapId: string) => void;
-  declineSwap: (swapId: string) => void;
+  ) => Promise<string | null>;
+  acceptSwap: (swapId: string) => Promise<void>;
+  declineSwap: (swapId: string) => Promise<void>;
   getSwapsForUser: (userId: string) => DaySwap[];
   getPendingSwapsForUser: (userId: string) => DaySwap[];
 }
@@ -29,45 +32,19 @@ const SwapContext = createContext<SwapContextValue | null>(null);
 export function SwapProvider({ children }: { children: ReactNode }) {
   const [swaps, setSwaps] = useState<DaySwap[]>([]);
 
-  const proposeSwap = useCallback((
-    proposerId: string, proposerName: string,
-    receiverId: string, receiverName: string,
-    date: string, originalRequestId: string, commonJobRoleId: string,
-  ): string | null => {
-    const existing = swaps.find(
-      (s) => s.date === date && s.proposerId === proposerId && s.status === 'pending',
-    );
-    if (existing) return 'You already have a pending swap for this date';
+  useEffect(() => onSnapshot(collection(db, 'swaps'), snapshot => {
+    setSwaps(snapshot.docs.map(d => ({ ...d.data(), id: d.id }) as DaySwap));
+  }, () => toast.error('Unable to load swaps')), []);
 
-    const swap: DaySwap = {
-      id: `swap_${Date.now()}`,
-      proposerId, proposerName, receiverId, receiverName,
-      date, originalRequestId, commonJobRoleId,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      resolvedAt: null,
-    };
-    setSwaps((prev) => [...prev, swap]);
-    logAction(proposerId, proposerName, 'leave_requested', 'leave_request', swap.id,
-      `${proposerName} proposed day swap with ${receiverName} for ${date}`);
-    return null;
-  }, [swaps]);
-
-  const acceptSwap = useCallback((swapId: string) => {
-    setSwaps((prev) => prev.map((s) => {
-      if (s.id !== swapId) return s;
-      logAction(s.receiverId, s.receiverName, 'leave_approved', 'leave_request', swapId,
-        `${s.receiverName} accepted day swap from ${s.proposerName} for ${s.date}`);
-      return { ...s, status: 'accepted' as SwapStatus, resolvedAt: new Date().toISOString() };
-    }));
+  const proposeSwap = useCallback(async (
+    _proposerId: string, _proposerName: string, receiverId: string, _receiverName: string,
+    _date: string, originalRequestId: string, _commonJobRoleId: string,
+  ): Promise<string | null> => {
+    try { await serverApi('swaps', { action: 'propose', originalRequestId, receiverId, commonJobRoleId: _commonJobRoleId }); return null; }
+    catch (error) { return error instanceof Error ? error.message : 'Unable to propose swap'; }
   }, []);
-
-  const declineSwap = useCallback((swapId: string) => {
-    setSwaps((prev) => prev.map((s) => {
-      if (s.id !== swapId) return s;
-      return { ...s, status: 'declined' as SwapStatus, resolvedAt: new Date().toISOString() };
-    }));
-  }, []);
+  const acceptSwap = useCallback(async (id: string) => { await serverApi('swaps', { action: 'accept', id }); }, []);
+  const declineSwap = useCallback(async (id: string) => { await serverApi('swaps', { action: 'decline', id }); }, []);
 
   const getSwapsForUser = useCallback(
     (userId: string) => swaps.filter((s) => s.proposerId === userId || s.receiverId === userId),
