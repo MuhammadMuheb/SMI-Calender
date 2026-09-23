@@ -37,3 +37,5 @@ firebase-debug.*.log
 firebase-service-account.json
 firebase-admin-key.json
 scripts/firebase-admin-key.json
+.env.*
+.env
