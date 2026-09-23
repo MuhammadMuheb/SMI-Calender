@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/features/auth/AuthContext';
@@ -93,7 +94,7 @@ export default function CreateTaskModal({ open, onClose }: Props) {
       description="Assign a one-off task for a specific day."
       footer={
         <>
-          <Button variant="outline" size="lg" className="h-10" onClick={onClose} disabled={submitting}>Cancel</Button>
+          <Button variant="outline" size="lg" className="h-10" onClick={onClose} disabled={submitting}><TranslatedText text="Cancel" /></Button>
           <Button size="lg" className="h-10" onClick={handleSubmit} disabled={submitting}>
             {submitting && <Spinner />}
             {submitting ? 'Creating…' : 'Create task'}
@@ -127,7 +128,7 @@ export default function CreateTaskModal({ open, onClose }: Props) {
         </Field>
 
         <Field data-invalid={errors.date ? true : undefined}>
-          <FieldLabel htmlFor="task-date">Date</FieldLabel>
+          <FieldLabel htmlFor="task-date"><TranslatedText text="Date" /></FieldLabel>
           <Input
             id="task-date"
             type="date"

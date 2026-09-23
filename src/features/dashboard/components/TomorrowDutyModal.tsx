@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, useMemo } from 'react';
 import { Check, Send } from 'lucide-react';
 import { toast } from 'sonner';
@@ -194,7 +195,7 @@ export default function TomorrowDutyModal({
                       <label htmlFor={isOff ? undefined : checkboxId} className="truncate text-sm font-medium">
                         {displayName}
                       </label>
-                      {isOff && <Badge variant="secondary">Day off</Badge>}
+                      {isOff && <Badge variant="secondary"><TranslatedText text="Day off" /></Badge>}
                     </div>
                     {!isOff && roles.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
@@ -250,7 +251,7 @@ export default function TomorrowDutyModal({
       size="lg"
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>Close</Button>
+          <Button variant="outline" onClick={onClose}><TranslatedText text="Close" /></Button>
           <Button onClick={handleSend} disabled={pushSent || totalSelected === 0}>
             {pushSent ? <Check /> : <Send />}
             {pushSent ? 'Sent' : `Notify ${totalSelected} ${totalSelected === 1 ? 'person' : 'people'}`}

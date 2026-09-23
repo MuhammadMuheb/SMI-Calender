@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { ArrowLeft, BarChart3, ChevronRight, ClipboardCheck, MapPin, Wallet } from 'lucide-react';
@@ -28,9 +29,7 @@ export default function SpectatorDashboard() {
     return (
       <div className="space-y-4">
         <Button variant="ghost" size="sm" className="-ml-2" onClick={back}>
-          <ArrowLeft />
-          Back
-        </Button>
+          <ArrowLeft /><TranslatedText text="Back" /></Button>
         <AttendanceSummary
           currentUserId={user?.id ?? ''}
           currentUserRole={user?.role ?? 'spectator'}

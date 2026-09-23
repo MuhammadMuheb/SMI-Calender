@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, type FormEvent } from 'react';
 import { Plus, Star, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -120,8 +121,8 @@ export default function SpecialDayEditor({ onBack }: Props) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="pl-4">Name</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead className="pl-4"><TranslatedText text="Name" /></TableHead>
+                  <TableHead><TranslatedText text="Date" /></TableHead>
                   <TableHead>Balance impact</TableHead>
                   <TableHead className="w-16 pr-4"><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
@@ -193,7 +194,7 @@ export default function SpecialDayEditor({ onBack }: Props) {
         description="Everyone gets this day off."
         footer={
           <>
-            <Button variant="outline" onClick={() => setShowAdd(false)} disabled={saving}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowAdd(false)} disabled={saving}><TranslatedText text="Cancel" /></Button>
             <Button type="submit" form="special-day-form" disabled={saving}>
               {saving && <Spinner data-icon="inline-start" />}
               Add special day
@@ -204,7 +205,7 @@ export default function SpecialDayEditor({ onBack }: Props) {
         <form id="special-day-form" onSubmit={handleAdd} noValidate>
           <FieldGroup>
             <Field data-invalid={formError && !formName.trim() ? true : undefined}>
-              <FieldLabel htmlFor="special-day-name">Name</FieldLabel>
+              <FieldLabel htmlFor="special-day-name"><TranslatedText text="Name" /></FieldLabel>
               <Input
                 id="special-day-name"
                 placeholder="e.g. Company team day"
@@ -215,7 +216,7 @@ export default function SpecialDayEditor({ onBack }: Props) {
               />
             </Field>
             <Field data-invalid={formError && !formDate ? true : undefined}>
-              <FieldLabel htmlFor="special-day-date">Date</FieldLabel>
+              <FieldLabel htmlFor="special-day-date"><TranslatedText text="Date" /></FieldLabel>
               <Input
                 id="special-day-date"
                 type="date"
@@ -267,7 +268,7 @@ export default function SpecialDayEditor({ onBack }: Props) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}><TranslatedText text="Cancel" /></AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={deleting}

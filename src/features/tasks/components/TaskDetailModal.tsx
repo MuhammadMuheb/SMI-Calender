@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, useEffect, type ReactNode } from 'react';
 import {
   CheckCircle2, Circle, CircleDot, Pin, PinOff, Play, Send, StickyNote, Undo2, Users, XCircle, type LucideIcon,
@@ -211,7 +212,7 @@ export default function TaskDetailModal({ task, open, onClose }: Props) {
               autoFocus
             />
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => { setShowHandover(false); setHandover(''); }}>Cancel</Button>
+              <Button variant="ghost" onClick={() => { setShowHandover(false); setHandover(''); }}><TranslatedText text="Cancel" /></Button>
               <Button onClick={handleHandover} disabled={!handover.trim() || busy !== null}>
                 {busy === 'handover' && <Spinner />}
                 Save note

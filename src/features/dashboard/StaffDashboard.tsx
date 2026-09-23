@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState } from 'react';
 import { ArrowLeft, BarChart3, CalendarCheck, CalendarPlus, Clock, Coffee, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,9 +40,7 @@ export default function StaffDashboard() {
   if (showAttendance) return (
     <div className="space-y-4">
       <Button variant="ghost" size="sm" className="-ml-2" onClick={() => setShowAttendance(false)}>
-        <ArrowLeft />
-        Back
-      </Button>
+        <ArrowLeft /><TranslatedText text="Back" /></Button>
       <AttendanceSummary currentUserId={user.id} currentUserRole={user.role} currentUserJobRoles={user.jobRole ?? ['Office']} />
     </div>
   );
@@ -89,9 +88,7 @@ export default function StaffDashboard() {
       <CheckInButton userId={user.id} userName={user.displayName} userJobRoles={user.jobRole ?? ['Office']} userRole={user.role} />
 
       <Button size="lg" className="h-11 w-full sm:w-auto" onClick={openRequestForm}>
-        <Plus />
-        Request time off
-      </Button>
+        <Plus /><TranslatedText text="Request time off" /></Button>
 
       {/* Who's around */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -149,9 +146,7 @@ export default function StaffDashboard() {
               description="When you ask for time off, it shows up here with its status."
               action={
                 <Button variant="outline" onClick={openRequestForm}>
-                  <Plus />
-                  Request time off
-                </Button>
+                  <Plus /><TranslatedText text="Request time off" /></Button>
               }
             />
           ) : (
@@ -179,13 +174,9 @@ export default function StaffDashboard() {
 
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="lg" className="h-10" onClick={() => setShowAttendance(true)}>
-          <BarChart3 />
-          My attendance
-        </Button>
+          <BarChart3 /><TranslatedText text="My attendance" /></Button>
         <Button variant="outline" size="lg" className="h-10" onClick={() => setShowCoffee(true)}>
-          <Coffee />
-          Coffee leaderboard
-        </Button>
+          <Coffee /><TranslatedText text="Coffee leaderboard" /></Button>
       </div>
 
       <RequestFormModal open={showRequestForm} onClose={() => setShowRequestForm(false)} />

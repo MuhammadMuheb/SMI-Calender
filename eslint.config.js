@@ -17,7 +17,7 @@ export default defineConfig([
     ],
     rules: {
       // Context/hook files and shadcn primitives export helpers next to components by design.
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true, allowExportNames: ['useAppData', 'useAuth', 'useLeave', 'useNotifications', 'useSwap', 'useLang', 'useText', 'useTheme', 'useSidebar', 'buttonVariants', 'badgeVariants', 'toggleVariants', 'tabsListVariants', 'buttonGroupVariants', 'getInitials', 'leaveTypeMeta', 'leaveStatusMeta', 'getLeaveTypeMeta', 'getLeaveStatusMeta', 'getUserInitials', 'initials', 'LEAVE_TYPE_META', 'STATUS_LABEL', 'formatShortDate'] }],
     },
     languageOptions: {
       ecmaVersion: 2020,
@@ -27,6 +27,6 @@ export default defineConfig([
   {
     // Adapters for untyped Firestore documents; tighten these types over time.
     files: ['src/services/firestore/**', 'src/utils/{dataValidation,safeData,calendarDataIngestion,verifyCalendarData,devSeeding}.ts'],
-    rules: { '@typescript-eslint/no-explicit-any': 'warn' },
+    rules: { '@typescript-eslint/no-explicit-any': 'error' },
   },
 ])

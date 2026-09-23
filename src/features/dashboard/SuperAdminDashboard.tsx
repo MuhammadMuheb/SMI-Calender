@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState } from 'react';
 import { ArrowLeft, BarChart3, CalendarCheck, ClipboardCheck, Clock, Inbox, MapPin, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -40,9 +41,7 @@ export default function SuperAdminDashboard() {
   if (view === 'attendance') return (
     <div className="space-y-4">
       <Button variant="ghost" size="sm" className="-ml-2" onClick={back}>
-        <ArrowLeft />
-        Back
-      </Button>
+        <ArrowLeft /><TranslatedText text="Back" /></Button>
       <AttendanceSummary currentUserId={user?.id ?? ''} currentUserRole={user?.role ?? 'super_admin'} currentUserJobRoles={user?.jobRole ?? ['Office']} />
     </div>
   );

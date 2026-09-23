@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useMemo, useState } from 'react';
 import { Database, Eye, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
@@ -130,9 +131,9 @@ export default function ScheduleImport({ onBack }: ScheduleImportProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="pl-4">Date</TableHead>
+                    <TableHead className="pl-4"><TranslatedText text="Date" /></TableHead>
                     <TableHead>Guide</TableHead>
-                    <TableHead className="pr-4 text-right">Status</TableHead>
+                    <TableHead className="pr-4 text-right"><TranslatedText text="Status" /></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -172,7 +173,7 @@ export default function ScheduleImport({ onBack }: ScheduleImportProps) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={importing !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={importing !== null}><TranslatedText text="Cancel" /></AlertDialogCancel>
             <AlertDialogAction
               disabled={importing !== null}
               onClick={(e) => { e.preventDefault(); if (confirmMonth) void handleImport(confirmMonth); }}

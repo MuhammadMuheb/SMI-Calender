@@ -1,3 +1,4 @@
+import { useText } from '@/i18n/LanguageContext';
 import { useState } from 'react';
 import { LogOut, Menu } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -19,6 +20,7 @@ interface MobileTabBarProps {
 function TabButton({ item, active, badge, onClick }: {
   item: Pick<NavItem, 'label' | 'icon'>; active: boolean; badge?: number; onClick: () => void;
 }) {
+  const translate = useText();
   const Icon = item.icon;
   return (
     <button
@@ -38,12 +40,13 @@ function TabButton({ item, active, badge, onClick }: {
           </span>
         )}
       </span>
-      {item.label}
+      {translate(item.label)}
     </button>
   );
 }
 
 export function MobileTabBar({ role, displayName, activeTab, onTabChange, pendingCount, onLogout }: MobileTabBarProps) {
+  const translate = useText();
   const [moreOpen, setMoreOpen] = useState(false);
   const tabs = mobileTabsFor(role);
   const overflow = mobileOverflowFor(role);
@@ -94,7 +97,7 @@ export function MobileTabBar({ role, displayName, activeTab, onTabChange, pendin
                 )}
               >
                 <item.icon className="size-5 text-muted-foreground" aria-hidden="true" />
-                {item.label}
+                {translate(item.label)}
               </button>
             ))}
             <Separator className="my-2" />

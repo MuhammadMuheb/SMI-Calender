@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, useEffect, useMemo } from 'react';
 import { CalendarOff, CalendarCheck, ChevronRight, Inbox, Search, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -207,11 +208,11 @@ export default function StaffPage({ onBack }: StaffPageProps = {}) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">Name</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="pl-4"><TranslatedText text="Name" /></TableHead>
+                <TableHead><TranslatedText text="Status" /></TableHead>
                 <TableHead>Days off used</TableHead>
                 <TableHead className="text-right">Attendance</TableHead>
-                <TableHead className="text-right">Pending</TableHead>
+                <TableHead className="text-right"><TranslatedText text="Pending" /></TableHead>
                 <TableHead className="w-10 pr-4"><span className="sr-only">Open</span></TableHead>
               </TableRow>
             </TableHeader>

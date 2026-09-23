@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, useMemo } from 'react';
 import { CalendarCheck, ChevronLeft, ChevronRight, CircleCheck, RefreshCw, Sparkles, TriangleAlert, Users } from 'lucide-react';
 import { toast } from 'sonner';
@@ -300,7 +301,7 @@ export default function AutoAssignment({ onBack }: Props) {
                         <span className={cn('text-xs font-semibold tabular-nums', isFirstSunday && 'text-primary')}>{cell.day}</span>
                         {offs.length > 0 && (
                           <span className={cn('rounded px-1 text-[10px] leading-4 font-semibold tabular-nums', HEALTH_CHIP[tone])}>
-                            {offs.length}<span className="hidden sm:inline"> off</span>
+                            {offs.length}<span className="hidden sm:inline"><TranslatedText text="off" /></span>
                           </span>
                         )}
                       </div>
@@ -392,7 +393,7 @@ export default function AutoAssignment({ onBack }: Props) {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="pl-4">Person</TableHead>
+                      <TableHead className="pl-4"><TranslatedText text="Person" /></TableHead>
                       <TableHead>Proposed dates</TableHead>
                       <TableHead className="w-28 text-right">Proposed</TableHead>
                       <TableHead className="w-32 pr-4 text-right">Still needed</TableHead>
@@ -445,7 +446,7 @@ export default function AutoAssignment({ onBack }: Props) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={applying}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={applying}><TranslatedText text="Cancel" /></AlertDialogCancel>
             <AlertDialogAction
               disabled={applying}
               onClick={(e) => { e.preventDefault(); void handleApply(); }}

@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useMemo, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { SlidersHorizontal, Users } from 'lucide-react';
@@ -136,8 +137,8 @@ export default function VacationAdjustment({ onBack }: Props) {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="pl-4">Name</TableHead>
-                  <TableHead className="text-right">Days off left</TableHead>
+                  <TableHead className="pl-4"><TranslatedText text="Name" /></TableHead>
+                  <TableHead className="text-right"><TranslatedText text="Days off left" /></TableHead>
                   <TableHead className="text-right">Vacation left</TableHead>
                   <TableHead className="w-28 pr-4"><span className="sr-only">Actions</span></TableHead>
                 </TableRow>
@@ -202,7 +203,7 @@ export default function VacationAdjustment({ onBack }: Props) {
         description="Leave a field as it is to keep it unchanged."
         footer={(
           <>
-            <Button variant="outline" size="lg" onClick={closeAdjust} disabled={saving}>Cancel</Button>
+            <Button variant="outline" size="lg" onClick={closeAdjust} disabled={saving}><TranslatedText text="Cancel" /></Button>
             <Button
               type="submit"
               form="allowance-form"
@@ -225,7 +226,7 @@ export default function VacationAdjustment({ onBack }: Props) {
                   <p className="text-xs text-muted-foreground">{fmt(balance.regularDaysUsed)} used · resets each cycle</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground">Vacation</p>
+                  <p className="text-muted-foreground"><TranslatedText text="Vacation" /></p>
                   <p className="font-medium tabular-nums">{fmt(balance.vacationDaysRemaining)} of {fmt(balance.vacationDaysTotal)} left</p>
                   <p className="text-xs text-muted-foreground">{fmt(balance.vacationDaysUsed)} used · never expires</p>
                 </div>
@@ -266,7 +267,7 @@ export default function VacationAdjustment({ onBack }: Props) {
             </div>
 
             <Field>
-              <FieldLabel htmlFor="adjust-reason">Reason</FieldLabel>
+              <FieldLabel htmlFor="adjust-reason"><TranslatedText text="Reason" /></FieldLabel>
               <Textarea
                 id="adjust-reason"
                 placeholder="Why is this change needed?"

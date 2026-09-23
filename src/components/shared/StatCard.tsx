@@ -1,3 +1,4 @@
+import { useText } from '@/i18n/LanguageContext';
 import type { LucideIcon } from 'lucide-react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -25,6 +26,7 @@ interface StatCardProps {
 
 /** A single metric. Becomes a button when `onClick` is given. */
 export function StatCard({ label, value, hint, icon: Icon, tone = 'default', onClick, className }: StatCardProps) {
+  const translate = useText();
   const Comp = onClick ? 'button' : 'div';
   return (
     <Comp
@@ -39,7 +41,7 @@ export function StatCard({ label, value, hint, icon: Icon, tone = 'default', onC
       <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
         <span className="flex items-center gap-2">
           {Icon && <Icon className="size-4" aria-hidden="true" />}
-          {label}
+          {translate(label)}
         </span>
         {onClick && (
           <ChevronRight className="size-4 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
@@ -47,7 +49,7 @@ export function StatCard({ label, value, hint, icon: Icon, tone = 'default', onC
       </div>
       <div>
         <div className={cn('text-3xl font-semibold tracking-tight tabular-nums', toneText[tone])}>{value}</div>
-        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+        {hint && <p className="mt-1 text-xs text-muted-foreground">{translate(hint)}</p>}
       </div>
     </Comp>
   );

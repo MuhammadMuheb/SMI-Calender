@@ -1,3 +1,4 @@
+import { useText } from '@/i18n/LanguageContext';
 import type { ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ interface PageHeaderProps {
 
 /** Title row for a page or sub-view. Use once at the top of each screen. */
 export function PageHeader({ title, description, actions, onBack, className }: PageHeaderProps) {
+  const translate = useText();
   return (
     <div className={cn('flex flex-wrap items-start justify-between gap-3', className)}>
       <div className="flex min-w-0 items-start gap-2">
@@ -24,8 +26,8 @@ export function PageHeader({ title, description, actions, onBack, className }: P
           </Button>
         )}
         <div className="min-w-0">
-          <h2 className="text-lg font-semibold tracking-tight text-balance">{title}</h2>
-          {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
+          <h2 className="text-lg font-semibold tracking-tight text-balance">{translate(title)}</h2>
+          {description && <p className="mt-0.5 text-sm text-muted-foreground">{translate(description)}</p>}
         </div>
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}

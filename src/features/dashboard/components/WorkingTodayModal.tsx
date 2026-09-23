@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState } from 'react';
 import { Check, Coffee, Star, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -118,7 +119,7 @@ export default function WorkingTodayModal({
             {offList.map((s) => (
               <li key={s.id} className="flex items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm">
                 <span className="truncate text-muted-foreground">{s.displayName}</span>
-                <Badge variant="secondary">Off</Badge>
+                <Badge variant="secondary"><TranslatedText text="Off" /></Badge>
               </li>
             ))}
           </ul>

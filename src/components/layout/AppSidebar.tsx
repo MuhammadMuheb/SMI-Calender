@@ -1,3 +1,4 @@
+import { useText, TranslatedText } from '@/i18n/LanguageContext';
 import { ChevronsUpDown, LogOut, Settings } from 'lucide-react';
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -22,6 +23,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ role, displayName, activeTab, onTabChange, pendingCount, onLogout }: AppSidebarProps) {
+  const translate = useText();
   const groups = navGroupsFor(role);
 
   return (
@@ -43,7 +45,7 @@ export function AppSidebar({ role, displayName, activeTab, onTabChange, pendingC
       <SidebarContent>
         {groups.map((group) => (
           <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupLabel>{translate(group.label)}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => (
@@ -51,10 +53,10 @@ export function AppSidebar({ role, displayName, activeTab, onTabChange, pendingC
                     <SidebarMenuButton
                       isActive={activeTab === item.id}
                       onClick={() => onTabChange(item.id)}
-                      tooltip={item.label}
+                      tooltip={String(translate(item.label))}
                     >
                       <item.icon />
-                      <span>{item.label}</span>
+                      <span>{translate(item.label)}</span>
                     </SidebarMenuButton>
                     {item.id === 'requests' && pendingCount > 0 && (
                       <SidebarMenuBadge className="bg-warning/15 text-warning">{pendingCount}</SidebarMenuBadge>
@@ -88,10 +90,10 @@ export function AppSidebar({ role, displayName, activeTab, onTabChange, pendingC
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => onTabChange('settings')}>
-                  <Settings /> Settings
+                  <Settings /> <TranslatedText text="Settings" />
                 </DropdownMenuItem>
                 <DropdownMenuItem variant="destructive" onSelect={onLogout}>
-                  <LogOut /> Sign out
+                  <LogOut /> <TranslatedText text="Sign out" />
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

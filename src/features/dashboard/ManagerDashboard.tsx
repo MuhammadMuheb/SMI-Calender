@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState } from 'react';
 import {
   ArrowLeft, BarChart3, CalendarCheck, ChevronRight, ClipboardCheck, Clock, Coffee, History, Inbox, MapPin, Plus,
@@ -52,9 +53,7 @@ export default function ManagerDashboard() {
   if (view === 'attendance') return (
     <div className="space-y-4">
       <Button variant="ghost" size="sm" className="-ml-2" onClick={back}>
-        <ArrowLeft />
-        Back
-      </Button>
+        <ArrowLeft /><TranslatedText text="Back" /></Button>
       <AttendanceSummary currentUserId={user.id} currentUserRole={user?.role ?? 'staff'} currentUserJobRoles={user?.jobRole ?? ['Office']} />
     </div>
   );
@@ -209,9 +208,7 @@ export default function ManagerDashboard() {
               Your requests{myPendingCount > 0 && ` (${myPendingCount})`}
             </Button>
             <Button size="lg" className="h-10" onClick={() => setShowRequestForm(true)}>
-              <Plus />
-              Request time off
-            </Button>
+              <Plus /><TranslatedText text="Request time off" /></Button>
           </div>
         </div>
         <div className="grid gap-3 lg:grid-cols-2">

@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, useMemo } from 'react';
 import {
   CheckCircle2, ChevronLeft, ChevronRight, Circle, CircleDot, ClipboardList, ListChecks, Pin, Plus, StickyNote, Users, XCircle,
@@ -143,7 +144,7 @@ export default function TaskBoard() {
             <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'my' | 'team')}>
               <TabsList className="h-10!">
                 <TabsTrigger value="my">My tasks</TabsTrigger>
-                <TabsTrigger value="team">Team</TabsTrigger>
+                <TabsTrigger value="team"><TranslatedText text="Team" /></TabsTrigger>
               </TabsList>
             </Tabs>
           )}
@@ -155,7 +156,7 @@ export default function TaskBoard() {
             onValueChange={(v) => { if (v) setGroupBy(v as 'status' | 'category'); }}
             aria-label="Group tasks by"
           >
-            <ToggleGroupItem value="status" className="h-10">Status</ToggleGroupItem>
+            <ToggleGroupItem value="status" className="h-10"><TranslatedText text="Status" /></ToggleGroupItem>
             <ToggleGroupItem value="category" className="h-10">Category</ToggleGroupItem>
           </ToggleGroup>
         </div>

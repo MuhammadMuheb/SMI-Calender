@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { Check, Coffee, Hourglass, Trophy, X } from 'lucide-react';
 import { useNotifications } from '@/features/notifications/NotificationContext';
 import { useAppData } from '@/app/AppDataContext';
@@ -171,7 +172,7 @@ export default function CoffeeLeaderboard({ onBack }: Props) {
                       {n.createdAt && <p className="text-xs text-muted-foreground">{timeAgo(n.createdAt)}</p>}
                     </div>
                     {n.confirmStatus === 'confirmed' && (
-                      <Badge variant="secondary" className="border-transparent bg-success/12 text-success">Accepted</Badge>
+                      <Badge variant="secondary" className="border-transparent bg-success/12 text-success"><TranslatedText text="Accepted" /></Badge>
                     )}
                     {n.confirmStatus === 'rejected' && (
                       <Badge variant="secondary" className="border-transparent bg-muted text-muted-foreground">Passed</Badge>

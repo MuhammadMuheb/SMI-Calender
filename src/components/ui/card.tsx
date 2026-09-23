@@ -1,3 +1,4 @@
+import { useText } from '@/i18n/LanguageContext';
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
@@ -33,6 +34,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+  const translate = useText();
   return (
     <div
       data-slot="card-title"
@@ -41,16 +43,19 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
         className
       )}
       {...props}
+      children={translate(props.children)}
     />
   )
 }
 
 function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
+  const translate = useText();
   return (
     <div
       data-slot="card-description"
       className={cn("text-sm text-muted-foreground", className)}
       {...props}
+      children={translate(props.children)}
     />
   )
 }

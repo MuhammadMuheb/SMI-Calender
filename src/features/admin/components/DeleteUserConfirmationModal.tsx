@@ -1,3 +1,4 @@
+import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import {
@@ -104,7 +105,7 @@ export default function DeleteUserConfirmationModal({
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}><TranslatedText text="Cancel" /></AlertDialogCancel>
           <Button
             variant={isHard ? 'destructive' : 'default'}
             onClick={handleConfirm}
