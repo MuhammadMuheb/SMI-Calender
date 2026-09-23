@@ -1,6 +1,6 @@
-import type { StaffingRule, StaffingStatus } from '../models/staffing';
-import type { StaffRoleAssignment } from '../models/jobRole';
-import type { LeaveRequest } from '../models/leave';
+import type { StaffingRule, StaffingStatus } from '@/models/staffing';
+import type { StaffRoleAssignment } from '@/models/jobRole';
+import type { LeaveRequest } from '@/models/leave';
 
 /** Every job role a given user is assigned to. */
 export function getUserJobRoleIds(userId: string, roleAssignments: StaffRoleAssignment[]): string[] {

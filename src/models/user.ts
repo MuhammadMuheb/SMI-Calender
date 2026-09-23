@@ -1,4 +1,4 @@
-import type { Role } from '../config/roles';
+import type { Role } from '@/config/roles';
 
 /**
  * Full user record — represents a staff member in the system.

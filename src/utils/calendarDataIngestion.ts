@@ -7,7 +7,7 @@
  */
 
 import {
-  collection, setDoc, doc, getFirestore, writeBatch,
+  collection, setDoc, doc, getFirestore,
 } from 'firebase/firestore';
 
 // ═══════════════════════════════════════════════════════════════
@@ -364,7 +364,7 @@ export async function ingestCalendarSchedules() {
   for (const schedule of allSchedules) {
     try {
       const scheduleRef = doc(collection(db, 'schedules'));
-      const [year, month, day] = schedule.date.split('-').map(Number);
+      const [year, month] = schedule.date.split('-').map(Number);
       const now = new Date().toISOString();
 
       await setDoc(scheduleRef, {

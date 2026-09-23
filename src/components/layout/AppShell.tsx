@@ -1,47 +1,31 @@
-import { useEffect, useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useLeave } from '../../context/LeaveContext';
-import TopBar from './TopBar';
-import BottomNav, { type TabId } from './BottomNav';
-import DesktopShell from './DesktopShell';
-import SuperAdminDashboard from '../../pages/dashboards/SuperAdminDashboard';
-import ManagerDashboard from '../../pages/dashboards/ManagerDashboard';
-import StaffDashboard from '../../pages/dashboards/StaffDashboard';
-import SpectatorDashboard from '../../pages/dashboards/SpectatorDashboard';
-import CalendarPage from '../../pages/CalendarPage';
-import TaskBoard from '../../pages/TaskBoard';
-import StaffPage from '../../pages/StaffPage';
-import SettingsPage from '../../pages/SettingsPage';
-import ManagerRequestQueue from '../../pages/ManagerRequestQueue';
-import AdminPanel from '../../pages/admin/AdminPanel';
-import StaffManagement from '../../pages/admin/StaffManagement';
-import StaffingRulesPage from '../../pages/admin/StaffingRulesPage';
-import AutoAssignment from '../../pages/admin/AutoAssignment';
-import AuditLogPage from '../../pages/admin/AuditLogPage';
-import CycleManager from '../CycleManager';
-import RoleGuard from '../guards/RoleGuard';
-import { ROLES } from '../../config/roles';
-import { ROLE_LABELS } from '../../config/roles';
-import { theme } from '../../config/theme';
-import { useIsDesktop } from '../../hooks/useIsDesktop';
-
-const TAB_TITLES: Record<TabId, string> = {
-  home: 'Dashboard',
-  tasks: 'Tasks',
-  calendar: 'Calendar',
-  staff: 'Team Overview',
-  settings: 'Settings',
-  requests: 'Requests Queue',
-  admin: 'Admin Tools',
-  staffingRules: 'Staffing Rules',
-  autoAssign: 'Auto-Assignment',
-  auditLog: 'Audit Log',
-  staffManagement: 'Team Management',
-};
-
-const DESKTOP_ONLY_TABS: TabId[] = ['requests', 'admin', 'staffingRules', 'autoAssign', 'auditLog', 'staffManagement'];
-// Company-wide config tools — Super Admin only, on any device, per the capability blueprint.
-const SUPER_ADMIN_ONLY_TABS: TabId[] = ['admin', 'staffingRules', 'autoAssign', 'auditLog', 'staffManagement'];
+import { useState, type ReactNode } from 'react';
+import { useAuth } from '@/features/auth/AuthContext';
+import { useLeave } from '@/features/leave/LeaveContext';
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { Separator } from '@/components/ui/separator';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import SuperAdminDashboard from '@/features/dashboard/SuperAdminDashboard';
+import ManagerDashboard from '@/features/dashboard/ManagerDashboard';
+import StaffDashboard from '@/features/dashboard/StaffDashboard';
+import SpectatorDashboard from '@/features/dashboard/SpectatorDashboard';
+import CalendarPage from '@/features/calendar/CalendarPage';
+import TaskBoard from '@/features/tasks/TaskBoard';
+import StaffPage from '@/features/staff/StaffPage';
+import SettingsPage from '@/features/settings/SettingsPage';
+import ManagerRequestQueue from '@/features/leave/pages/ManagerRequestQueue';
+import AdminPanel from '@/features/admin/pages/AdminPanel';
+import StaffManagement from '@/features/admin/pages/StaffManagement';
+import StaffingRulesPage from '@/features/admin/pages/StaffingRulesPage';
+import AutoAssignment from '@/features/admin/pages/AutoAssignment';
+import AuditLogPage from '@/features/admin/pages/AuditLogPage';
+import CycleManager from '@/features/leave/components/CycleManager';
+import { ROLES } from '@/config/roles';
+import { useIsDesktop } from '@/hooks/useIsDesktop';
+import { AppSidebar } from './AppSidebar';
+import { MobileTabBar } from './MobileTabBar';
+import { NotificationBell } from './NotificationBell';
+import { BrandMark } from './BrandMark';
+import { NAV_ITEMS, canAccess, type TabId } from './navigation';
 
 export default function AppShell() {
   const { user, logout } = useAuth();
@@ -49,105 +33,88 @@ export default function AppShell() {
   const [tab, setTab] = useState<TabId>('home');
   const isDesktop = useIsDesktop();
 
-  // Desktop console: Manager and Super Admin. Staff and Spectator always get
-  // the mobile-first UI, regardless of screen size.
-  const isSuperAdmin = user?.role === ROLES.SUPER_ADMIN;
-  const isManager = user?.role === ROLES.MANAGER;
-  const showDesktopShell = isDesktop && (isSuperAdmin || isManager);
-
-  // 'requests' etc. are desktop-only sidebar destinations — if the window
-  // shrinks below the desktop breakpoint while one is active, fall back to
-  // Home so mobile's bottom nav isn't left stranded. Separately, the
-  // company-wide config tabs are Super Admin only regardless of device.
-  useEffect(() => {
-    if (!showDesktopShell && DESKTOP_ONLY_TABS.includes(tab)) {
-      setTab('home');
-    } else if (!isSuperAdmin && SUPER_ADMIN_ONLY_TABS.includes(tab)) {
-      setTab('home');
-    }
-  }, [showDesktopShell, isSuperAdmin, tab]);
-
   if (!user) return null;
 
-  const dashboardByRole: Record<string, React.ReactNode> = {
+  const pendingCount = getPendingRequests().filter((r) => r.userId !== user.id).length;
+
+  const dashboards: Record<string, ReactNode> = {
     [ROLES.SUPER_ADMIN]: <SuperAdminDashboard />,
     [ROLES.MANAGER]: <ManagerDashboard />,
     [ROLES.STAFF]: <StaffDashboard />,
     [ROLES.SPECTATOR]: <SpectatorDashboard />,
   };
 
-  const tabContent: Record<TabId, React.ReactNode> = {
-    home: dashboardByRole[user.role],
+  const content: Record<TabId, ReactNode> = {
+    home: dashboards[user.role],
     tasks: <TaskBoard />,
     calendar: <CalendarPage />,
-    staff: (
-      <RoleGuard allowed={[ROLES.SUPER_ADMIN, ROLES.MANAGER]}>
-        <StaffPage />
-      </RoleGuard>
-    ),
-    requests: (
-      <RoleGuard allowed={[ROLES.SUPER_ADMIN, ROLES.MANAGER]}>
-        <ManagerRequestQueue onBack={() => setTab('home')} />
-      </RoleGuard>
-    ),
-    admin: (
-      <RoleGuard allowed={[ROLES.SUPER_ADMIN]}>
-        <AdminPanel onBack={() => setTab('home')} />
-      </RoleGuard>
-    ),
-    staffingRules: (
-      <RoleGuard allowed={[ROLES.SUPER_ADMIN]}>
-        <StaffingRulesPage onBack={() => setTab('home')} />
-      </RoleGuard>
-    ),
-    autoAssign: (
-      <RoleGuard allowed={[ROLES.SUPER_ADMIN]}>
-        <AutoAssignment onBack={() => setTab('home')} />
-      </RoleGuard>
-    ),
-    auditLog: (
-      <RoleGuard allowed={[ROLES.SUPER_ADMIN]}>
-        <AuditLogPage onBack={() => setTab('home')} />
-      </RoleGuard>
-    ),
-    staffManagement: (
-      <RoleGuard allowed={[ROLES.SUPER_ADMIN]}>
-        <StaffManagement onBack={() => setTab('home')} />
-      </RoleGuard>
-    ),
+    staff: <StaffPage />,
+    requests: <ManagerRequestQueue />,
+    admin: <AdminPanel />,
+    staffingRules: <StaffingRulesPage />,
+    autoAssign: <AutoAssignment />,
+    auditLog: <AuditLogPage />,
+    staffManagement: <StaffManagement />,
     settings: <SettingsPage />,
   };
+  // A tab the role can't see (e.g. after a role change) falls back to the dashboard.
+  const page = canAccess(user.role, tab) ? content[tab] : content.home;
+  const title = tab === 'home' ? `Hi, ${user.displayName.split(' ')[0]}` : NAV_ITEMS[tab].label;
 
-  if (showDesktopShell) {
+  if (isDesktop) {
     return (
-      <DesktopShell
-        activeTab={tab}
-        onTabChange={setTab}
-        role={user.role}
-        displayName={user.displayName}
-        pendingCount={getPendingRequests().length}
-        onLogout={logout}
-        title={TAB_TITLES[tab]}
-        subtitle={tab === 'home' ? ROLE_LABELS[user.role] : undefined}
-      >
-        <CycleManager />
-        {tabContent[tab]}
-      </DesktopShell>
+      <SidebarProvider>
+        <AppSidebar
+          role={user.role}
+          displayName={user.displayName}
+          activeTab={tab}
+          onTabChange={setTab}
+          pendingCount={pendingCount}
+          onLogout={logout}
+        />
+        <SidebarInset>
+          <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mx-1 self-center data-[orientation=vertical]:h-4" />
+            <h1 className="truncate text-sm font-medium">{title}</h1>
+            <div className="ml-auto flex items-center gap-1">
+              <ThemeToggle />
+              <NotificationBell />
+            </div>
+          </header>
+          <CycleManager />
+          <main key={tab} className="mx-auto w-full max-w-6xl flex-1 px-6 py-6">
+            {page}
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: theme.colors.bg, paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
-      <TopBar
-        title={TAB_TITLES[tab]}
-        subtitle={tab === 'home' ? ROLE_LABELS[user.role] : undefined}
+    <div className="min-h-svh bg-background pb-tabbar">
+      <header className="sticky top-0 z-30 border-b bg-background/95 pt-safe backdrop-blur supports-backdrop-filter:bg-background/80">
+        <div className="mx-auto flex h-14 max-w-2xl items-center gap-2.5 px-4">
+          <BrandMark className="size-7" />
+          <h1 className="truncate text-base font-semibold">{title}</h1>
+          <div className="ml-auto flex items-center">
+            <ThemeToggle />
+            <NotificationBell />
+          </div>
+        </div>
+      </header>
+      <CycleManager />
+      <main key={tab} className="mx-auto w-full max-w-2xl px-4 py-4">
+        {page}
+      </main>
+      <MobileTabBar
+        role={user.role}
+        displayName={user.displayName}
+        activeTab={tab}
+        onTabChange={setTab}
+        pendingCount={pendingCount}
         onLogout={logout}
       />
-      <CycleManager />
-      <main className="px-4 py-4 max-w-md md:max-w-2xl lg:max-w-4xl mx-auto">
-        {tabContent[tab]}
-      </main>
-      <BottomNav activeTab={tab} onTabChange={setTab} role={user.role} />
     </div>
   );
 }

@@ -3,7 +3,7 @@
  * Global fallbacks that make the app IMPOSSIBLE to crash from undefined data
  */
 
-import type { StaffUser } from '../models/user';
+import type { StaffUser } from '@/models/user';
 
 // Safe empty user for any place that needs a user
 export const SAFE_EMPTY_USER: StaffUser = {

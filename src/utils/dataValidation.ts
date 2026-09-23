@@ -3,8 +3,8 @@
  * Ensures all data flowing through the app is safe and never causes displayName crashes
  */
 
-import type { StaffUser } from '../models/user';
-import type { LeaveRequest } from '../models/leave';
+import type { StaffUser } from '@/models/user';
+import type { LeaveRequest } from '@/models/leave';
 
 /**
  * Validate and sanitize a single user object

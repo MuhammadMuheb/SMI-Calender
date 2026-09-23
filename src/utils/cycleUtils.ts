@@ -168,7 +168,7 @@ interface PickableRange {
  * This eliminates all future-cycle (next month) requests to keep the system focused
  * on current, real-time operations.
  */
-export function getPickableDateRange(userRole: string): PickableRange | null {
+export function getPickableDateRange(): PickableRange | null {
   const current = getCurrentCycle();
   if (!current) return null;
 

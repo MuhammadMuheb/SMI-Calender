@@ -1,8 +1,8 @@
-import type { LeaveBalance, BalanceAdjustment } from '../models/balance';
-import type { LeaveRequest } from '../models/leave';
+import type { LeaveBalance, BalanceAdjustment } from '@/models/balance';
+import type { LeaveRequest } from '@/models/leave';
 import {
   REGULAR_DAYS_OFF_PER_CYCLE,
-} from '../models/validation';
+} from '@/models/validation';
 
 /**
  * STATUS: SERVICE PLACEHOLDER

@@ -1,4 +1,4 @@
-import type { LeaveType, LeaveStatus } from './leave';
+import type { LeaveType, LeaveStatus } from '@/models/leave';
 
 /**
  * A calendar entry represents a single day's status for one staff member.

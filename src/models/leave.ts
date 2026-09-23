@@ -1,4 +1,4 @@
-import type { UserRef } from './user';
+import type { UserRef } from '@/models/user';
 
 /**
  * Types of leave in the system.
@@ -52,12 +52,12 @@ export interface LeaveRequest {
 
 /** Human-readable labels for leave types */
 export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
-  regular_day_off: 'Day Off',
-  paid_vacation: 'Paid Vacation',
-  auto_assigned: 'Auto-Assigned',
+  regular_day_off: 'Day off',
+  paid_vacation: 'Paid vacation',
+  auto_assigned: 'Auto-assigned',
   auto_sunday: 'Monthly Sunday',
-  special_day: 'Special Day',
-  sick_day: 'Sick Day',
+  special_day: 'Special day',
+  sick_day: 'Sick day',
 };
 
 export const LEAVE_STATUS_LABELS: Record<LeaveStatus, string> = {

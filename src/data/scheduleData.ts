@@ -1,4 +1,4 @@
-import type { Schedule } from '../models/schedule';
+import type { Schedule } from '@/models/schedule';
 
 // Extracted from August 2026 PDF - 103 entries across 30 dates
 export const augustSchedules: Schedule[] = [

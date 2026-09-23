@@ -5,8 +5,8 @@
  * DO NOT PUSH - This is for local testing only.
  */
 
-import { collection, getDocs, getFirestore, query, where } from 'firebase/firestore';
-import { cleanupOrphanedSchedules } from '../services/firestoreUserService';
+import { collection, getDocs, getFirestore } from 'firebase/firestore';
+import { cleanupOrphanedSchedules } from '@/services/firestore/users';
 
 interface VerificationReport {
   timestamp: string;

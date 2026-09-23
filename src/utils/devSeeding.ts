@@ -3,7 +3,7 @@
  * Usage: await window.seedTestUsers?.()
  * This is only available in development mode
  */
-import { collection, setDoc, doc, getFirestore } from 'firebase/firestore';
+import { setDoc, doc, getFirestore } from 'firebase/firestore';
 
 const TEST_USERS = [
   { username: 'admin', displayName: 'Admin', pin: '1111', role: 'super_admin' },
