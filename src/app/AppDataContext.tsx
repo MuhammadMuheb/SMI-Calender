@@ -163,7 +163,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const newUser: StaffUser = { ...user, pin: '', id, createdAt: now(), updatedAt: now() };
     // CRITICAL: Always filter through getSafeUsers
     await insertUser({ id, username: user.username, displayName: user.displayName, pin: user.pin, role: user.role });
-    setUsers((prev) => getSafeUsers([...prev, newUser]));
+    // Dedupe by id: the live 'users' listener (below) may already have refreshed
+    // state with this same record by the time this optimistic update runs.
+    setUsers((prev) => getSafeUsers([...prev.filter((u) => u.id !== id), newUser]));
     await insertAuditLog({ actorId: 'admin', actorName, action: 'user_created', entityType: 'user', entityId: id, description: `Created user ${newUser.displayName}` });
     return id;
   }, []);
@@ -256,7 +258,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const id = `role_${Date.now()}`;
     const newRole: JobRole = { ...role, id, createdAt: now(), updatedAt: now() };
     await insertJobRole({ id, name: role.name, color: role.color, isHidden: role.isHidden, shiftStart: role.shiftStartTime, shiftEnd: role.shiftEndTime });
-    setJobRoles((prev) => [...prev, newRole]);
+    // Dedupe by id: the live 'jobRoles' listener may already have refreshed
+    // state with this same record by the time this optimistic update runs.
+    setJobRoles((prev) => [...prev.filter((r) => r.id !== id), newRole]);
     await insertAuditLog({ actorId: 'admin', actorName, action: 'role_assigned', entityType: 'user', entityId: id, description: `Created job role ${newRole.name}` });
   }, []);
 
@@ -300,7 +304,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const id = `sr_${Date.now()}`;
     const newRule: StaffingRule = { ...rule, id, createdAt: now(), updatedAt: now() };
     await insertStaffingRule({ id, jobRoleId: rule.jobRoleId, dayOfWeek: rule.dayOfWeek, minimumRequired: rule.minimumRequired, enforcement: rule.enforcement });
-    setStaffingRules((prev) => [...prev, newRule]);
+    // Dedupe by id: the live 'staffing_rules' listener may already have refreshed
+    // state with this same record by the time this optimistic update runs.
+    setStaffingRules((prev) => [...prev.filter((r) => r.id !== id), newRule]);
     await insertAuditLog({ actorId: 'admin', actorName, action: 'staffing_rule_created', entityType: 'staffing_rule', entityId: id, description: `Created staffing rule` });
   }, []);
 
@@ -321,7 +327,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     const id = `sp_${Date.now()}`;
     const newDay: SpecialDay = { ...day, id, createdAt: now() };
     await insertSpecialDay({ id, name: day.name, date: day.date, consumesBalance: day.consumesBalance, appliesToAll: day.appliesToAll, appliesTo: day.appliesTo, createdBy: day.createdBy });
-    setSpecialDays((prev) => [...prev, newDay]);
+    // Dedupe by id: the live 'special_days' listener may already have refreshed
+    // state with this same record by the time this optimistic update runs.
+    setSpecialDays((prev) => [...prev.filter((d) => d.id !== id), newDay]);
     await insertAuditLog({ actorId: 'admin', actorName, action: 'special_day_created', entityType: 'special_day', entityId: id, description: `Created special day: ${newDay.name}` });
   }, []);
 
