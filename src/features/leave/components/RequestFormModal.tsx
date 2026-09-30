@@ -18,7 +18,9 @@ import { leaveTypeMeta } from '@/features/leave/leaveMeta';
 import { cn } from '@/lib/utils';
 import type { LeaveType } from '@/models/leave';
 import { formatDateLocal } from '@/utils/dateUtils';
-import { getPickableDateRange, getCurrentCycle, getCycleLabel, getRemainingQuota } from '@/utils/cycleUtils';
+import { getPickableDateRange, getCurrentCycle, getCycleForDate, getCycleLabel, getRemainingQuota } from '@/utils/cycleUtils';
+import { useAppData } from '@/app/AppDataContext';
+import { REGULAR_DAYS_OFF_PER_CYCLE } from '@/models/validation';
 import VacationDateRangeSelector from '@/features/leave/components/VacationDateRangeSelector';
 
 interface RequestFormModalProps { open: boolean; onClose: () => void; }
@@ -38,6 +40,7 @@ function getYearEnd(): string {
 export default function RequestFormModal({ open, onClose }: RequestFormModalProps) {
   const { user } = useAuth();
   const { submitRequest, submitRangeRequest, requests } = useLeave();
+  const { users } = useAppData();
 
   const [leaveType, setLeaveType] = useState<RequestableType>('regular_day_off');
   const [date, setDate] = useState('');
@@ -54,27 +57,37 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
   // The submit service applies configured staffing rules to planned leave.
   const staffingConstraints = { isRoleTooSmall: false, lockedDates: new Set<string>() };
 
-  // Cycle-aware date range
+  // Day-off allowance is per calendar month. The month shown follows the
+  // picked date, so choosing a day next month shows next month's allowance.
   const cycleRange = useMemo(() => getPickableDateRange(), []);
-  const currentCycle = useMemo(() => getCurrentCycle(), []);
+  const currentCycle = useMemo(
+    () => (leaveType === 'regular_day_off' && date ? getCycleForDate(date) : null) ?? getCurrentCycle(),
+    [leaveType, date],
+  );
 
-  // Approved days in current cycle
-  const approvedInCurrentCycle = useMemo(() => {
-    if (!currentCycle) return [];
-    return requests
-      .filter((r) => r.userId === userId && r.status === 'approved' && r.leaveType === 'regular_day_off' && r.date >= currentCycle.start && r.date <= currentCycle.end)
-      .map((r) => r.date);
-  }, [requests, userId, currentCycle]);
+  const monthlyAllowance = useMemo(() => {
+    const override = users.find((u) => u.id === userId)?.regularOverride;
+    return override != null && override >= 0 ? override : REGULAR_DAYS_OFF_PER_CYCLE;
+  }, [users, userId]);
 
-  const remainingQuota = useMemo(() => {
-    if (!currentCycle) return 0;
-    return getRemainingQuota(currentCycle, approvedInCurrentCycle);
-  }, [currentCycle, approvedInCurrentCycle]);
+  const inMonth = (d: string) => d >= currentCycle.start && d <= currentCycle.end;
 
-  const pendingInCurrentCycle = useMemo(() => {
-    if (!currentCycle) return 0;
-    return requests.filter((r) => r.userId === userId && r.status === 'pending' && r.leaveType === 'regular_day_off' && r.date >= currentCycle.start && r.date <= currentCycle.end).length;
-  }, [requests, userId, currentCycle]);
+  // Days already approved this month (same types the balance counts).
+  const approvedInCurrentCycle = useMemo(
+    () => requests.filter((r) => r.userId === userId && r.status === 'approved'
+      && ['regular_day_off', 'auto_assigned', 'auto_sunday'].includes(r.leaveType) && inMonth(r.date)).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [requests, userId, currentCycle],
+  );
+
+  const remainingQuota = getRemainingQuota(monthlyAllowance, approvedInCurrentCycle);
+
+  const pendingInCurrentCycle = useMemo(
+    () => requests.filter((r) => r.userId === userId && r.status === 'pending'
+      && r.leaveType === 'regular_day_off' && inMonth(r.date)).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [requests, userId, currentCycle],
+  );
 
   const effectiveRemaining = remainingQuota - pendingInCurrentCycle;
 
@@ -82,16 +95,14 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
     if (leaveType === 'sick_day' || leaveType === 'paid_vacation') {
       return { minDate: getTodayStr(), maxDate: getYearEnd(), dateLabel: 'today through the end of the year' };
     }
-    if (!cycleRange) {
-      return { minDate: '', maxDate: '', dateLabel: 'the current cycle' };
-    }
-    const label = currentCycle ? getCycleLabel(currentCycle) : 'the current cycle';
-    return { minDate: cycleRange.min, maxDate: cycleRange.max, dateLabel: label };
-  }, [leaveType, cycleRange, currentCycle]);
+    const thisMonth = getCycleLabel(cycleRange.cycle);
+    const nextMonth = getCycleLabel(getCycleForDate(cycleRange.max) ?? cycleRange.cycle);
+    return { minDate: cycleRange.min, maxDate: cycleRange.max, dateLabel: `${thisMonth} or ${nextMonth}` };
+  }, [leaveType, cycleRange]);
 
   if (!user) return null;
 
-  const isRegularLocked = leaveType === 'regular_day_off' && (!cycleRange || cycleRange.locked);
+  const isRegularLocked = leaveType === 'regular_day_off' && cycleRange.locked;
   const isOverQuota = leaveType === 'regular_day_off' && effectiveRemaining <= 0;
   const isDateInputDisabled = staffingConstraints.isRoleTooSmall;
 
@@ -142,10 +153,10 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
         return;
       }
       if (isOverQuota) {
-        setError(`You have no days off left this cycle (quota: ${currentCycle?.quota || 0}). Try paid vacation instead.`);
+        setError(`You have no days off left in ${getCycleLabel(currentCycle)} (allowance: ${monthlyAllowance}). Pick a day in another month or try paid vacation.`);
         return;
       }
-      if (cycleRange && (submitDate < cycleRange.min || submitDate > cycleRange.max)) {
+      if (submitDate < cycleRange.min || submitDate > cycleRange.max) {
         setError(`Pick a date within ${dateLabel}.`);
         return;
       }
@@ -189,9 +200,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
     {
       value: 'regular_day_off',
       title: 'Day off',
-      description: currentCycle
-        ? `${Math.max(effectiveRemaining, 0)} left this cycle`
-        : 'From your cycle allowance',
+      description: `${Math.max(effectiveRemaining, 0)} left in ${getCycleLabel(currentCycle)}`,
     },
     { value: 'paid_vacation', title: 'Paid vacation', description: 'A date range · uses vacation days' },
     { value: 'sick_day', title: 'Sick day', description: 'Medical certificate optional' },
@@ -252,10 +261,10 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
                 <div className="rounded-lg bg-muted px-3 py-2.5 text-sm">
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="font-medium">{getCycleLabel(currentCycle)}</span>
-                    <span className="shrink-0 text-muted-foreground">{currentCycle.weeks} weeks</span>
+                    <span className="shrink-0 text-muted-foreground">Monthly allowance</span>
                   </div>
                   <div className="mt-1 flex items-baseline justify-between gap-3">
-                    <span className="text-muted-foreground tabular-nums">Quota: {currentCycle.quota} days</span>
+                    <span className="text-muted-foreground tabular-nums">{monthlyAllowance} days per month</span>
                     <span className={cn('font-medium tabular-nums', effectiveRemaining > 0 ? 'text-primary' : 'text-destructive')}>
                       {effectiveRemaining} left
                     </span>
@@ -290,7 +299,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
                   </FieldDescription>
                 ) : isOverQuota ? (
                   <FieldDescription className="text-destructive">
-                    You’ve used all your days off this cycle. Try paid vacation instead.
+                    You’ve used all your days off in {getCycleLabel(currentCycle)}. Pick a day in another month or try paid vacation.
                   </FieldDescription>
                 ) : (
                   <FieldDescription>Any day in {dateLabel}.</FieldDescription>

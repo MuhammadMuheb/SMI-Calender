@@ -4,11 +4,8 @@
  * used in balance calculations, scheduling, and validation.
  */
 
-/** Regular days off allowed per 4-week cycle */
+/** Regular days off allowed per calendar month */
 export const REGULAR_DAYS_OFF_PER_CYCLE = 6;
-
-/** Length of one scheduling cycle in days */
-export const CYCLE_LENGTH_DAYS = 28;
 
 /** Paid vacation days accrued per calendar month */
 export const VACATION_ACCRUAL_PER_MONTH = 2;
@@ -130,21 +127,4 @@ export function calculateVacationAccrual(
   monthsEmployed: number,
 ): number {
   return monthsEmployed * VACATION_ACCRUAL_PER_MONTH;
-}
-
-/**
- * Compute 4-week cycle boundaries from a start date.
- */
-export function getCycleBoundaries(
-  cycleStartDate: string,
-): { start: string; end: string } {
-  const start = new Date(cycleStartDate + 'T00:00:00');
-  const end = new Date(start);
-  end.setDate(end.getDate() + CYCLE_LENGTH_DAYS - 1);
-  const fmt = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return {
-    start: fmt(start),
-    end: fmt(end),
-  };
 }

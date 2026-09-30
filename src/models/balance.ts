@@ -2,19 +2,19 @@
  * Tracks a staff member's leave balances for a specific period.
  *
  * Business rules:
- * - Staff get 6 regular days off per 4-week cycle
+ * - Staff get 6 regular days off per calendar month
  * - First Sunday of every month is auto-off, consuming 1 regular day-off
  * - Staff accrue 2 paid vacation days per month
  * - Super admin can manually adjust balances
  *
- * IMPORTANT: `cycleStart` defines the 4-week window for regular days off.
+ * IMPORTANT: `cycleStart` defines the calendar-month window for regular days off.
  * Vacation balance is cumulative (rolls over) unless capped by admin.
  */
 export interface LeaveBalance {
   id: string;
   userId: string;
 
-  /** 4-week cycle this balance applies to (ISO date of cycle start) */
+  /** Calendar month this balance applies to (ISO date of the 1st) */
   cycleStart: string;
   cycleEnd: string;
 

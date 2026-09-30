@@ -107,8 +107,8 @@ export default function StaffDashboard() {
             { label: 'remaining', value: regularRemainingAfterBooked, tone: 'remaining' },
           ]}
           footnote={balance.autoSundayConsumed
-            ? 'Includes your automatic first-Sunday day off. Resets each cycle.'
-            : 'Resets each cycle'}
+            ? 'Includes your automatic first-Sunday day off. Resets each month.'
+            : 'Resets each month'}
           footnoteColor={balance.autoSundayConsumed ? 'emphasis' : undefined}
         />
         <LeaveAllowanceCard

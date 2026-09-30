@@ -100,7 +100,7 @@ export default function RequestHistory({ onBack }: RequestHistoryProps) {
           <Card>
             <CardHeader>
               <CardTitle>Leave balance</CardTitle>
-              <CardDescription>Regular days reset each cycle. Vacation accrues and rolls over.</CardDescription>
+              <CardDescription>Regular days reset each month. Vacation accrues and rolls over.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-6 sm:grid-cols-2">
               <BalanceRing
@@ -109,7 +109,7 @@ export default function RequestHistory({ onBack }: RequestHistoryProps) {
                 remaining={balance.regularDaysRemaining}
                 total={balance.regularDaysAllowed}
                 tone="day-off"
-                hint={`${balance.regularDaysUsed} used this cycle`}
+                hint={`${balance.regularDaysUsed} used this month`}
               />
               <BalanceRing
                 label="Paid vacation"

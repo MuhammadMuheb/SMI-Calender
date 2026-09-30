@@ -220,7 +220,7 @@ export default function ManagerDashboard() {
               { label: 'booked', value: regularBooked, tone: 'booked' },
               { label: 'remaining', value: regularRemainingAfterBooked, tone: 'remaining' },
             ]}
-            footnote="Resets each cycle"
+            footnote="Resets each month"
           />
           <LeaveAllowanceCard
             title="Vacation"

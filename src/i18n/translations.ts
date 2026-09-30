@@ -32,7 +32,7 @@ const translations: Record<Lang, Record<string, string>> = {
     'dash.totalStaff': 'Total Staff',
     'dash.daysOffLeft': 'Days Off Left',
     'dash.vacationDays': 'Vacation Days',
-    'dash.ofThisCycle': 'of {n} this cycle',
+    'dash.ofThisCycle': 'of {n} this month',
     'dash.ofAccrued': 'of {n} accrued',
     'dash.quickActions': 'Quick Actions',
     'dash.manageTeam': 'Manage your team',

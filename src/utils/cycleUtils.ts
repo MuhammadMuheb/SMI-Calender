@@ -1,33 +1,27 @@
 /**
- * SMI Calendar — Cycle System
+ * SMI Calendar — Day-off cycles
  *
  * Rules:
- * - Cycles are month-based, starting from system epoch (April 2026)
- * - Each cycle: starts 1st of month (or day after prev cycle ends), ends first Sunday >= month end
- * - 4-week cycle = 6 days off, 5-week cycle = 7 days off
- * - Pattern 1-2-1-2 (4wk) or 1-2-1-2-1 (5wk) — staff distributes freely
- * - First Sunday of every calendar month = auto-off, deducted from quota
- * - Staff/managers pick days for NEXT cycle while in current cycle
- * - Once in LAST WEEK of current cycle → picking locked (super admin only)
- * - Last week of any cycle: only super admin can assign
- * - Sick days & vacation: any date today → Dec 31 (no cycle restriction)
+ * - A cycle is one calendar month: the 1st through the last day of the month.
+ * - Each month has the standard regular day-off allowance (REGULAR_DAYS_OFF_PER_CYCLE,
+ *   or a per-person override set by an administrator).
+ * - Staff can request days off for any remaining day of the current month and
+ *   for any day of the next month, so they can plan ahead near month end.
+ * - Sick days & vacation are not tied to cycles (today → Dec 31).
  */
 
-// ── CONFIG ──────────────────────────────────────────────
-// First cycle starts April 1, 2026
-const EPOCH_YEAR = 2026;
-const EPOCH_MONTH = 3; // 0-indexed (3 = April)
+import { REGULAR_DAYS_OFF_PER_CYCLE } from '@/models/validation';
 
 // ── TYPES ───────────────────────────────────────────────
 export interface Cycle {
   index: number;
   month: number;      // 0-indexed JS month
   year: number;
-  start: string;      // YYYY-MM-DD
-  end: string;        // YYYY-MM-DD
-  weeks: number;
-  quota: number;      // 6 or 7
-  lastWeekStart: string; // Monday of the last week
+  start: string;      // YYYY-MM-DD, 1st of the month
+  end: string;        // YYYY-MM-DD, last day of the month
+  weeks: number;      // calendar weeks the month spans (for "Week X of Y")
+  quota: number;      // default regular day-off allowance for the month
+  lastWeekStart: string;
   firstSundayOfMonth: string;
 }
 
@@ -44,111 +38,63 @@ function getFirstSundayOfMonth(year: number, month: number): string {
   return fmt(d);
 }
 
-// ── GENERATE ALL CYCLES ─────────────────────────────────
-// Generates cycles from epoch forward. Call once, cache result.
-let _cycleCache: Cycle[] | null = null;
+/** Months since Jan 2000, used as a stable cycle index. */
+function monthIndex(year: number, month: number): number {
+  return (year - 2000) * 12 + month;
+}
 
-export function generateCycles(count: number = 24): Cycle[] {
-  if (_cycleCache && _cycleCache.length >= count) return _cycleCache;
-
-  const cycles: Cycle[] = [];
-  let nextStart: Date | null = null;
-
-  for (let i = 0; i < count + 4; i++) {
-    const m = (EPOCH_MONTH + i) % 12;
-    const y = EPOCH_YEAR + Math.floor((EPOCH_MONTH + i) / 12);
-
-    const cycleStart = nextStart || new Date(y, m, 1);
-    const monthEnd = new Date(y, m + 1, 0); // last day of this month
-
-    // Skip if cycle start already past this month
-    if (cycleStart > monthEnd) {
-      // This month is entirely consumed by previous cycle, skip
-      continue;
-    }
-
-    // Cycle end = first Sunday >= monthEnd
-    const cycleEnd = new Date(monthEnd);
-    const dow = cycleEnd.getDay();
-    if (dow !== 0) cycleEnd.setDate(cycleEnd.getDate() + (7 - dow));
-
-    // Week count
-    const totalDays = Math.round((cycleEnd.getTime() - cycleStart.getTime()) / 86400000) + 1;
-    const weeks = Math.ceil(totalDays / 7);
-
-    // Quota: 4 weeks = 6, 5+ weeks = 7
-    const quota = weeks >= 5 ? 7 : 6;
-
-    // Last week = Monday through Sunday of final week
-    const lastWeekStart = new Date(cycleEnd);
-    lastWeekStart.setDate(lastWeekStart.getDate() - 6);
-
-    // First Sunday of the calendar month (auto-off)
-    const firstSunday = getFirstSundayOfMonth(y, m);
-
-    cycles.push({
-      index: cycles.length,
-      month: m,
-      year: y,
-      start: fmt(cycleStart),
-      end: fmt(cycleEnd),
-      weeks,
-      quota,
-      lastWeekStart: fmt(lastWeekStart),
-      firstSundayOfMonth: firstSunday,
-    });
-
-    // Next cycle starts day after this one ends
-    nextStart = new Date(cycleEnd);
-    nextStart.setDate(nextStart.getDate() + 1);
-
-    if (cycles.length >= count) break;
-  }
-
-  _cycleCache = cycles;
-  return cycles;
+/** The cycle (calendar month) for a given year and 0-indexed month. */
+export function getCycleForMonth(year: number, month: number): Cycle {
+  const first = new Date(year, month, 1);
+  const last = new Date(year, month + 1, 0);
+  const lastWeekStart = new Date(last);
+  lastWeekStart.setDate(last.getDate() - 6);
+  return {
+    index: monthIndex(first.getFullYear(), first.getMonth()),
+    month: first.getMonth(),
+    year: first.getFullYear(),
+    start: fmt(first),
+    end: fmt(last),
+    weeks: Math.ceil(last.getDate() / 7),
+    quota: REGULAR_DAYS_OFF_PER_CYCLE,
+    lastWeekStart: fmt(lastWeekStart),
+    firstSundayOfMonth: getFirstSundayOfMonth(first.getFullYear(), first.getMonth()),
+  };
 }
 
 // ── LOOKUPS ─────────────────────────────────────────────
 
-/** Find which cycle a date falls in */
+/** The cycle (calendar month) a YYYY-MM-DD date falls in. */
 export function getCycleForDate(dateStr: string): Cycle | null {
-  const cycles = generateCycles();
-  for (const c of cycles) {
-    if (dateStr >= c.start && dateStr <= c.end) return c;
-  }
-  return null;
+  const m = /^(\d{4})-(\d{2})-\d{2}$/.exec(dateStr);
+  if (!m) return null;
+  return getCycleForMonth(Number(m[1]), Number(m[2]) - 1);
 }
 
-/** Current cycle (today) */
-export function getCurrentCycle(): Cycle | null {
-  return getCycleForDate(todayStr());
+/** Current cycle (this calendar month). */
+export function getCurrentCycle(): Cycle {
+  const now = new Date();
+  return getCycleForMonth(now.getFullYear(), now.getMonth());
 }
 
-/** Next cycle after the current one */
-export function getNextCycle(): Cycle | null {
-  const current = getCurrentCycle();
-  if (!current) return null;
-  const cycles = generateCycles();
-  return cycles.find((c) => c.index === current.index + 1) || null;
+/** Next cycle (next calendar month). */
+export function getNextCycle(): Cycle {
+  const now = new Date();
+  return getCycleForMonth(now.getFullYear(), now.getMonth() + 1);
 }
 
-/** Are we in the last week of the current cycle? */
+/** Are we in the last seven days of the current month? */
 export function isInLastWeek(): boolean {
-  const current = getCurrentCycle();
-  if (!current) return false;
-  return todayStr() >= current.lastWeekStart;
+  return todayStr() >= getCurrentCycle().lastWeekStart;
 }
 
 /**
- * Which week of the cycle a date falls in (1-indexed, clamped to the cycle's length).
- * Week 1 = the 7 days starting at cycle.start. Defaults to today.
+ * Which week of the month a date falls in (1-indexed; days 1–7 are week 1).
+ * Defaults to today.
  */
 export function getWeekNumberInCycle(cycle: Cycle, dateStr: string = todayStr()): number {
-  const start = new Date(cycle.start + 'T00:00:00');
-  const current = new Date(dateStr + 'T00:00:00');
-  const daysElapsed = Math.round((current.getTime() - start.getTime()) / 86400000);
-  const week = Math.floor(daysElapsed / 7) + 1;
+  const day = Number(dateStr.slice(8, 10));
+  const week = Math.floor((day - 1) / 7) + 1;
   return Math.min(Math.max(week, 1), cycle.weeks);
 }
 
@@ -163,40 +109,20 @@ interface PickableRange {
 }
 
 /**
- * Returns the date range a user can pick for regular day off requests.
- * ONLY allows requests for dates within the CURRENT cycle that haven't passed yet.
- * This eliminates all future-cycle (next month) requests to keep the system focused
- * on current, real-time operations.
+ * Dates a person can pick for a regular day off: from today through the end
+ * of next month, so the whole of the current month and the next one can be planned.
  */
-export function getPickableDateRange(): PickableRange | null {
+export function getPickableDateRange(): PickableRange {
   const current = getCurrentCycle();
-  if (!current) return null;
-
-  const today = todayStr();
-
-  // Only allow dates from today through the end of current cycle
-  // (no past dates, no future cycle dates)
-  return { min: today, max: current.end, cycle: current, locked: false };
+  return { min: todayStr(), max: getNextCycle().end, cycle: current, locked: false };
 }
 
-/**
- * Get remaining quota for a user in a given cycle, considering already-approved requests.
- * Pass in approved request dates for that user within the cycle range.
- */
-export function getRemainingQuota(cycle: Cycle, approvedDatesInCycle: string[]): number {
-  // Check if first Sunday of month falls within this cycle and is auto-assigned
-  const autoSundayInCycle = cycle.firstSundayOfMonth >= cycle.start && cycle.firstSundayOfMonth <= cycle.end;
-  const autoSundayCount = autoSundayInCycle ? 1 : 0;
-
-  const usedDays = approvedDatesInCycle.length;
-  // Quota includes the auto-Sunday, so remaining = quota - autoSunday - userPicked
-  return Math.max(cycle.quota - autoSundayCount - usedDays, 0);
+/** Remaining allowance given a month's allowance and the days already counted against it. */
+export function getRemainingQuota(allowance: number, usedDays: number): number {
+  return Math.max(allowance - usedDays, 0);
 }
 
-/** Month label for a cycle */
+/** "September 2026" */
 export function getCycleLabel(cycle: Cycle): string {
-  const monthName = new Date(cycle.year, cycle.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const startLabel = new Date(cycle.start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const endLabel = new Date(cycle.end + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  return `${monthName} cycle (${startLabel} – ${endLabel})`;
+  return new Date(cycle.year, cycle.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }

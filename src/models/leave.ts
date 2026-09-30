@@ -3,7 +3,7 @@ import type { UserRef } from '@/models/user';
 /**
  * Types of leave in the system.
  *
- * REGULAR_DAY_OFF — from the 6-per-4-weeks allowance
+ * REGULAR_DAY_OFF — from the 6-per-month allowance
  * PAID_VACATION — from accrued vacation balance (2/month)
  * AUTO_ASSIGNED — system-assigned unused day-off (Phase 8 engine)
  * AUTO_SUNDAY — first Sunday of month, auto-assigned, consumes 1 regular day-off

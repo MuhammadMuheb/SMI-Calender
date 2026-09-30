@@ -149,7 +149,7 @@ export default function StaffPage({ onBack }: StaffPageProps = {}) {
 
   const description = [
     `${activeUsers.length} active ${activeUsers.length === 1 ? 'member' : 'members'}`,
-    currentCycle && currentWeek ? `cycle week ${currentWeek} of ${currentCycle.weeks}` : null,
+    currentCycle && currentWeek ? `week ${currentWeek} of ${currentCycle.weeks} this month` : null,
   ].filter(Boolean).join(' · ');
 
   const view = filteredRows.map(({ user: u, roles, bal, pendingCount, onLeaveToday, attendancePct }) => {

@@ -51,12 +51,12 @@ const MAX_RANGE_DAYS = 30;
 function getCycleForDate(dateStr: string): { start: string; end: string } {
   const cycle = getNewCycle(dateStr);
   if (cycle) return { start: cycle.start, end: cycle.end };
-  const d = new Date(dateStr + "T00:00:00");
-  const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-  const cycleEnd = new Date(monthEnd);
-  const dow = cycleEnd.getDay();
-  if (dow !== 0) cycleEnd.setDate(cycleEnd.getDate() + (7 - dow));
-  return { start: formatDateLocal(new Date(d.getFullYear(), d.getMonth(), 1)), end: formatDateLocal(cycleEnd) };
+  // Unparseable date: fall back to the calendar month of today.
+  const d = new Date();
+  return {
+    start: formatDateLocal(new Date(d.getFullYear(), d.getMonth(), 1)),
+    end: formatDateLocal(new Date(d.getFullYear(), d.getMonth() + 1, 0)),
+  };
 }
 
 function shortDate(date: string): string {
@@ -489,7 +489,7 @@ async function notifyManagersOfDeduction(
     : `Day off used: ${req.userRef.displayName}`;
   const body = isVacation
     ? `${req.userRef.displayName}'s vacation for ${dateLabel} was approved. Vacation balance: ${balance.vacationDaysRemaining} of ${balance.vacationDaysTotal} remaining.`
-    : `${req.userRef.displayName}'s day off for ${dateLabel} was approved. Regular days: ${balance.regularDaysRemaining} of ${balance.regularDaysAllowed} remaining this cycle.`;
+    : `${req.userRef.displayName}'s day off for ${dateLabel} was approved. Regular days: ${balance.regularDaysRemaining} of ${balance.regularDaysAllowed} remaining this month.`;
 
   const recipients = users.filter((u) =>
     (u.role === 'manager' || u.role === 'super_admin') && u.isActive && u.id !== excludeActorId,

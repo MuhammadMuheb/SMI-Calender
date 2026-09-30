@@ -66,12 +66,12 @@ export default function StaffLeaveDetailModal({
 
         <div className="grid gap-5 sm:grid-cols-2">
           <BalanceRing
-            label="Regular days off this cycle"
+            label="Regular days off this month"
             sublabel="days"
             remaining={balance.regularDaysRemaining}
             total={balance.regularDaysAllowed}
             tone="day-off"
-            hint={`${balance.regularDaysUsed} used · resets each cycle`}
+            hint={`${balance.regularDaysUsed} used · resets each month`}
           />
           <BalanceRing
             label="Paid vacation"
@@ -87,7 +87,7 @@ export default function StaffLeaveDetailModal({
 
         <div className="space-y-1 text-sm text-muted-foreground">
           <p>Vacation accrues 2 days a month and rolls over.</p>
-          <p>Regular days off reset each cycle; approved requests are deducted automatically.</p>
+          <p>Regular days off reset each month; approved requests are deducted automatically.</p>
         </div>
       </div>
     </ResponsiveDialog>

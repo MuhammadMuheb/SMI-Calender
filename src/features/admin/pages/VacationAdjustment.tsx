@@ -156,7 +156,7 @@ export default function VacationAdjustment({ onBack }: Props) {
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         <span className="font-medium">{fmt(bal.regularDaysRemaining)}</span>
-                        <span className="text-muted-foreground"> of {fmt(bal.regularDaysAllowed)} this cycle</span>
+                        <span className="text-muted-foreground"> of {fmt(bal.regularDaysAllowed)} this month</span>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         <span className="font-medium">{fmt(bal.vacationDaysRemaining)}</span>
@@ -221,9 +221,9 @@ export default function VacationAdjustment({ onBack }: Props) {
             {balance && (
               <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted/50 p-3 text-sm">
                 <div>
-                  <p className="text-muted-foreground">Days off this cycle</p>
+                  <p className="text-muted-foreground">Days off this month</p>
                   <p className="font-medium tabular-nums">{fmt(balance.regularDaysRemaining)} of {fmt(balance.regularDaysAllowed)} left</p>
-                  <p className="text-xs text-muted-foreground">{fmt(balance.regularDaysUsed)} used · resets each cycle</p>
+                  <p className="text-xs text-muted-foreground">{fmt(balance.regularDaysUsed)} used · resets each month</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground"><TranslatedText text="Vacation" /></p>
@@ -250,7 +250,7 @@ export default function VacationAdjustment({ onBack }: Props) {
                 <FieldDescription>Accrual continues from this total.</FieldDescription>
               </Field>
               <Field>
-                <FieldLabel htmlFor="adjust-regular">Days off per cycle</FieldLabel>
+                <FieldLabel htmlFor="adjust-regular">Days off per month</FieldLabel>
                 <Input
                   id="adjust-regular"
                   type="number"

@@ -66,7 +66,7 @@ Imports use the `@/` alias for `src/`.
 
 | Rule | Value |
 | --- | --- |
-| Regular days off per cycle | 6 per 4-week cycle |
+| Regular days off | 6 per calendar month (1st to last day); requests allowed for the current and next month |
 | Vacation accrual | 2 days per month, rolls over |
 | First Sunday of the month | Automatically off, uses 1 regular day |
 
