@@ -15,7 +15,7 @@ type View = 'dashboard' | 'attendance' | 'checkins' | 'shiftStatus' | 'allowance
 
 export default function SpectatorDashboard() {
   const { user } = useAuth();
-  const { users } = useAppData();
+  const { users, jobRoleNamesFor } = useAppData();
   const [view, setView] = useState<View>('dashboard');
   const back = () => setView('dashboard');
 
@@ -33,7 +33,7 @@ export default function SpectatorDashboard() {
         <AttendanceSummary
           currentUserId={user?.id ?? ''}
           currentUserRole={user?.role ?? 'spectator'}
-          currentUserJobRoles={user?.jobRole ?? []}
+          currentUserJobRoles={jobRoleNamesFor(user?.id ?? '')}
         />
       </div>
     );

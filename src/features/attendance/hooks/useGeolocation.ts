@@ -47,6 +47,10 @@ export function useGeolocation(userJobRoles: string[], autoWatch = true) {
 
   const watchIdRef = useRef<number | null>(null);
   const locationsRef = useRef<Location[]>([]);
+  // Last known position, so proximity can be re-checked when locations (or the
+  // person's job roles) load after the GPS fix.
+  const lastPosRef = useRef<{ lat: number; lng: number } | null>(null);
+  const checkProximityRef = useRef<(lat: number, lng: number) => void>(() => {});
 
   useEffect(() => {
     return onSnapshot(collection(db, 'locations'), snapshot => {
@@ -57,14 +61,19 @@ export function useGeolocation(userJobRoles: string[], autoWatch = true) {
       });
       locationsRef.current = locations;
       setState(prev => ({ ...prev, allLocations: locations }));
+      if (lastPosRef.current) checkProximityRef.current(lastPosRef.current.lat, lastPosRef.current.lng);
     }, () => { locationsRef.current = []; setState(prev => ({ ...prev, allLocations: [], nearbyLocations: [], error: 'Unable to load check-in locations' })); });
   }, []);
 
   const checkProximity = useCallback((lat: number, lng: number) => {
+    lastPosRef.current = { lat, lng };
     const locations = locationsRef.current;
+    // Locations list allowed job role names. An empty list means everyone; a
+    // person with no job role assigned can use any active location.
+    const mine = new Set(userJobRoles.map((r) => r.trim().toLowerCase()));
     const allowedLocations = locations.filter((loc) => {
-      if (!loc.allowed_roles || loc.allowed_roles.length === 0) return true;
-      return loc.allowed_roles.some((role) => userJobRoles.includes(role));
+      if (!loc.allowed_roles || loc.allowed_roles.length === 0 || mine.size === 0) return true;
+      return loc.allowed_roles.some((role) => mine.has(String(role).trim().toLowerCase()));
     });
     const withDistances = allowedLocations.map((loc) => ({
       location: loc,
@@ -79,6 +88,13 @@ export function useGeolocation(userJobRoles: string[], autoWatch = true) {
       distanceToNearest: nearest ? Math.round(nearest.distance) : null,
     }));
   }, [userJobRoles]);
+
+  // Keep the latest matcher reachable from the locations listener, and re-check
+  // when job roles change (they load separately from the profile).
+  useEffect(() => {
+    checkProximityRef.current = checkProximity;
+    if (lastPosRef.current) checkProximity(lastPosRef.current.lat, lastPosRef.current.lng);
+  }, [checkProximity]);
 
   // One-shot position read; only sets state from the geolocation callbacks.
   const readPosition = useCallback(() => {

@@ -35,7 +35,7 @@ import ShiftStatusBoard from '@/features/attendance/components/ShiftStatusBoard'
 export default function ManagerDashboard() {
   const { user } = useAuth();
   const { requests, getPendingRequests, getBalance, getUserRequests } = useLeave();
-  const { users } = useAppData();
+  const { users, jobRoleNamesFor } = useAppData();
   const [view, setView] = useState<'dashboard' | 'queue' | 'myHistory' | 'attendance' | 'checkins' | 'shiftStatus'>('dashboard');
   const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
   const [showRequestForm, setShowRequestForm] = useState(false);
@@ -54,7 +54,7 @@ export default function ManagerDashboard() {
     <div className="space-y-4">
       <Button variant="ghost" size="sm" className="-ml-2" onClick={back}>
         <ArrowLeft /><TranslatedText text="Back" /></Button>
-      <AttendanceSummary currentUserId={user.id} currentUserRole={user?.role ?? 'staff'} currentUserJobRoles={user?.jobRole ?? ['Office']} />
+      <AttendanceSummary currentUserId={user.id} currentUserRole={user?.role ?? 'staff'} currentUserJobRoles={jobRoleNamesFor(user?.id ?? '')} />
     </div>
   );
 
@@ -132,7 +132,7 @@ export default function ManagerDashboard() {
   return (
     <div className="space-y-6">
       <AttendanceMonitor userRole={user?.role ?? 'staff'} />
-      <CheckInButton userId={user.id} userName={user.displayName} userJobRoles={user.jobRole ?? ['Office']} userRole={user.role} />
+      <CheckInButton userId={user.id} userName={user.displayName} userJobRoles={jobRoleNamesFor(user.id)} userRole={user.role} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Working today" value={workingTodayList.length} icon={CalendarCheck} onClick={() => setShowStaffModal(true)} />
@@ -220,7 +220,7 @@ export default function ManagerDashboard() {
               { label: 'booked', value: regularBooked, tone: 'booked' },
               { label: 'remaining', value: regularRemainingAfterBooked, tone: 'remaining' },
             ]}
-            footnote="Resets each month"
+            footnote="Includes the first Sunday, which is always off. Resets each month."
           />
           <LeaveAllowanceCard
             title="Vacation"
@@ -261,7 +261,7 @@ export default function ManagerDashboard() {
         open={showDutyModal} onClose={() => setShowDutyModal(false)}
         tomorrowLabel={tomorrowLabel} activeStaff={activeStaff}
         offTomorrowIds={offTomorrowIds} approvedTomorrow={approvedTomorrow}
-        currentUserJobRoles={user.jobRole ?? ['Office']} currentUserRole={user.role}
+        currentUserJobRoles={jobRoleNamesFor(user.id)} currentUserRole={user.role}
         onSendNotifications={handleSendNotifications}
       />
     </div>

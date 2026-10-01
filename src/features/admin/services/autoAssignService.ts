@@ -80,11 +80,11 @@ export function runAutoAssignment(
     userDaysOff[user.id] = existing;
   }
 
-  // Step 2: First Sunday — everyone off, UNLESS already at quota.
+  // Step 2: First Sunday — always off for everyone; it counts as one of the
+  // month's regular days off.
   const firstSunday = getFirstSunday(year, month);
   if (firstSunday && allDates.includes(firstSunday)) {
     for (const user of activeUsers) {
-      if ((userDaysOff[user.id] ?? 0) >= quotaFor(user)) continue;
       const alreadyOff = simulatedRequests.some(
         (r) => r.userId === user.id && r.date === firstSunday && r.status === 'approved'
       );

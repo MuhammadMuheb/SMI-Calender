@@ -72,6 +72,8 @@ interface AppDataContextValue {
   updateNotificationSettings: (updates: Partial<NotificationSettings>, actorId: string, actorName: string) => Promise<void>;
   refreshData: () => void;
   seedSchedules: (schedules: Schedule[]) => Promise<void>;
+  /** Job role names a person holds, from their role assignments (primary first). */
+  jobRoleNamesFor: (userId: string) => string[];
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -360,8 +362,24 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Job roles come from role assignments; the `jobRole` field stored on user
+  // profiles is not kept in sync, so derive it here for every consumer.
+  const jobRoleNamesFor = useCallback((userId: string) => {
+    const byId = new Map(jobRoles.map((r) => [r.id, r.name]));
+    return roleAssignments
+      .filter((a) => a.userId === userId)
+      .sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))
+      .map((a) => byId.get(a.jobRoleId))
+      .filter((name): name is string => !!name);
+  }, [jobRoles, roleAssignments]);
+
+  const usersWithRoles = useMemo(
+    () => users.map((u) => ({ ...u, jobRole: jobRoleNamesFor(u.id) })),
+    [users, jobRoleNamesFor],
+  );
+
   const value = useMemo(() => ({
-    loading, users, addUser, updateUser, deleteUser, deleteUserWithDataHandling,
+    loading, users: usersWithRoles, jobRoleNamesFor, addUser, updateUser, deleteUser, deleteUserWithDataHandling,
     jobRoles, addJobRole, updateJobRole, deleteJobRole,
     roleAssignments, assignRole, removeRoleAssignment,
     staffingRules, addStaffingRule, updateStaffingRule, deleteStaffingRule,
@@ -371,7 +389,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     notificationSettings, updateNotificationSettings: updateNotificationSettingsHandler,
     refreshData: loadData,
   }), [
-    loading, users, addUser, updateUser, deleteUser, deleteUserWithDataHandling,
+    loading, usersWithRoles, jobRoleNamesFor, addUser, updateUser, deleteUser, deleteUserWithDataHandling,
     jobRoles, addJobRole, updateJobRole, deleteJobRole,
     roleAssignments, assignRole, removeRoleAssignment,
     staffingRules, addStaffingRule, updateStaffingRule, deleteStaffingRule,

@@ -21,6 +21,7 @@ import { formatDateLocal } from '@/utils/dateUtils';
 import { getPickableDateRange, getCurrentCycle, getCycleForDate, getCycleLabel, getRemainingQuota } from '@/utils/cycleUtils';
 import { useAppData } from '@/app/AppDataContext';
 import { REGULAR_DAYS_OFF_PER_CYCLE } from '@/models/validation';
+import { computeBalance } from '@/services/balanceService';
 import VacationDateRangeSelector from '@/features/leave/components/VacationDateRangeSelector';
 
 interface RequestFormModalProps { open: boolean; onClose: () => void; }
@@ -72,13 +73,17 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
 
   const inMonth = (d: string) => d >= currentCycle.start && d <= currentCycle.end;
 
-  // Days already approved this month (same types the balance counts).
+  // Days already used this month, counted exactly like the dashboard balance
+  // (approved days off plus the automatic first-Sunday day off).
   const approvedInCurrentCycle = useMemo(
-    () => requests.filter((r) => r.userId === userId && r.status === 'approved'
-      && ['regular_day_off', 'auto_assigned', 'auto_sunday'].includes(r.leaveType) && inMonth(r.date)).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [requests, userId, currentCycle],
+    () => computeBalance(
+      userId, currentCycle.start, currentCycle.end,
+      requests.filter((r) => r.status === 'approved'), 0, monthlyAllowance,
+    ).regularDaysUsed,
+    [requests, userId, currentCycle, monthlyAllowance],
   );
+  const firstSundayLabel = new Date(currentCycle.firstSundayOfMonth + 'T00:00:00')
+    .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
   const remainingQuota = getRemainingQuota(monthlyAllowance, approvedInCurrentCycle);
 
@@ -269,6 +274,9 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
                       {effectiveRemaining} left
                     </span>
                   </div>
+                  <p className="mt-1 text-muted-foreground">
+                    Includes the first Sunday ({firstSundayLabel}), which is always off.
+                  </p>
                   {pendingInCurrentCycle > 0 && (
                     <p className="mt-1 text-warning">
                       {pendingInCurrentCycle} pending request{pendingInCurrentCycle > 1 ? 's' : ''} counted

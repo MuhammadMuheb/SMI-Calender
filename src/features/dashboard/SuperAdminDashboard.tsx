@@ -26,7 +26,7 @@ import ShiftStatusBoard from '@/features/attendance/components/ShiftStatusBoard'
 export default function SuperAdminDashboard() {
   const { user } = useAuth();
   const { requests, getPendingRequests } = useLeave();
-  const { users, jobRoles, roleAssignments } = useAppData();
+  const { users, jobRoles, roleAssignments, jobRoleNamesFor } = useAppData();
   const [view, setView] = useState<'dashboard' | 'queue' | 'admin' | 'attendance' | 'checkins' | 'shiftStatus'>('dashboard');
 
   const [showStaffModal, setShowStaffModal] = useState(false);
@@ -42,7 +42,7 @@ export default function SuperAdminDashboard() {
     <div className="space-y-4">
       <Button variant="ghost" size="sm" className="-ml-2" onClick={back}>
         <ArrowLeft /><TranslatedText text="Back" /></Button>
-      <AttendanceSummary currentUserId={user?.id ?? ''} currentUserRole={user?.role ?? 'super_admin'} currentUserJobRoles={user?.jobRole ?? ['Office']} />
+      <AttendanceSummary currentUserId={user?.id ?? ''} currentUserRole={user?.role ?? 'super_admin'} currentUserJobRoles={jobRoleNamesFor(user?.id ?? '')} />
     </div>
   );
 
@@ -109,7 +109,7 @@ export default function SuperAdminDashboard() {
   return (
     <div className="space-y-6">
       <AttendanceMonitor userRole={user?.role ?? 'staff'} />
-      <CheckInButton userId={user?.id ?? ''} userName={user?.displayName ?? ''} userJobRoles={user?.jobRole ?? ['Office']} userRole={user?.role ?? 'super_admin'} />
+      <CheckInButton userId={user?.id ?? ''} userName={user?.displayName ?? ''} userJobRoles={jobRoleNamesFor(user?.id ?? '')} userRole={user?.role ?? 'super_admin'} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Working today" value={workingTodayList.length} icon={CalendarCheck} onClick={() => setShowWorkingTodayModal(true)} />
@@ -187,7 +187,7 @@ export default function SuperAdminDashboard() {
         open={showDutyModal} onClose={() => setShowDutyModal(false)}
         tomorrowLabel={tomorrowLabel} activeStaff={activeStaff}
         offTomorrowIds={offTomorrowIds} approvedTomorrow={approvedTomorrow}
-        currentUserJobRoles={user?.jobRole ?? ['Office']} currentUserRole={user?.role ?? 'super_admin'}
+        currentUserJobRoles={jobRoleNamesFor(user?.id ?? '')} currentUserRole={user?.role ?? 'super_admin'}
         onSendNotifications={handleSendNotifications}
       />
 

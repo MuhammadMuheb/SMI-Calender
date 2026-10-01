@@ -68,7 +68,7 @@ Imports use the `@/` alias for `src/`.
 | --- | --- |
 | Regular days off | 6 per calendar month (1st to last day); requests allowed for the current and next month |
 | Vacation accrual | 2 days per month, rolls over |
-| First Sunday of the month | Automatically off, uses 1 regular day |
+| First Sunday of the month | Always off for everyone; counts as 1 of the 6 days |
 
 ## Deployment
 

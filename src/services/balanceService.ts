@@ -1,7 +1,7 @@
 import type { LeaveBalance, BalanceAdjustment } from '@/models/balance';
 import type { LeaveRequest } from '@/models/leave';
 import {
-  REGULAR_DAYS_OFF_PER_CYCLE,
+  REGULAR_DAYS_OFF_PER_CYCLE, getFirstSundayOfMonth,
 } from '@/models/validation';
 
 /**
@@ -51,14 +51,19 @@ export function computeBalance(
     (r) => r.userId === userId && r.date >= cycleStart && r.date <= cycleEnd,
   );
 
-  const regularUsed = countRegularDaysUsed(cycleRequests);
+  // Rule: the first Sunday of the month is always off for everyone and is one
+  // of the month's regular days. Count it even when no request exists for it
+  // (but don't count it twice if one was recorded, e.g. by auto-assignment).
+  const start = new Date(cycleStart + 'T00:00:00');
+  const firstSunday = getFirstSundayOfMonth(start.getFullYear(), start.getMonth());
+  const firstSundayInCycle = firstSunday >= cycleStart && firstSunday <= cycleEnd;
+  const firstSundayRecorded = cycleRequests.some((r) => r.date === firstSunday);
+  const regularUsed = countRegularDaysUsed(cycleRequests) + (firstSundayInCycle && !firstSundayRecorded ? 1 : 0);
   const vacationUsed = countVacationDaysUsed(approvedRequests.filter(
     (r) => r.userId === userId,
   ));
 
-  const autoSundayConsumed = cycleRequests.some(
-    (r) => r.leaveType === 'auto_sunday',
-  );
+  const autoSundayConsumed = firstSundayInCycle;
 
   return {
     id: `bal_${userId}_${cycleStart}`,

@@ -334,7 +334,8 @@ export default function CheckInButton({ userId, userName, userJobRoles }: CheckI
         if (nearestLocation && distanceToNearest != null) {
           return `Location on${acc}. You’re ${formatDistance(distanceToNearest)} from ${nearestLocation.name || 'the nearest location'}. Move closer to check in.`;
         }
-        return `Location on${acc}. No check-in locations are set up for your role.`;
+        const roleText = jobRoles.length > 0 ? ` (${jobRoles.join(', ')})` : '';
+        return `Location on${acc}. No check-in location allows your job role${roleText}. Ask an admin to add it to a location.`;
       }
       case 'locating': return 'Finding your location…';
       case 'blocked': return 'Location is blocked. Allow it for this site in your browser settings, then try again.';

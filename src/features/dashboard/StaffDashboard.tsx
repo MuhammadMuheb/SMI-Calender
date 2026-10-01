@@ -26,7 +26,7 @@ import AttendanceSummary from '@/features/attendance/components/AttendanceSummar
 export default function StaffDashboard() {
   const { user } = useAuth();
   const { getBalance, getUserRequests, requests } = useLeave();
-  const { users } = useAppData();
+  const { users, jobRoleNamesFor } = useAppData();
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showCoffee, setShowCoffee] = useState(false);
@@ -41,7 +41,7 @@ export default function StaffDashboard() {
     <div className="space-y-4">
       <Button variant="ghost" size="sm" className="-ml-2" onClick={() => setShowAttendance(false)}>
         <ArrowLeft /><TranslatedText text="Back" /></Button>
-      <AttendanceSummary currentUserId={user.id} currentUserRole={user.role} currentUserJobRoles={user.jobRole ?? ['Office']} />
+      <AttendanceSummary currentUserId={user.id} currentUserRole={user.role} currentUserJobRoles={jobRoleNamesFor(user.id)} />
     </div>
   );
 
@@ -85,7 +85,7 @@ export default function StaffDashboard() {
 
   return (
     <div className="space-y-6">
-      <CheckInButton userId={user.id} userName={user.displayName} userJobRoles={user.jobRole ?? ['Office']} userRole={user.role} />
+      <CheckInButton userId={user.id} userName={user.displayName} userJobRoles={jobRoleNamesFor(user.id)} userRole={user.role} />
 
       <Button size="lg" className="h-11 w-full sm:w-auto" onClick={openRequestForm}>
         <Plus /><TranslatedText text="Request time off" /></Button>
@@ -107,7 +107,7 @@ export default function StaffDashboard() {
             { label: 'remaining', value: regularRemainingAfterBooked, tone: 'remaining' },
           ]}
           footnote={balance.autoSundayConsumed
-            ? 'Includes your automatic first-Sunday day off. Resets each month.'
+            ? 'Includes the first Sunday, which is always off. Resets each month.'
             : 'Resets each month'}
           footnoteColor={balance.autoSundayConsumed ? 'emphasis' : undefined}
         />
