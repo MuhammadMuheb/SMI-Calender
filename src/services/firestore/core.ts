@@ -130,8 +130,8 @@ export async function insertSchedulesBatch(schedules: Schedule[]) {
 /**
  * Insert a new leave request
  */
-export async function insertLeaveRequest(request: Omit<LeaveRequest, 'id'>): Promise<string> {
-  return (await serverApi<{ id: string }>('leave', { action: 'create', data: request })).id;
+export async function insertLeaveRequest(request: Omit<LeaveRequest, 'id'>): Promise<LeaveRequest> {
+  return (await serverApi<{ request: LeaveRequest }>('leave', { action: 'create', data: request })).request;
 }
 export async function updateLeaveRequestDb(id: string, updates: Partial<LeaveRequest>): Promise<void> {
   await serverApi('leave', { action: 'update', id, data: updates });
@@ -140,8 +140,8 @@ export function cancelLeaveRequest(id: string): Promise<void> {
   return updateLeaveRequestDb(id, { status: 'cancelled' });
 }
 interface DecisionActor { id: string; displayName: string; role: string }
-export function approveLeaveRequest(id: string, _actor: DecisionActor, note = ''): Promise<void> {
-  return updateLeaveRequestDb(id, { status: 'approved', approverNote: note });
+export function approveLeaveRequest(id: string, _actor: DecisionActor, note = '', greenOnly = false): Promise<{ request: LeaveRequest; cancelledIds: string[] }> {
+  return serverApi('leave', { action: 'update', id, data: { status: 'approved', approverNote: note, greenOnly } });
 }
 export function rejectLeaveRequest(id: string, _actor: DecisionActor, note = ''): Promise<void> {
   return updateLeaveRequestDb(id, { status: 'rejected', approverNote: note });

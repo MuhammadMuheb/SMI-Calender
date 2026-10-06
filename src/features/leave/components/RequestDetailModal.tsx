@@ -20,7 +20,7 @@ import { LeaveStatusBadge, LeaveTypeBadge, formatShortDate } from '@/features/le
 import { displayStaffNote } from '@/features/leave/requestNotes';
 import { cn } from '@/lib/utils';
 import type { LeaveRequest } from '@/models/leave';
-import { checkStaffingForDate, wouldCauseShortage, getUserJobRoleIds, scopeStatusesToRoles } from '@/services/staffingService';
+import { requestStaffingImpact } from '@/features/leave/services/requestStaffingImpact';
 
 /**
  * Request details with the requester's balance and the staffing impact of
@@ -83,29 +83,7 @@ export default function RequestDetailModal({
     const roleNames: Record<string, string> = {};
     for (const r of jobRoles) roleNames[r.id] = r.name;
 
-    // Already-approved leave on this date (excluding the current request)
-    const approvedOnDate = requests.filter(
-      (r) => r.date === request.date && r.status === 'approved' && r.id !== request.id,
-    );
-
-    // Staffing IF this request were approved (add this user to the "off" list)
-    const withApproval = checkStaffingForDate(
-      request.date, staffingRules, roleAssignments, [...approvedOnDate, request], roleNames,
-    );
-
-    // Only the requester's own job role(s) are relevant here — an unrelated
-    // department that's already short-staffed that day must not block or even
-    // show up as a warning against a request that has nothing to do with it.
-    const myRoleIds = getUserJobRoleIds(request.userId, roleAssignments);
-    const myWithApproval = scopeStatusesToRoles(withApproval, myRoleIds);
-
-    const { hasShortage, hasHardBlock } = wouldCauseShortage(myWithApproval);
-
-    let level: ImpactLevel = 'safe';
-    if (hasHardBlock) level = 'danger';
-    else if (hasShortage) level = 'warning';
-
-    return { withApproval: myWithApproval, level, hasHardBlock };
+    return requestStaffingImpact(request, requests, staffingRules, roleAssignments, roleNames);
   }, [request, requests, jobRoles, roleAssignments, staffingRules]);
 
   if (!request || !user) return null;

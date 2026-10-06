@@ -23,6 +23,14 @@ before(async () => {
 });
 after(async () => { await env?.cleanup(); });
 function db(id, claims = {}) { return env.authenticatedContext(id, { firebase: { sign_in_provider: 'custom' }, ...claims }).firestore(); }
+test('auto-approval settings and transaction locks are server-only', async () => {
+  for (const id of ['staff', 'manager', 'admin']) {
+    for (const name of ['leave_settings', 'leave_day_locks']) {
+      await assertFails(getDoc(doc(db(id), name, 'global')));
+      await assertFails(setDoc(doc(db(id), name, 'global'), { autoApprove: true }));
+    }
+  }
+});
 test('public and anonymous clients cannot read or write database', async () => {
   for (const client of [env.unauthenticatedContext().firestore(), db('staff', { firebase: { sign_in_provider: 'anonymous' } })]) {
     await assertFails(getDocs(collection(client, 'users')));

@@ -129,6 +129,129 @@ test('managers cannot approve their own leave or override existing decisions', a
   rows.set('leave_requests/r', { userId: 'a', status: 'rejected' });
   assert.equal((await call(leave, 'manager', { action: 'update', id: 'r', data: { status: 'approved', isOverridden: true } })).statusCode, 403);
 });
+
+test('Auto Approve defaults off, persists, and only administrators can change it', async () => {
+  assert.deepEqual((await call(leave, 'manager', { action: 'get-settings' })).body, { autoApprove: false });
+  assert.equal((await call(leave, 'staff', { action: 'get-settings' })).statusCode, 403);
+  for (const token of ['staff', 'manager']) {
+    assert.equal((await call(leave, token, { action: 'set-settings', data: { autoApprove: true } })).statusCode, 403);
+  }
+  assert.equal((await call(leave, 'admin', { action: 'set-settings', data: { autoApprove: 'true' } })).statusCode, 400);
+  assert.equal((await call(leave, 'admin', { action: 'set-settings', data: { autoApprove: true } })).statusCode, 200);
+  assert.equal((await call(leave, 'manager', { action: 'get-settings' })).body.autoApprove, true);
+  assert([...rows.values()].some(r => r.action === 'leave_auto_approve_changed' && r.actorId === 'root'));
+  await call(leave, 'admin', { action: 'set-settings', data: { autoApprove: false } });
+  assert.equal((await call(leave, 'admin', { action: 'get-settings' })).body.autoApprove, false);
+});
+
+test('green submissions auto-approve at the minimum and return the authoritative saved decision', async () => {
+  rows.set('leave_settings/global', { autoApprove: true });
+  rows.set('staffing_rules/guide', { jobRoleId: 'guide', minimumRequired: 1, enforcement: 'hard_block', dayOfWeek: null });
+  const result = await call(leave, 'staff', { action: 'create', data: { userId: 'a', date: '2026-10-07', leaveType: 'regular_day_off' } });
+  assert.equal(result.statusCode, 200);
+  const saved = rows.get('leave_requests/' + result.body.id);
+  assert.equal(saved.status, 'approved');
+  assert.equal(saved.decidedBy.id, 'system');
+  assert(saved.decidedAt);
+  assert.deepEqual(result.body.request, { ...saved, id: result.body.id });
+  assert([...rows.values()].some(r => r.type === 'leave_approved' && r.entityId === result.body.id && r.userId === 'a'));
+  assert([...rows.values()].some(r => r.action === 'leave_approved' && r.entityId === result.body.id));
+});
+
+test('Auto Approve leaves warning-only shortages pending and does not treat sick leave as green', async () => {
+  rows.set('leave_settings/global', { autoApprove: true });
+  rows.set('staffing_rules/guide', { jobRoleId: 'guide', minimumRequired: 2, enforcement: 'warning_only', dayOfWeek: null });
+  for (const [date, leaveType] of [['2026-10-07', 'regular_day_off'], ['2026-10-08', 'paid_vacation'], ['2026-10-09', 'sick_day']]) {
+    const result = await call(leave, 'staff', { action: 'create', data: { userId: 'a', date, leaveType } });
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body.request.status, 'pending');
+    assert.equal(result.body.request.decidedBy, null);
+  }
+  rows.get('staffing_rules/guide').enforcement = 'hard_block';
+  const sick = await call(leave, 'staff', { action: 'create', data: { userId: 'a', date: '2026-10-10', leaveType: 'sick_day' } });
+  assert.equal(sick.statusCode, 200);
+  assert.equal(sick.body.request.status, 'pending');
+});
+
+test('clients cannot turn on auto-approval with a forged create flag', async () => {
+  const result = await call(leave, 'staff', { action: 'create', data: { userId: 'a', date: '2026-10-07', leaveType: 'regular_day_off', autoApprove: true, status: 'approved' } });
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.body.request.status, 'pending');
+});
+
+test('green checks use relevant weekdays and roles, and exclude inactive and duplicate staff', () => {
+  const rule = { jobRoleId: 'guide', minimumRequired: 1, enforcement: 'warning_only', dayOfWeek: null };
+  const assignments = [{ userId: 'a', jobRoleId: 'guide' }, { userId: 'b', jobRoleId: 'guide' }, { userId: 'b', jobRoleId: 'guide' }];
+  const check = (rules, activeIds = new Set(['a', 'b'])) => staffingError('2026-10-07', 'a', 'regular_day_off', rules, assignments, [], activeIds, true);
+  assert.equal(check([rule, { ...rule, jobRoleId: 'unrelated', minimumRequired: 9 }]), null);
+  assert.equal(check([{ ...rule, dayOfWeek: 0, minimumRequired: 9 }]), null); // Wednesday, not Monday.
+  assert(check([{ ...rule, minimumRequired: 2 }])); // Duplicate assignment is one person.
+  assert(check([rule], new Set(['a'])));
+});
+
+test('bulk green approvals recheck cover and never bypass yellow/red rules, even for admins', async () => {
+  rows.set('staffing_rules/guide', { jobRoleId: 'guide', minimumRequired: 1, enforcement: 'warning_only', dayOfWeek: null });
+  for (const id of ['a', 'b']) rows.set('leave_requests/' + id, { userId: id, date: '2026-10-07', leaveType: 'regular_day_off', status: 'pending' });
+  const first = await call(leave, 'admin', { action: 'update', id: 'a', data: { status: 'approved', greenOnly: true } });
+  const second = await call(leave, 'admin', { action: 'update', id: 'b', data: { status: 'approved', greenOnly: true } });
+  assert.equal(first.statusCode, 200);
+  assert.equal(second.statusCode, 409);
+  assert.equal(rows.get('leave_requests/b').status, 'pending');
+  rows.get('staffing_rules/guide').enforcement = 'hard_block';
+  assert.equal((await call(leave, 'admin', { action: 'update', id: 'b', data: { status: 'approved', greenOnly: true } })).statusCode, 409);
+});
+
+test('bulk green approvals enforce manager permissions and skip decided, automatic Sunday and inactive requests', async () => {
+  for (const [id, userId, status, leaveType] of [
+    ['own', 'm', 'pending', 'regular_day_off'], ['peer', 'root', 'pending', 'regular_day_off'],
+    ['approved', 'a', 'approved', 'regular_day_off'], ['rejected', 'a', 'rejected', 'regular_day_off'],
+    ['cancelled', 'a', 'cancelled', 'regular_day_off'], ['sunday', 'a', 'pending', 'auto_sunday'],
+    ['inactive', 'b', 'pending', 'regular_day_off'],
+  ]) rows.set('leave_requests/' + id, { userId, date: '2026-10-07', status, leaveType });
+  rows.get('users/b').isActive = false;
+  for (const id of ['own', 'peer']) {
+    assert.equal((await call(leave, 'manager', { action: 'update', id, data: { status: 'approved', greenOnly: true } })).statusCode, 403);
+  }
+  for (const id of ['approved', 'rejected', 'cancelled', 'sunday', 'inactive']) {
+    assert.equal((await call(leave, 'admin', { action: 'update', id, data: { status: 'approved', greenOnly: true } })).statusCode, 409);
+  }
+  rows.set('leave_requests/staff', { userId: 'a', date: '2026-10-08', status: 'pending', leaveType: 'regular_day_off' });
+  assert.equal((await call(leave, 'manager', { action: 'update', id: 'staff', data: { status: 'approved', greenOnly: true } })).statusCode, 200);
+  assert.equal(rows.get('leave_requests/staff').decidedBy.id, 'm');
+});
+
+test('concurrent green submissions cannot consume the same remaining cover', async () => {
+  rows.set('leave_settings/global', { autoApprove: true });
+  rows.set('staffing_rules/guide', { jobRoleId: 'guide', minimumRequired: 1, enforcement: 'warning_only', dayOfWeek: null });
+  const results = await Promise.all([['staff', 'a'], ['receiver', 'b']].map(([token, userId]) =>
+    call(leave, token, { action: 'create', data: { userId, date: '2026-10-07', leaveType: 'regular_day_off' } })));
+  assert.deepEqual(results.map(r => r.statusCode), [200, 200]);
+  assert.deepEqual(results.map(r => r.body.request.status).sort(), ['approved', 'pending']);
+  assert(rows.has('leave_day_locks/2026-10-07'));
+});
+
+test('automatic move approval cancels the source exactly once in the same transaction', async () => {
+  rows.set('leave_settings/global', { autoApprove: true });
+  rows.set('leave_requests/source', { userId: 'a', date: '2026-10-07', status: 'approved', leaveType: 'regular_day_off' });
+  const data = { userId: 'a', date: '2026-10-08', leaveType: 'regular_day_off', staffNote: 'Move request | move_from:source' };
+  const result = await call(leave, 'staff', { action: 'create', data });
+  assert.equal(result.statusCode, 200);
+  assert.equal(result.body.request.status, 'approved');
+  assert.deepEqual(result.body.cancelledIds, ['source']);
+  assert.equal(rows.get('leave_requests/source').status, 'cancelled');
+  assert.equal(rows.get('leave_requests/source').replacedBy, result.body.id);
+  assert.equal((await call(leave, 'staff', { action: 'create', data: { ...data, date: '2026-10-09' } })).statusCode, 409);
+});
+
+test('automatic approval retains automatic-day replacement at the monthly allowance', async () => {
+  rows.set('leave_settings/global', { autoApprove: true });
+  for (let i = 1; i <= 6; i++) rows.set('leave_requests/old' + i, { userId: 'a', date: `2026-10-0${i}`, status: 'approved', leaveType: i === 6 ? 'auto_assigned' : 'regular_day_off', createdAt: '2026-09-01' });
+  const result = await call(leave, 'staff', { action: 'create', data: { userId: 'a', date: '2026-10-08', leaveType: 'regular_day_off' } });
+  assert.equal(result.statusCode, 200);
+  assert.deepEqual(result.body.cancelledIds, ['old6']);
+  assert.equal(rows.get('leave_requests/old6').status, 'cancelled');
+  assert.equal([...rows.entries()].filter(([key, value]) => key.startsWith('leave_requests/') && value.status === 'approved').length, 6);
+});
 test('swap acceptance transfers once and rejects the wrong receiver', async () => {
   rows.set('leave_requests/original', { userId: 'a', date: '2026-10-01', leaveType: 'regular_day_off', status: 'approved' });
   assert.equal((await call(swaps, 'staff', { action: 'propose', originalRequestId: 'original', receiverId: 'b' })).statusCode, 200);

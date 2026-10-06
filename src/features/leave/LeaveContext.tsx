@@ -1,5 +1,5 @@
 import {
-  createContext, useContext, useState, useEffect, useMemo, useCallback, type ReactNode,
+  createContext, useContext, useState, useEffect, useMemo, useCallback, useRef, type ReactNode,
 } from 'react';
 import type { LeaveRequest, LeaveType, LeaveStatus } from '@/models/leave';
 import { LEAVE_TYPE_LABELS } from '@/models/leave';
@@ -33,7 +33,7 @@ interface LeaveContextValue {
   /** Submit one request per day for an inclusive date range (e.g. a vacation). */
   submitRangeRequest: (userRef: UserRef, startDate: string, endDate: string, leaveType: LeaveType, note?: string) => Promise<string | null>;
   cancelRequest: (requestId: string) => Promise<string | null>;
-  approve: (requestId: string, approver: UserRef, note?: string) => Promise<string | null>;
+  approve: (requestId: string, approver: UserRef, note?: string, greenOnly?: boolean) => Promise<string | null>;
   reject: (requestId: string, approver: UserRef, note?: string) => Promise<string | null>;
   override: (requestId: string, newStatus: LeaveStatus, admin: UserRef, note?: string) => Promise<string | null>;
   directAssign: (targetUserId: string, targetUserName: string, targetUserRole: 'staff' | 'manager' | 'super_admin', date: string, leaveType: LeaveType, adminName: string) => Promise<string | null>;
@@ -66,7 +66,7 @@ function shortDate(date: string): string {
 /** Only a super admin may decide on a manager's (or their own) request. */
 function canDecide(approver: UserRef, req: LeaveRequest): boolean {
   if (approver.role === 'super_admin') return true;
-  return req.userId !== approver.id && (req.userRef?.role ?? 'staff') === 'staff';
+  return approver.role === 'manager' && req.userId !== approver.id && (req.userRef?.role ?? 'staff') === 'staff';
 }
 
 export function LeaveProvider({ children }: { children: ReactNode }) {
@@ -103,6 +103,11 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     });
   }, [rawRequests, users]);
 
+  // A bulk operation retains its callback while listener updates arrive. Keep
+  // its next decision and balance notification based on the latest approvals.
+  const requestsRef = useRef(requests);
+  useEffect(() => { requestsRef.current = requests; }, [requests]);
+
   const approvedRequests = useMemo(() => requests.filter((r) => r.status === 'approved'), [requests]);
 
   const saveRequest = useCallback(async (
@@ -126,10 +131,9 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       createdAt: nowIso,
       updatedAt: nowIso,
     };
-    const id = await insertLeaveRequest(draft);
-    const saved: LeaveRequest = { ...draft, id };
+    const saved = await insertLeaveRequest(draft);
     // Optimistic insert; the live listener replaces it with the stored doc.
-    setRawRequests((prev) => (prev.some((r) => r.id === id) ? prev : [saved, ...prev]));
+    setRawRequests((prev) => (prev.some((r) => r.id === saved.id) ? prev : [saved, ...prev]));
     return saved;
   }, []);
 
@@ -174,7 +178,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       description: `${displayName} requested ${LEAVE_TYPE_LABELS[leaveType] ?? leaveType} for ${shortDate(normalizedDate)}`,
     });
 
-    if (autoApprove) {
+    if (saved.status === 'approved') {
       notifyManagersOfDeduction(saved, [...approvedRequests, saved], users);
     } else {
       await notifyApproversOfNewRequest(saved, shortDate(normalizedDate), users);
@@ -227,9 +231,18 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       action: 'leave_requested', entityType: 'leave_request', entityId: saved[0].id,
       description: `${userRef.displayName} requested ${typeLabel} for ${rangeLabel}`,
     });
-    await notifyApproversOfNewRequest(saved[0], rangeLabel, users);
+    const pending = saved.filter((r) => r.status === 'pending');
+    if (pending.length > 0) {
+      const pendingLabel = pending.length === 1 ? shortDate(pending[0].date)
+        : `${shortDate(pending[0].date)} – ${shortDate(pending[pending.length - 1].date)} (${pending.length} days needing review)`;
+      await notifyApproversOfNewRequest(pending[0], pendingLabel, users);
+    }
+    const newlyApproved = saved.filter((r) => r.status === 'approved');
+    if (newlyApproved.length > 0) {
+      notifyManagersOfDeduction(newlyApproved[newlyApproved.length - 1], [...approvedRequests, ...newlyApproved], users);
+    }
     return null;
-  }, [requests, users, staffingRules, roleAssignments, jobRoles, saveRequest]);
+  }, [requests, approvedRequests, users, staffingRules, roleAssignments, jobRoles, saveRequest]);
 
   const cancelRequest = useCallback(async (requestId: string): Promise<string | null> => {
     markEntityAsRead(requestId);
@@ -242,27 +255,29 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     }
   }, [markEntityAsRead]);
 
-  const approve = useCallback(async (requestId: string, approver: UserRef, note: string = ''): Promise<string | null> => {
-    const req = requests.find((r) => r.id === requestId);
+  const approve = useCallback(async (requestId: string, approver: UserRef, note: string = '', greenOnly = false): Promise<string | null> => {
+    const req = requestsRef.current.find((r) => r.id === requestId);
     if (!req) return 'Request not found';
     if (!canDecide(approver, req)) return 'Only a super admin can decide on this request';
 
 
     try {
-      await approveLeaveRequest(requestId, approver, note);
+      const result = await approveLeaveRequest(requestId, approver, note, greenOnly);
+      const updated = requestsRef.current.map((r) => r.id === requestId ? result.request
+        : result.cancelledIds.includes(r.id) ? { ...r, status: 'cancelled' as const } : r);
+      requestsRef.current = updated;
+      setRawRequests(updated);
     } catch (err) {
       console.error('Failed to approve request:', err);
-      return 'Could not approve the request — please try again';
+      return err instanceof Error ? err.message : 'Could not approve the request — please try again';
     }
     markEntityAsRead(requestId);
 
-    const approvedSnapshot = requests
-      .map((r) => (r.id === requestId ? { ...r, status: 'approved' as LeaveStatus } : r))
-      .filter((r) => r.status === 'approved');
+    const approvedSnapshot = requestsRef.current.filter((r) => r.status === 'approved');
     notifyManagersOfDeduction(req, approvedSnapshot, users, approver.id);
     notifyUserOfApproval(req, requestId, approver, note);
     return null;
-  }, [requests, users, markEntityAsRead]);
+  }, [users, markEntityAsRead]);
 
   const reject = useCallback(async (requestId: string, approver: UserRef, note: string = ''): Promise<string | null> => {
     const req = requests.find((r) => r.id === requestId);
