@@ -5,6 +5,7 @@ import { Separator } from '@/components/ui/separator';
 import { ResponsiveDialog } from '@/components/shared/ResponsiveDialog';
 import { UserAvatar } from '@/components/shared/UserAvatar';
 import BalanceRing from '@/features/leave/components/BalanceRing';
+import StaffLeaveLog from '@/features/leave/components/StaffLeaveLog';
 import { formatShortDate } from '@/features/leave/leaveMeta';
 import { cn } from '@/lib/utils';
 import type { LeaveBalance } from '@/models/balance';
@@ -40,7 +41,7 @@ export default function StaffLeaveDetailModal({
   if (!staff || !balance) return null;
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={onOpenChange} title="Leave balance" size="md">
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange} title="Leave balance" size="lg">
       <div className="space-y-5">
         <div className="flex items-center gap-3">
           <UserAvatar name={staff.displayName} size="lg" />
@@ -59,7 +60,7 @@ export default function StaffLeaveDetailModal({
         <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm">
           <CalendarRange className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span>
-            <span className="text-muted-foreground">Current cycle: </span>
+            <span className="text-muted-foreground">This month: </span>
             {formatShortDate(balance.cycleStart)} – {formatShortDate(balance.cycleEnd)}
           </span>
         </div>
@@ -82,6 +83,10 @@ export default function StaffLeaveDetailModal({
             hint={`${balance.vacationDaysUsed} used · never expires`}
           />
         </div>
+
+        <Separator />
+
+        <StaffLeaveLog key={staff.id} userId={staff.id} initialMonth={balance.cycleStart} />
 
         <Separator />
 
