@@ -1,7 +1,7 @@
 import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, useMemo, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { ArrowLeftRight, CalendarCheck, Flag, MapPin, Plus, Star, Trash } from 'lucide-react';
+import { ArrowLeftRight, CalendarCheck, Flag, MapPin, PartyPopper, Plus, Star, Trash } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { useLeave } from '@/features/leave/LeaveContext';
 import { useAppData } from '@/app/AppDataContext';
@@ -17,6 +17,8 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/c
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/components/ui/item';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -38,7 +40,7 @@ function SectionLabel({ children }: { children: ReactNode }) {
 
 export default function DayDetailModal({ date, open, onClose }: DayDetailModalProps) {
   const { user } = useAuth();
-  const { requests, cancelRequest, directAssign } = useLeave();
+  const { requests, cancelRequest, directAssign, assignDayOffToEveryone } = useLeave();
   const { holidays, specialDays, users, roleAssignments, schedules, staffingRules, jobRoles } = useAppData();
   const { addNotification } = useNotifications();
 
@@ -57,6 +59,12 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
   const [assignType, setAssignType] = useState<LeaveType>('regular_day_off');
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState('');
+
+  // Super admin: everyone off (special day)
+  const [showEveryone, setShowEveryone] = useState(false);
+  const [everyoneName, setEveryoneName] = useState('');
+  const [everyoneCounts, setEveryoneCounts] = useState(false);
+  const [givingEveryone, setGivingEveryone] = useState(false);
 
   // Super admin remove states
   const [removeTarget, setRemoveTarget] = useState<LeaveRequest | null>(null);
@@ -124,6 +132,24 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
     .filter((g) => g.items.length > 0);
 
   const resetSwap = () => { setShowMyDays(false); setSwapTarget(null); setSelectedMyDay(null); };
+  const handleEveryone = async () => {
+    setGivingEveryone(true);
+    try {
+      const result = await assignDayOffToEveryone(day, everyoneName.trim(), everyoneCounts);
+      const skipped = result.skipped.length
+        ? ` Skipped: ${result.skipped.map((s) => `${s.name} (${s.reason})`).join(', ')}.`
+        : '';
+      toast.success(`${formatShortDate(day)} off for ${result.assigned.length} ${result.assigned.length === 1 ? 'person' : 'people'}.${skipped}`);
+      setShowEveryone(false);
+      setEveryoneName('');
+      setEveryoneCounts(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Couldn’t give everyone the day off. Try again.');
+    } finally {
+      setGivingEveryone(false);
+    }
+  };
+
   const resetAssign = () => { setShowAssign(false); setAssignUserId(''); setAssignType('regular_day_off'); setAssignError(''); };
 
   const handleSwapRequest = () => {
@@ -394,11 +420,55 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
           )}
 
           {/* Super Admin: quick assign day off */}
-          {isSuperAdmin && !showAssign && (
-            <Button variant="outline" size="lg" className="w-full" onClick={() => setShowAssign(true)}>
-              <Plus data-icon="inline-start" />
-              Assign day off
-            </Button>
+          {isSuperAdmin && !showAssign && !showEveryone && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button variant="outline" size="lg" className="w-full" onClick={() => setShowAssign(true)}>
+                <Plus data-icon="inline-start" />
+                Assign day off
+              </Button>
+              <Button variant="outline" size="lg" className="w-full" onClick={() => setShowEveryone(true)}>
+                <PartyPopper data-icon="inline-start" />
+                Day off for everyone
+              </Button>
+            </div>
+          )}
+
+          {isSuperAdmin && showEveryone && (
+            <section className="rounded-lg border p-3">
+              <h3 className="text-sm font-medium">Give everyone {formatShortDate(day)} off</h3>
+              <p className="mt-0.5 mb-3 text-sm text-muted-foreground">
+                Every active person gets an approved day off and a notification. People already off that day are skipped.
+              </p>
+              <FieldGroup className="gap-3">
+                <Field>
+                  <FieldLabel htmlFor="everyone-name">Reason</FieldLabel>
+                  <Input
+                    id="everyone-name"
+                    placeholder="e.g. Company holiday"
+                    value={everyoneName}
+                    onChange={(e) => setEveryoneName(e.target.value)}
+                    className="h-10"
+                  />
+                  <FieldDescription>Shown on the calendar and in their notification.</FieldDescription>
+                </Field>
+                <Field orientation="horizontal">
+                  <div className="flex-1">
+                    <FieldLabel htmlFor="everyone-counts">Counts toward their monthly days off</FieldLabel>
+                    <FieldDescription>
+                      Off: a free extra day. On: uses one of their days; people with none left are skipped.
+                    </FieldDescription>
+                  </div>
+                  <Switch id="everyone-counts" checked={everyoneCounts} onCheckedChange={setEveryoneCounts} />
+                </Field>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowEveryone(false)} disabled={givingEveryone}><TranslatedText text="Cancel" /></Button>
+                  <Button onClick={handleEveryone} disabled={givingEveryone}>
+                    {givingEveryone && <Spinner data-icon="inline-start" />}
+                    Give everyone the day off
+                  </Button>
+                </div>
+              </FieldGroup>
+            </section>
           )}
 
           {isSuperAdmin && showAssign && (
