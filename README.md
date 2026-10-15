@@ -66,9 +66,10 @@ Imports use the `@/` alias for `src/`.
 
 | Rule | Value |
 | --- | --- |
-| Regular days off | 6 per calendar month (1st to last day); requests allowed for the current and next month |
-| Vacation accrual | 2 days per month, rolls over |
+| Regular days off | Max 6 per calendar month, first Sunday included; enforced on request, approval and admin assignment. Requests allowed for any month up to 12 months ahead, each against its own month |
+| Vacation accrual | 2 days per month, rolls over; a future vacation can use what will have accrued by its month |
 | First Sunday of the month | Always off for everyone; counts as 1 of the 6 days |
+| Day off for everyone | Super admin, from a calendar day; a free extra day by default, or counted toward the 6 |
 
 ## Deployment
 

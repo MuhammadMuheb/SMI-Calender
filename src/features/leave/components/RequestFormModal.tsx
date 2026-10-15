@@ -18,10 +18,8 @@ import { leaveTypeMeta } from '@/features/leave/leaveMeta';
 import { cn } from '@/lib/utils';
 import type { LeaveType } from '@/models/leave';
 import { formatDateLocal } from '@/utils/dateUtils';
-import { getPickableDateRange, getCurrentCycle, getCycleForDate, getCycleLabel, getRemainingQuota } from '@/utils/cycleUtils';
-import { useAppData } from '@/app/AppDataContext';
-import { REGULAR_DAYS_OFF_PER_CYCLE } from '@/models/validation';
-import { computeBalance } from '@/services/balanceService';
+import { getPickableDateRange, getCurrentCycle, getCycleForDate, getCycleLabel } from '@/utils/cycleUtils';
+import { VACATION_ACCRUAL_PER_MONTH } from '@/models/validation';
 import VacationDateRangeSelector from '@/features/leave/components/VacationDateRangeSelector';
 
 interface RequestFormModalProps { open: boolean; onClose: () => void; }
@@ -29,6 +27,7 @@ interface RequestFormModalProps { open: boolean; onClose: () => void; }
 type RequestableType = Extract<LeaveType, 'regular_day_off' | 'paid_vacation' | 'sick_day'>;
 
 const FORM_ID = 'request-time-off-form';
+
 
 function getTodayStr(): string {
   return formatDateLocal(new Date());
@@ -40,8 +39,7 @@ function getYearEnd(): string {
 
 export default function RequestFormModal({ open, onClose }: RequestFormModalProps) {
   const { user } = useAuth();
-  const { submitRequest, submitRangeRequest, requests } = useLeave();
-  const { users } = useAppData();
+  const { submitRequest, submitRangeRequest, getMonthAllowance, getVacationAvailable } = useLeave();
 
   const [leaveType, setLeaveType] = useState<RequestableType>('regular_day_off');
   const [date, setDate] = useState('');
@@ -66,49 +64,35 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
     [leaveType, date],
   );
 
-  const monthlyAllowance = useMemo(() => {
-    const override = users.find((u) => u.id === userId)?.regularOverride;
-    return override != null && override >= 0 ? override : REGULAR_DAYS_OFF_PER_CYCLE;
-  }, [users, userId]);
-
-  const inMonth = (d: string) => d >= currentCycle.start && d <= currentCycle.end;
-
-  // Days already used this month, counted exactly like the dashboard balance
-  // (approved days off plus the automatic first-Sunday day off).
-  const approvedInCurrentCycle = useMemo(
-    () => computeBalance(
-      userId, currentCycle.start, currentCycle.end,
-      requests.filter((r) => r.status === 'approved'), 0, monthlyAllowance,
-    ).regularDaysUsed,
-    [requests, userId, currentCycle, monthlyAllowance],
-  );
+  // Each calendar month has its own allowance (first Sunday included); the
+  // same numbers the server enforces.
+  const month = getMonthAllowance(userId, date && leaveType === 'regular_day_off' ? date : currentCycle.start);
+  const monthlyAllowance = month.allowance;
   const firstSundayLabel = new Date(currentCycle.firstSundayOfMonth + 'T00:00:00')
     .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const pendingInCurrentCycle = month.pending;
+  const effectiveRemaining = month.remaining;
 
-  const remainingQuota = getRemainingQuota(monthlyAllowance, approvedInCurrentCycle);
-
-  const pendingInCurrentCycle = useMemo(
-    () => requests.filter((r) => r.userId === userId && r.status === 'pending'
-      && r.leaveType === 'regular_day_off' && inMonth(r.date)).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [requests, userId, currentCycle],
-  );
-
-  const effectiveRemaining = remainingQuota - pendingInCurrentCycle;
+  // Vacation: what's left now plus what accrues by the month the vacation ends.
+  const vacation = getVacationAvailable(userId, vacationEndDate || vacationStartDate || getTodayStr());
+  const vacationDays = vacationStartDate && vacationEndDate && vacationEndDate >= vacationStartDate
+    ? Math.round((Date.parse(vacationEndDate) - Date.parse(vacationStartDate)) / 86400000) + 1
+    : 0;
 
   const { minDate, maxDate, dateLabel } = useMemo(() => {
-    if (leaveType === 'sick_day' || leaveType === 'paid_vacation') {
+    if (leaveType === 'sick_day') {
       return { minDate: getTodayStr(), maxDate: getYearEnd(), dateLabel: 'today through the end of the year' };
     }
-    const thisMonth = getCycleLabel(cycleRange.cycle);
-    const nextMonth = getCycleLabel(getCycleForDate(cycleRange.max) ?? cycleRange.cycle);
-    return { minDate: cycleRange.min, maxDate: cycleRange.max, dateLabel: `${thisMonth} or ${nextMonth}` };
+    const lastMonth = getCycleLabel(getCycleForDate(cycleRange.max) ?? cycleRange.cycle);
+    return { minDate: cycleRange.min, maxDate: cycleRange.max, dateLabel: `any month through ${lastMonth}` };
   }, [leaveType, cycleRange]);
 
   if (!user) return null;
 
   const isRegularLocked = leaveType === 'regular_day_off' && cycleRange.locked;
-  const isOverQuota = leaveType === 'regular_day_off' && effectiveRemaining <= 0;
+  // Only block once a date (and so a month) is picked; another month may have days left.
+  const isOverQuota = leaveType === 'regular_day_off' && !!date && effectiveRemaining <= 0;
+  const isOverVacation = leaveType === 'paid_vacation' && vacationDays > vacation.available;
   const isDateInputDisabled = staffingConstraints.isRoleTooSmall;
 
   const chooseType = (value: string) => {
@@ -166,6 +150,10 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
         return;
       }
     }
+    if (isOverVacation) {
+      setError(`This vacation is ${vacationDays} days but you’ll have ${Math.max(vacation.available, 0)} available by ${vacation.untilLabel}. Pick fewer days or later dates.`);
+      return;
+    }
 
     const attachmentUrl = attachment && leaveType === 'sick_day' ? `[File: ${attachment.name}]` : null;
     const fullNote = [note, attachmentUrl ? `Attachment: ${attachmentUrl}` : ''].filter(Boolean).join(' | ');
@@ -211,7 +199,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
     { value: 'sick_day', title: 'Sick day', description: 'Medical certificate optional' },
   ];
 
-  const submitDisabled = submitting || isRegularLocked || isOverQuota;
+  const submitDisabled = submitting || isRegularLocked || isOverQuota || isOverVacation;
 
   return (
     <ResponsiveDialog
@@ -310,7 +298,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
                     You’ve used all your days off in {getCycleLabel(currentCycle)}. Pick a day in another month or try paid vacation.
                   </FieldDescription>
                 ) : (
-                  <FieldDescription>Any day in {dateLabel}.</FieldDescription>
+                  <FieldDescription>Pick a day in {dateLabel}. Each month has its own {monthlyAllowance} days.</FieldDescription>
                 )}
               </Field>
             </>
@@ -328,6 +316,21 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
               minDate={minDate}
               maxDate={maxDate}
             />
+          )}
+
+          {leaveType === 'paid_vacation' && (
+            <div className="rounded-lg bg-muted px-3 py-2.5 text-sm">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="font-medium">Available by {vacation.untilLabel}</span>
+                <span className={cn('font-medium tabular-nums', isOverVacation || vacation.available <= 0 ? 'text-destructive' : 'text-primary')}>
+                  {Math.max(vacation.available, 0)} days
+                </span>
+              </div>
+              <p className="mt-1 text-muted-foreground tabular-nums">
+                {Math.max(vacation.now, 0)} left now + {vacation.accruing} accruing by then ({VACATION_ACCRUAL_PER_MONTH} a month)
+                {vacationDays > 0 && ` · this request uses ${vacationDays}`}
+              </p>
+            </div>
           )}
 
           {leaveType === 'sick_day' && (

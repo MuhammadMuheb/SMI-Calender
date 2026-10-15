@@ -5,8 +5,8 @@
  * - A cycle is one calendar month: the 1st through the last day of the month.
  * - Each month has the standard regular day-off allowance (REGULAR_DAYS_OFF_PER_CYCLE,
  *   or a per-person override set by an administrator).
- * - Staff can request days off for any remaining day of the current month and
- *   for any day of the next month, so they can plan ahead near month end.
+ * - Staff can request days off in any month up to a year ahead; each month has
+ *   its own allowance.
  * - Sick days & vacation are not tied to cycles (today → Dec 31).
  */
 
@@ -108,13 +108,17 @@ interface PickableRange {
   lockedReason?: string;
 }
 
+/** How many months ahead (after the current one) leave can be requested. */
+export const MONTHS_AHEAD = 12;
+
 /**
- * Dates a person can pick for a regular day off: from today through the end
- * of next month, so the whole of the current month and the next one can be planned.
+ * Dates a person can pick for leave: from today through the end of the month
+ * MONTHS_AHEAD months from now. Each month is checked against its own allowance.
  */
 export function getPickableDateRange(): PickableRange {
-  const current = getCurrentCycle();
-  return { min: todayStr(), max: getNextCycle().end, cycle: current, locked: false };
+  const now = new Date();
+  const last = getCycleForMonth(now.getFullYear(), now.getMonth() + MONTHS_AHEAD);
+  return { min: todayStr(), max: last.end, cycle: getCurrentCycle(), locked: false };
 }
 
 /** Remaining allowance given a month's allowance and the days already counted against it. */

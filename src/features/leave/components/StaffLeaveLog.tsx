@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertTriangle, CalendarOff, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -56,7 +56,7 @@ function detailFor(r: LeaveRequest): string {
 
 /** Month-by-month log of the days a person has off (and, optionally, every request). */
 export default function StaffLeaveLog({ userId, initialMonth }: StaffLeaveLogProps) {
-  const { requests } = useLeave();
+  const { requests, getMonthAllowance } = useLeave();
   const [view, setView] = useState<View>('off');
   const [month, setMonth] = useState(() => {
     const d = initialMonth ? new Date(initialMonth + 'T00:00:00') : new Date();
@@ -133,6 +133,18 @@ export default function StaffLeaveLog({ userId, initialMonth }: StaffLeaveLogPro
           <ChevronRight />
         </Button>
       </div>
+
+      {(() => {
+        const month = getMonthAllowance(userId, cycle.start);
+        if (month.used <= month.allowance) return null;
+        return (
+          <p className="flex items-start gap-2 rounded-lg bg-warning/10 px-3 py-2 text-sm text-warning">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            {month.used} counted days off this month, {month.used - month.allowance} over the {month.allowance}-day limit
+            (first Sunday included). New requests are blocked; remove a day to fix it.
+          </p>
+        );
+      })()}
 
       {entries.length === 0 ? (
         <EmptyState icon={CalendarOff} title="Nothing this month" description="No days off or requests in this month." className="py-6" />

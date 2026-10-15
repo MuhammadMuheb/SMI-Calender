@@ -5,18 +5,19 @@ import type { LeaveRequest, LeaveType, LeaveStatus } from '@/models/leave';
 import { LEAVE_TYPE_LABELS } from '@/models/leave';
 import type { LeaveBalance } from '@/models/balance';
 import type { UserRef } from '@/models/user';
-import { computeBalance } from '@/services/balanceService';
+import { computeBalance, countedMonthDates, COUNTED_LEAVE_TYPES } from '@/services/balanceService';
 import {
   insertLeaveRequest, updateLeaveRequestDb, insertAuditLog, insertNotification,
   listenLeaveRequests, cancelLeaveRequest, approveLeaveRequest, rejectLeaveRequest,
 } from '@/services/firestore/core';
 import { sendPushToUser } from '@/features/notifications/pushManager';
 import {
-  VACATION_ACCRUAL_PER_MONTH,
+  VACATION_ACCRUAL_PER_MONTH, REGULAR_DAYS_OFF_PER_CYCLE,
   isFirstSundayOfMonth, normalizeDateStr,
 } from '@/models/validation';
 import { formatDateLocal } from '@/utils/dateUtils';
-import { getCycleForDate as getNewCycle } from '@/utils/cycleUtils';
+import { getCycleForDate as getNewCycle, getCycleLabel } from '@/utils/cycleUtils';
+import { serverApi } from '@/lib/serverApi';
 import { useAppData } from '@/app/AppDataContext';
 import { useNotifications } from '@/features/notifications/NotificationContext';
 import { validateLeaveRequests } from '@/utils/dataValidation';
@@ -42,6 +43,36 @@ interface LeaveContextValue {
   getUserRequests: (userId: string) => LeaveRequest[];
   getPendingRequests: () => LeaveRequest[];
   getRequestsForDate: (date: string) => LeaveRequest[];
+  /** Allowance for the calendar month containing `date` (first Sunday included in `used`). */
+  getMonthAllowance: (userId: string, date: string) => MonthAllowance;
+  /** Vacation days available for leave ending in the month of `date` (adds the accrual still to come). */
+  getVacationAvailable: (userId: string, date: string) => VacationAvailability;
+  /** Super admin: give every active person the day off (a special day). */
+  assignDayOffToEveryone: (date: string, name: string, consumesBalance: boolean) => Promise<AssignAllResult>;
+}
+
+export interface MonthAllowance {
+  monthLabel: string;
+  allowance: number;
+  /** Approved days off this month, including the first Sunday. */
+  used: number;
+  pending: number;
+  /** Days still free after approved and pending requests. */
+  remaining: number;
+}
+
+export interface VacationAvailability {
+  /** Vacation days left today, after pending vacation requests. */
+  now: number;
+  /** Days that accrue between this month and the target month. */
+  accruing: number;
+  available: number;
+  untilLabel: string;
+}
+
+export interface AssignAllResult {
+  assigned: string[];
+  skipped: { name: string; reason: string }[];
 }
 
 const LeaveContext = createContext<LeaveContextValue | null>(null);
@@ -137,6 +168,33 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     return saved;
   }, []);
 
+  const getMonthAllowance = useCallback((userId: string, date: string): MonthAllowance => {
+    const month = getCycleForDate(date);
+    const cycle = getNewCycle(date);
+    const allowance = getRegularOverride(userId, users) ?? REGULAR_DAYS_OFF_PER_CYCLE;
+    const used = countedMonthDates(userId, month.start, month.end, requests, false).size;
+    const withPending = countedMonthDates(userId, month.start, month.end, requests, true).size;
+    return {
+      monthLabel: cycle ? getCycleLabel(cycle) : month.start.slice(0, 7),
+      allowance, used, pending: withPending - used,
+      remaining: Math.max(allowance - withPending, 0),
+    };
+  }, [requests, users]);
+
+  const getVacationAvailable = useCallback((userId: string, date: string): VacationAvailability => {
+    const today = new Date();
+    const target = new Date(date + 'T00:00:00');
+    const monthsAhead = Math.max(0,
+      (target.getFullYear() - today.getFullYear()) * 12 + (target.getMonth() - today.getMonth()));
+    const accrued = getVacationAccrual(userId, users);
+    const used = requests.filter((r) => r.userId === userId && r.leaveType === 'paid_vacation'
+      && (r.status === 'approved' || r.status === 'pending')).length;
+    const now = accrued - used;
+    const accruing = monthsAhead * VACATION_ACCRUAL_PER_MONTH;
+    const cycle = getNewCycle(date);
+    return { now, accruing, available: now + accruing, untilLabel: cycle ? getCycleLabel(cycle) : date.slice(0, 7) };
+  }, [requests, users]);
+
   const submitRequest = useCallback(async (
     userId: string, userRef: UserRef, date: string, leaveType: LeaveType, note: string = '', autoApprove: boolean = false,
   ): Promise<string | null> => {
@@ -159,6 +217,17 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     const isExceedingQuota =
       (leaveType === 'regular_day_off' && balance.regularDaysRemaining < 0) ||
       (leaveType === 'paid_vacation' && balance.vacationDaysRemaining < 0);
+
+    if (COUNTED_LEAVE_TYPES.includes(leaveType)) {
+      const month = getMonthAllowance(userId, normalizedDate);
+      if (month.remaining <= 0) {
+        return `No days off left in ${month.monthLabel}: ${month.used + month.pending} of ${month.allowance} are used or requested, including the first Sunday.`;
+      }
+    }
+    if (leaveType === 'paid_vacation') {
+      const vac = getVacationAvailable(userId, normalizedDate);
+      if (vac.available < 1) return `No vacation days available by ${vac.untilLabel}.`;
+    }
 
     const staffingErr = leaveType === 'sick_day' ? null : checkStaffingBeforeSubmit(normalizedDate, userId, requests, staffingRules, roleAssignments, jobRoles);
     if (staffingErr) return staffingErr;
@@ -187,7 +256,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       await notifyAdminsOfQuotaExceeded(saved, balance, leaveType, users);
     }
     return null;
-  }, [requests, approvedRequests, users, staffingRules, roleAssignments, jobRoles, saveRequest]);
+  }, [requests, approvedRequests, users, staffingRules, roleAssignments, jobRoles, saveRequest, getMonthAllowance, getVacationAvailable]);
 
   const submitRangeRequest = useCallback(async (
     userRef: UserRef, startDate: string, endDate: string, leaveType: LeaveType, note: string = '',
@@ -206,6 +275,13 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     );
     const clash = dates.find((d) => taken.has(d));
     if (clash) return `You already have a request on ${shortDate(clash)}`;
+
+    if (leaveType === 'paid_vacation') {
+      const vac = getVacationAvailable(userRef.id, end);
+      if (dates.length > vac.available) {
+        return `This vacation is ${dates.length} days but you'll have ${Math.max(vac.available, 0)} available by ${vac.untilLabel} (${Math.max(vac.now, 0)} now + ${vac.accruing} accruing). Pick fewer days or later dates.`;
+      }
+    }
 
     for (const d of dates) {
       const staffingErr = leaveType === 'sick_day' ? null : checkStaffingBeforeSubmit(d, userRef.id, requests, staffingRules, roleAssignments, jobRoles);
@@ -242,7 +318,7 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       notifyManagersOfDeduction(newlyApproved[newlyApproved.length - 1], [...approvedRequests, ...newlyApproved], users);
     }
     return null;
-  }, [requests, approvedRequests, users, staffingRules, roleAssignments, jobRoles, saveRequest]);
+  }, [requests, approvedRequests, users, staffingRules, roleAssignments, jobRoles, saveRequest, getVacationAvailable]);
 
   const cancelRequest = useCallback(async (requestId: string): Promise<string | null> => {
     markEntityAsRead(requestId);
@@ -335,6 +411,14 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   ): Promise<string | null> => {
     const normalizedDate = normalizeDateStr(date);
     const adminNote = `Directly assigned by ${adminName} (admin bypass)`;
+    if (COUNTED_LEAVE_TYPES.includes(leaveType)) {
+      const month = getMonthAllowance(targetUserId, normalizedDate);
+      const alreadyCounted = requests.some((r) => r.userId === targetUserId && r.date === normalizedDate
+        && r.status === 'approved' && COUNTED_LEAVE_TYPES.includes(r.leaveType));
+      if (!alreadyCounted && month.used >= month.allowance) {
+        return `${targetUserName} already has ${month.used} of ${month.allowance} days off in ${month.monthLabel} (including the first Sunday).`;
+      }
+    }
     try {
       const existing = requests.filter(
         (r) => r.userId === targetUserId && r.date === normalizedDate && r.status !== 'cancelled',
@@ -363,9 +447,13 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
       return null;
     } catch (err) {
       console.error('Direct assignment failed:', err);
-      return 'Could not assign leave — please try again';
+      return err instanceof Error && err.message ? err.message : 'Could not assign leave — please try again';
     }
-  }, [requests, approvedRequests, users, saveRequest]);
+  }, [requests, approvedRequests, users, saveRequest, getMonthAllowance]);
+
+  const assignDayOffToEveryone = useCallback(async (date: string, name: string, consumesBalance: boolean) => {
+    return serverApi<AssignAllResult>('leave', { action: 'assign-all', data: { date: normalizeDateStr(date), name, consumesBalance } });
+  }, []);
 
   // Deleted/inactive users' leave must not affect anyone's balance.
   const activeApproved = useMemo(() => {
@@ -403,9 +491,10 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   const value = useMemo(() => ({
     requests, loading, error, submitRequest, submitRangeRequest, cancelRequest, approve, reject,
     override: overrideReq, directAssign, getBalance, getCycleBalance, getUserRequests,
-    getPendingRequests, getRequestsForDate,
+    getPendingRequests, getRequestsForDate, getMonthAllowance, getVacationAvailable, assignDayOffToEveryone,
   }), [requests, loading, error, submitRequest, submitRangeRequest, cancelRequest, approve, reject,
-    overrideReq, directAssign, getBalance, getCycleBalance, getUserRequests, getPendingRequests, getRequestsForDate]);
+    overrideReq, directAssign, getBalance, getCycleBalance, getUserRequests, getPendingRequests, getRequestsForDate,
+    getMonthAllowance, getVacationAvailable, assignDayOffToEveryone]);
 
   return <LeaveContext.Provider value={value}>{children}</LeaveContext.Provider>;
 }
