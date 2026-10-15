@@ -100,3 +100,27 @@ export function createBalanceAdjustment(
     createdAt: new Date().toISOString(),
   };
 }
+
+/** Leave types that use the monthly regular day-off allowance. */
+export const COUNTED_LEAVE_TYPES = ['regular_day_off', 'auto_assigned', 'auto_sunday'];
+
+/**
+ * Dates in a calendar month that count towards someone's allowance: the first
+ * Sunday (always off) plus their counted leave. A set, so the first Sunday or
+ * a duplicate is never counted twice. Mirrors server/leave.cjs.
+ */
+export function countedMonthDates(
+  userId: string,
+  monthStart: string,
+  monthEnd: string,
+  requests: LeaveRequest[],
+  includePending: boolean,
+): Set<string> {
+  const start = new Date(monthStart + 'T00:00:00');
+  const dates = new Set<string>([getFirstSundayOfMonth(start.getFullYear(), start.getMonth())]);
+  for (const r of requests) {
+    if (r.userId !== userId || r.date < monthStart || r.date > monthEnd || !COUNTED_LEAVE_TYPES.includes(r.leaveType)) continue;
+    if (r.status === 'approved' || (includePending && r.status === 'pending')) dates.add(r.date);
+  }
+  return dates;
+}
