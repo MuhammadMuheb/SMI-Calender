@@ -2,7 +2,7 @@ import { insertNotification } from '@/services/firestore/core';
 import { TranslatedText } from '@/i18n/LanguageContext';
 import { useState, useEffect, useMemo } from 'react';
 import { collection, getDocs, query, where, limit, addDoc, updateDoc, doc } from 'firebase/firestore';
-import { House, LogIn, LogOut, MapPin, MapPinOff } from 'lucide-react';
+import { House, LogIn, LogOut, MapPin, MapPinOff, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
 import { useGeolocation, type Location } from '@/features/attendance/hooks/useGeolocation';
@@ -332,7 +332,10 @@ export default function CheckInButton({ userId, userName, userJobRoles }: CheckI
         const acc = accuracy != null ? ` · ±${Math.round(accuracy)} m` : '';
         if (selectedLocation) return `Location on${acc}. You’re at ${selectedLocation.name || 'a check-in location'}.`;
         if (nearestLocation && distanceToNearest != null) {
-          return `Location on${acc}. You’re ${formatDistance(distanceToNearest)} from ${nearestLocation.name || 'the nearest location'}. Move closer to check in.`;
+          const weakFix = accuracy != null && accuracy > 50
+            ? ' Your phone’s location is imprecise: move near a window or turn on Wi-Fi, then refresh.'
+            : ' Move closer, then refresh.';
+          return `Location on${acc}. You’re ${formatDistance(distanceToNearest)} from ${nearestLocation.name || 'the nearest location'}.${weakFix}`;
         }
         const roleText = jobRoles.length > 0 ? ` (${jobRoles.join(', ')})` : '';
         return `Location on${acc}. No check-in location allows your job role${roleText}. Ask an admin to add it to a location.`;
@@ -347,6 +350,8 @@ export default function CheckInButton({ userId, userName, userJobRoles }: CheckI
 
   const LocationIcon = locationStatus === 'on' ? MapPin : MapPinOff;
   const showEnableLocation = locationStatus === 'off' || locationStatus === 'blocked' || locationStatus === 'error';
+  // Located but not inside any allowed location yet: let them ask for a fresh fix.
+  const showRefresh = locationStatus === 'on' && !selectedLocation && !!nearestLocation;
 
   return (
     <Card>
@@ -414,6 +419,18 @@ export default function CheckInButton({ userId, userName, userJobRoles }: CheckI
               >
                 <MapPin />
                 {locationStatus === 'off' ? 'Enable location' : 'Try again'}
+              </Button>
+            )}
+            {showRefresh && (
+              <Button
+                size="lg"
+                variant="outline"
+                className="h-10 w-full sm:w-auto"
+                onClick={requestPosition}
+                disabled={geoLoading}
+              >
+                {geoLoading ? <Spinner /> : <RefreshCw />}
+                {geoLoading ? 'Refreshing…' : 'Refresh location'}
               </Button>
             )}
             {canWfh && (

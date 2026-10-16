@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { onSnapshot, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getDistanceMeters } from '../distance';
+import { getDistanceMeters, isWithinGeofence } from '../distance';
 
 export interface Location {
   id: string;
@@ -40,8 +40,9 @@ export function useGeolocation(userJobRoles: string[], autoWatch = true) {
   const locationsRef = useRef<Location[]>([]);
   // Last known position, so proximity can be re-checked when locations (or the
   // person's job roles) load after the GPS fix.
-  const lastPosRef = useRef<{ lat: number; lng: number } | null>(null);
-  const checkProximityRef = useRef<(lat: number, lng: number) => void>(() => {});
+  const lastPosRef = useRef<{ lat: number; lng: number; accuracy: number | null } | null>(null);
+  const checkProximityRef = useRef<(lat: number, lng: number, accuracy: number | null) => void>(() => {});
+  const hasFixRef = useRef(false);
 
   useEffect(() => {
     return onSnapshot(collection(db, 'locations'), snapshot => {
@@ -52,12 +53,14 @@ export function useGeolocation(userJobRoles: string[], autoWatch = true) {
       });
       locationsRef.current = locations;
       setState(prev => ({ ...prev, allLocations: locations }));
-      if (lastPosRef.current) checkProximityRef.current(lastPosRef.current.lat, lastPosRef.current.lng);
+      const last = lastPosRef.current;
+      if (last) checkProximityRef.current(last.lat, last.lng, last.accuracy);
     }, () => { locationsRef.current = []; setState(prev => ({ ...prev, allLocations: [], nearbyLocations: [], error: 'Unable to load check-in locations' })); });
   }, []);
 
-  const checkProximity = useCallback((lat: number, lng: number) => {
-    lastPosRef.current = { lat, lng };
+  const checkProximity = useCallback((lat: number, lng: number, accuracy: number | null) => {
+    lastPosRef.current = { lat, lng, accuracy };
+    hasFixRef.current = true;
     const locations = locationsRef.current;
     // Locations list allowed job role names. An empty list means everyone; a
     // person with no job role assigned can use any active location.
@@ -71,10 +74,12 @@ export function useGeolocation(userJobRoles: string[], autoWatch = true) {
       distance: getDistanceMeters(lat, lng, loc.latitude, loc.longitude),
     }));
     withDistances.sort((a, b) => a.distance - b.distance);
-    const nearby = withDistances.filter((wd) => wd.distance <= wd.location.radius_meters).map((wd) => wd.location);
+    const nearby = withDistances
+      .filter((wd) => isWithinGeofence(wd.distance, wd.location.radius_meters, accuracy))
+      .map((wd) => wd.location);
     const nearest = withDistances.length > 0 ? withDistances[0] : null;
     setState((prev) => ({
-      ...prev, latitude: lat, longitude: lng, loading: false,
+      ...prev, latitude: lat, longitude: lng, accuracy, loading: false, error: null,
       nearbyLocations: nearby, nearestLocation: nearest ? nearest.location : null,
       distanceToNearest: nearest ? Math.round(nearest.distance) : null,
     }));
@@ -84,27 +89,38 @@ export function useGeolocation(userJobRoles: string[], autoWatch = true) {
   // when job roles change (they load separately from the profile).
   useEffect(() => {
     checkProximityRef.current = checkProximity;
-    if (lastPosRef.current) checkProximity(lastPosRef.current.lat, lastPosRef.current.lng);
+    const last = lastPosRef.current;
+    if (last) checkProximity(last.lat, last.lng, last.accuracy);
   }, [checkProximity]);
 
-  // One-shot position read; only sets state from the geolocation callbacks.
-  const readPosition = useCallback(() => {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        setState((prev) => ({ ...prev, accuracy }));
-        checkProximity(latitude, longitude);
-      },
-      (err) => {
-        let errorMsg = 'Unable to get location';
-        if (err.code === 1) errorMsg = 'Location access denied. Please enable GPS in your settings.';
-        if (err.code === 2) errorMsg = 'Location unavailable. Please try again.';
-        if (err.code === 3) errorMsg = 'Location request timed out. Please try again.';
-        setState((prev) => ({ ...prev, error: errorMsg, loading: false }));
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
-    );
+  const onPosition = useCallback((position: GeolocationPosition) => {
+    const { latitude, longitude, accuracy } = position.coords;
+    checkProximity(latitude, longitude, Number.isFinite(accuracy) ? accuracy : null);
   }, [checkProximity]);
+
+  /**
+   * One-shot position read. High accuracy (GPS) first; indoors that often times
+   * out or is unavailable, so fall back to a normal (Wi-Fi/cell) fix instead of
+   * leaving the person without any location.
+   */
+  const readPosition = useCallback((fresh = false) => {
+    const fail = (err: GeolocationPositionError) => {
+      let errorMsg = 'Unable to get location';
+      if (err.code === 1) errorMsg = 'Location access denied. Please enable GPS in your settings.';
+      if (err.code === 2) errorMsg = 'Location unavailable. Move near a window or turn on Wi-Fi, then try again.';
+      if (err.code === 3) errorMsg = 'Location request timed out. Move near a window or turn on Wi-Fi, then try again.';
+      setState((prev) => ({ ...prev, error: hasFixRef.current ? prev.error : errorMsg, loading: false }));
+    };
+    navigator.geolocation.getCurrentPosition(
+      onPosition,
+      (err) => {
+        if (err.code === 1) { fail(err); return; }
+        navigator.geolocation.getCurrentPosition(onPosition, fail,
+          { enableHighAccuracy: false, timeout: 20000, maximumAge: fresh ? 0 : 120000 });
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: fresh ? 0 : 30000 },
+    );
+  }, [onPosition]);
 
   const requestPosition = useCallback(() => {
     if (!navigator.geolocation) {
@@ -112,24 +128,21 @@ export function useGeolocation(userJobRoles: string[], autoWatch = true) {
       return;
     }
     setState((prev) => ({ ...prev, loading: true, error: null }));
-    readPosition();
+    readPosition(true);
   }, [readPosition]);
 
   useEffect(() => {
     if (!autoWatch || !navigator.geolocation) return;
     // Initial state is already `loading`, so read directly without a synchronous setState.
     readPosition();
+    // Keep refining: indoor fixes usually improve over the first minute.
     watchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        setState((prev) => ({ ...prev, accuracy }));
-        checkProximity(latitude, longitude);
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 30000, maximumAge: 60000 }
+      onPosition,
+      (err) => { if (err.code === 1) setState((prev) => ({ ...prev, error: 'Location access denied. Please enable GPS in your settings.', loading: false })); },
+      { enableHighAccuracy: true, timeout: 30000, maximumAge: 15000 }
     );
     return () => { if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current); };
-  }, [autoWatch, readPosition, checkProximity]);
+  }, [autoWatch, readPosition, onPosition]);
 
   return { ...state, requestPosition };
 }

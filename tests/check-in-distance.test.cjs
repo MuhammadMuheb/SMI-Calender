@@ -23,3 +23,18 @@ test('100 m geofence accepts inside positions and rejects outside positions in e
     }
   }
 });
+
+test('geofence credits GPS accuracy up to 100 m, so poor indoor fixes still count', async () => {
+  const { isWithinGeofence, MAX_ACCURACY_ALLOWANCE_M } = await import('../src/features/attendance/distance.ts');
+  assert.equal(MAX_ACCURACY_ALLOWANCE_M, 100);
+  // Precise fix: plain radius.
+  assert.equal(isWithinGeofence(99, 100, 0), true);
+  assert.equal(isWithinGeofence(101, 100, null), false);
+  // Inside the building but the phone reads 140 m with ±60 m accuracy.
+  assert.equal(isWithinGeofence(140, 100, 60), true);
+  // Accuracy credit is capped: ±500 m doesn't let someone 250 m away in.
+  assert.equal(isWithinGeofence(201, 100, 500), false);
+  assert.equal(isWithinGeofence(200, 100, 500), true);
+  // Nonsense accuracy values are ignored.
+  assert.equal(isWithinGeofence(101, 100, -50), false);
+});
