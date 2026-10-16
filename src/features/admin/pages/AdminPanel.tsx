@@ -1,5 +1,6 @@
 import { TranslatedText } from '@/i18n/LanguageContext';
-import { useState, lazy, Suspense, type ReactNode } from 'react';
+import { useState, Suspense, type ReactNode } from 'react';
+import { lazyWithReload } from '@/lib/lazyWithReload';
 import type { LucideIcon } from 'lucide-react';
 import {
   Bell, ChevronRight, Coffee, FileUp, History, MapPin, Palmtree, ShieldCheck, Sparkles, Star, Tags,
@@ -7,18 +8,18 @@ import {
 import { useAuth } from '@/features/auth/AuthContext';
 import { ROLES } from '@/config/roles';
 import { PageHeader } from '@/components/shared/PageHeader';
-const RoleManagement = lazy(() => import('@/features/admin/pages/RoleManagement'));
-const StaffingRulesPage = lazy(() => import('@/features/admin/pages/StaffingRulesPage'));
-const SpecialDayEditor = lazy(() => import('@/features/admin/pages/SpecialDayEditor'));
-const VacationAdjustment = lazy(() => import('@/features/admin/pages/VacationAdjustment'));
-const NotificationSettingsPage = lazy(() => import('@/features/admin/pages/NotificationSettingsPage'));
-const AutoAssignment = lazy(() => import('@/features/admin/pages/AutoAssignment'));
-const AuditLogPage = lazy(() => import('@/features/admin/pages/AuditLogPage'));
-const CoffeeLeaderboard = lazy(() => import('@/features/admin/pages/CoffeeLeaderboard'));
-const LocationManager = lazy(() => import('@/features/attendance/components/LocationManager'));
-const ScheduleImport = lazy(() => import('@/features/admin/pages/ScheduleImport'));
+const RoleManagement = lazyWithReload(() => import('@/features/admin/pages/RoleManagement'));
+const StaffingRulesPage = lazyWithReload(() => import('@/features/admin/pages/StaffingRulesPage'));
+const SpecialDayEditor = lazyWithReload(() => import('@/features/admin/pages/SpecialDayEditor'));
+const VacationAdjustment = lazyWithReload(() => import('@/features/admin/pages/VacationAdjustment'));
+const NotificationSettingsPage = lazyWithReload(() => import('@/features/admin/pages/NotificationSettingsPage'));
+const AutoAssignment = lazyWithReload(() => import('@/features/admin/pages/AutoAssignment'));
+const AuditLogPage = lazyWithReload(() => import('@/features/admin/pages/AuditLogPage'));
+const CoffeeLeaderboard = lazyWithReload(() => import('@/features/admin/pages/CoffeeLeaderboard'));
+const LocationManager = lazyWithReload(() => import('@/features/attendance/components/LocationManager'));
+const ScheduleImport = lazyWithReload(() => import('@/features/admin/pages/ScheduleImport'));
 
-const OverridePage = lazy(() => import('./OverridePage'));
+const OverridePage = lazyWithReload(() => import('./OverridePage'));
 
 type AdminView = 'override' | 'menu' | 'roles' | 'staffing' | 'special' | 'vacation' | 'notifications' | 'auto' | 'audit' | 'coffee' | 'locations' | 'schedules';
 

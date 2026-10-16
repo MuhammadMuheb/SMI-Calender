@@ -1,42 +1,68 @@
-const CACHE_VERSION = 'v2';
+// Bump to drop every older cache on the next visit.
+const CACHE_VERSION = 'smi-v3';
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.map((key) => caches.delete(key)))
-    ).then(() => self.clients.claim())
+    caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
   );
 });
 
+function isCacheableAsset(response) {
+  // Never store an HTML page under a script/style URL (that's what a missing
+  // file used to return, and it broke the app until the cache was cleared).
+  const type = response.headers.get('Content-Type') || '';
+  return response.ok && response.type === 'basic' && !type.includes('text/html');
+}
+
 self.addEventListener('fetch', (event) => {
-  // Skip manifest.json - let browser handle it
-  if (event.request.url.includes('manifest.json')) {
+  const { request } = event;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  // Only handle this app's own files; Firebase, APIs and push go straight to the network.
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/') || url.pathname === '/manifest.json') return;
+
+  // Hashed build files never change: cache first.
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(request).then((cached) => cached || fetch(request).then((response) => {
+        if (isCacheableAsset(response)) {
+          const copy = response.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy)).catch(() => {});
+        }
+        return response;
+      }))
+    );
     return;
   }
 
-  // Network first, with fallback to cache (only GET requests)
-  event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        // Only cache GET requests with successful responses
-        if (response && response.status === 200 && event.request.method === 'GET') {
-          const responseClone = response.clone();
-          caches.open(CACHE_VERSION).then(cache => {
-            cache.put(event.request, responseClone).catch(() => {
-              // Silently ignore cache errors
-            });
-          });
+  // Pages: always the latest from the network; the last copy only when offline.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put('/', copy)).catch(() => {});
         }
         return response;
-      })
-      .catch(() => {
-        // Fallback to cache on network error
-        return caches.match(event.request) || new Response('Offline', { status: 503 });
-      })
+      }).catch(() => caches.match('/').then((cached) => cached || new Response('You are offline.', { status: 503, headers: { 'Content-Type': 'text/plain' } })))
+    );
+    return;
+  }
+
+  // Everything else (icons etc.): network, falling back to cache when offline.
+  event.respondWith(
+    fetch(request).then((response) => {
+      if (isCacheableAsset(response)) {
+        const copy = response.clone();
+        caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy)).catch(() => {});
+      }
+      return response;
+    }).catch(() => caches.match(request).then((cached) => cached || new Response('', { status: 504 })))
   );
 });
 
@@ -45,8 +71,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'SMI Calendar', {
       body: data.body || '',
-      icon: '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
       tag: data.tag || 'smi',
       requireInteraction: true,
       actions: [
