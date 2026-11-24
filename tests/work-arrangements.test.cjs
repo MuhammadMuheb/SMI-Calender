@@ -69,3 +69,15 @@ test('calendar projection excludes reasons and precise locations', () => {
   const result = d.publicArrangement(arrangement({ city: 'Private city', location: 'Secret address' }));
   for (const key of ['reason', 'location', 'city', 'country', 'decisionNote']) assert.equal(result[key], undefined);
 });
+test('remote local dates win outside shift hours and custom half-day boundaries stay contiguous', () => {
+  const remote = arrangement({ startDate: '2026-11-26', mode: 'remote', city: 'Tokyo', country: 'JP', timezone: 'Asia/Tokyo' });
+  const schedule = d.currentSchedule('a', new Date('2026-11-25T22:00:00Z'), [remote], d.DEFAULT_POLICY);
+  assert.equal(schedule.mode, 'remote'); assert.equal(schedule.date, '2026-11-26'); assert.equal(schedule.withinHours, false);
+  const expired = d.currentSchedule('a', new Date('2026-11-26T22:00:00Z'), [remote], d.DEFAULT_POLICY);
+  assert.equal(expired.mode, 'on_site');
+  const half = arrangement({ kind: 'half', portion: 'am', splitTime: '14:00' });
+  const slots = d.resolveDay('a', '2026-11-25', [half]);
+  assert.equal(slots[1].splitTime, '14:00');
+  const later = d.currentSchedule('a', new Date('2026-11-25T13:00:00Z'), [half], d.DEFAULT_POLICY);
+  assert.equal(later.mode, 'on_site'); assert.equal(later.start, '2026-11-25T13:00:00.000Z');
+});

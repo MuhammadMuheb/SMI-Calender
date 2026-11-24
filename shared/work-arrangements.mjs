@@ -144,7 +144,7 @@ export function absenceFor(userId, date, context = {}) {
 export function resolveDay(userId, date, arrangements = [], policy = DEFAULT_POLICY, context = {}) {
   const p = effectivePolicy(policy, userId);
   const absent = absenceFor(userId, date, context) || (!p.workingDays.includes(weekday(date)) ? 'Non-working day' : null);
-  return ['am', 'pm'].map(portion => {
+  const slots = ['am', 'pm'].map(portion => {
     // Explicit dated changes override their approved base schedule. Later unrelated overlaps are rejected at write time.
     const matches = arrangements.filter(a => a.userId === userId && (a.status === 'approved' || a.approvedAt && a.endedAt) && applies(a, date, portion));
     matches.sort((a, b) => Number(!!b.parentId) - Number(!!a.parentId) || (b.createdAt || '').localeCompare(a.createdAt || ''));
@@ -154,6 +154,14 @@ export function resolveDay(userId, date, arrangements = [], policy = DEFAULT_POL
       timezone: a?.timezone || p.timezone, shiftStart: a?.shiftStart || p.shiftStart, shiftEnd: a?.shiftEnd || p.shiftEnd,
       splitTime: a?.splitTime || p.splitTime, location: a?.location || '', endedAt: a?.endedAt || null };
   });
+  // A single approved half defines the boundary for the remaining default half,
+  // otherwise custom hours could make the two portions overlap or leave a gap.
+  if (!!slots[0].arrangementId !== !!slots[1].arrangementId) {
+    const approved = slots.find(s => s.arrangementId);
+    const fallback = slots.find(s => !s.arrangementId);
+    for (const key of ['timezone', 'shiftStart', 'shiftEnd', 'splitTime']) fallback[key] = approved[key];
+  }
+  return slots;
 }
 export function validateSchedule(candidate, existing, policy, context = {}) {
   const p = effectivePolicy(policy, candidate.userId);
@@ -251,10 +259,15 @@ export function currentSchedule(userId, now, arrangements, policy, context = {})
   }
   candidates.sort((a, b) => Number(!!b.arrangementId) - Number(!!a.arrangementId) || b.start.localeCompare(a.start));
   if (candidates.length) return candidates[0];
-  const local = localParts(now, p.timezone);
-  const slots = resolveDay(userId, local.date, arrangements, policy, context);
-  const slot = slots.find(s => localParts(now, s.timezone).time < s.splitTime ? s.portion === 'am' : s.portion === 'pm') || slots[0];
-  const date = localParts(now, slot.timezone).date;
+  const fallback = zones.flatMap(zone => {
+    const local = localParts(now, zone);
+    return resolveDay(userId, local.date, arrangements, policy, context)
+      .filter(s => s.timezone === zone && s.portion === (local.time < s.splitTime ? 'am' : 'pm'))
+      .map(slot => ({ slot, date: local.date }));
+  }).sort((a, b) => Number(!!b.slot.arrangementId) - Number(!!a.slot.arrangementId));
+  const baseLocal = localParts(now, p.timezone);
+  const baseSlot = resolveDay(userId, baseLocal.date, [], policy, context).find(s => s.portion === (baseLocal.time < s.splitTime ? 'am' : 'pm'));
+  const { slot, date } = fallback[0] || { slot: baseSlot, date: baseLocal.date };
   const start = atLocal(date, slot.shiftStart, slot.timezone);
   const end = atLocal(slot.shiftEnd <= slot.shiftStart ? addDays(date, 1) : date, slot.shiftEnd, slot.timezone);
   return { ...slot, date, start: start.toISOString(), end: end.toISOString(), withinHours: false };
