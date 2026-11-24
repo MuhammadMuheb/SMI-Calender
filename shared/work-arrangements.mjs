@@ -204,6 +204,7 @@ export function validateSchedule(candidate, existing, policy, context = {}) {
   }
   if (!count) fail('No working days in this date range');
   const proposed = [...existing.filter(a => a.id !== candidate.id), { ...candidate, status: 'approved' }];
+  const reserved = proposed.map(a => a.status === 'pending' ? { ...a, status: 'approved' } : a);
   const monthTotals = new Map();
   // Include the whole first/last month and complete weeks so limits cannot be bypassed by short requests.
   let from = candidate.startDate.slice(0, 7) + '-01';
@@ -213,12 +214,15 @@ export function validateSchedule(candidate, existing, policy, context = {}) {
   let office = 0, possible = 0, relevantWeek = false;
   for (let date = from; date <= through; date = addDays(date, 1)) {
     const slots = resolveDay(candidate.userId, date, proposed, policy, context);
+    const reservedSlots = resolveDay(candidate.userId, date, reserved, policy, context);
     if (slots.some(s => s.mode !== 'off')) {
       possible++;
-      if (slots.every(s => s.mode === 'on_site')) office++;
+      if (slots.every((s, i) => s.mode === 'on_site' && reservedSlots[i].mode === 'on_site')) office++;
       if (date >= candidate.startDate && date <= end && candidate.weekdays.includes(weekday(date))) relevantWeek = true;
-      for (const slot of slots) {
-        if (slot.mode === 'wfh') monthTotals.set(date.slice(0, 7), (monthTotals.get(date.slice(0, 7)) || 0) + 0.5);
+      for (const [index, slot] of slots.entries()) {
+        // Pending changes can reserve capacity but must never release existing
+        // approved WFH days/office requirements before the change is approved.
+        if (slot.mode === 'wfh' || reservedSlots[index].mode === 'wfh') monthTotals.set(date.slice(0, 7), (monthTotals.get(date.slice(0, 7)) || 0) + 0.5);
         if (applies(candidate, date, slot.portion) && slot.mode !== 'off' && slot.mode !== 'on_site' && p.mandatoryOfficeDays.includes(weekday(date))) fail('Mandatory office day: ' + date);
       }
     }

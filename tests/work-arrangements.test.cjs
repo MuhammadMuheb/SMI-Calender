@@ -81,3 +81,12 @@ test('remote local dates win outside shift hours and custom half-day boundaries 
   const later = d.currentSchedule('a', new Date('2026-11-25T13:00:00Z'), [half], d.DEFAULT_POLICY);
   assert.equal(later.mode, 'on_site'); assert.equal(later.start, '2026-11-25T13:00:00.000Z');
 });
+test('pending changes cannot free WFH allowance or serve as an approved exception parent', () => {
+  const parent = arrangement();
+  const pendingChange = { ...arrangement({ mode: 'on_site', parentId: parent.id }), id: 'change', status: 'pending', approvedAt: null };
+  const next = { ...arrangement({ startDate: '2026-11-26' }), id: 'next' };
+  assert.throws(() => d.validateSchedule(next, [parent, pendingChange], { ...d.DEFAULT_POLICY, maxWfhDaysPerMonth: 1 }), /WFH limit/);
+  assert.throws(() => d.validateSchedule(pendingChange, [{ ...parent, status: 'pending' }], d.DEFAULT_POLICY), /original approved/);
+  const pending = { ...arrangement(), status: 'pending' };
+  assert.throws(() => d.validateSchedule(next, [pending], { ...d.DEFAULT_POLICY, maxWfhDaysPerMonth: 1 }), /WFH limit/);
+});

@@ -82,7 +82,7 @@ async function mutate(db, actor, body, now = new Date()) {
       endedAt: old?.status === 'approved' && ['cancelled', 'revoked'].includes(status) ? now.toISOString() : null,
       decisionNote: String(note).trim().slice(0, 2000), decidedBy: actor.id };
     if (['request', 'assign', 'modify', 'approve'].includes(action)) {
-      d.validateSchedule(saved, mine.map(a => a.status === 'pending' ? { ...a, status: 'approved' } : a), policy, context);
+      d.validateSchedule(saved, mine, policy, context);
     }
     const children = mine.filter(a => a.parentId === ref.id && ['pending', 'approved'].includes(a.status));
     if (['cancel', 'revoke'].includes(action) && children.length) d.fail('Cancel or revoke the dated changes first', 409);
