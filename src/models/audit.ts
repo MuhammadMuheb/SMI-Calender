@@ -7,6 +7,7 @@
  */
 
 export type AuditAction =
+  | 'work_policy_updated' | 'work_arrangement_request' | 'work_arrangement_assign' | 'work_arrangement_approve' | 'work_arrangement_reject' | 'work_arrangement_modify' | 'work_arrangement_revoke' | 'work_arrangement_cancel'
   | 'user_created'
   | 'user_updated'
   | 'user_deleted'
@@ -30,6 +31,7 @@ export type AuditAction =
   | 'notification_setting_changed';
 
 export type AuditEntity =
+  | 'work_arrangement' | 'work_policy'
   | 'user'
   | 'leave_request'
   | 'balance'

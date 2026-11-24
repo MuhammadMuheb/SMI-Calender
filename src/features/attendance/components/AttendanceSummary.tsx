@@ -1,4 +1,6 @@
 import { TranslatedText } from '@/i18n/LanguageContext';
+import { WorkModeBadge } from '@/features/work-arrangements/WorkModeBadge';
+import { localParts, type DailyMode } from '../../../../shared/work-arrangements.mjs';
 import { useState, useEffect, useMemo } from 'react';
 import { CalendarDays, ChevronRight, Download, House, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
@@ -31,10 +33,10 @@ function getBreakForRoles(roles: string[]): number {
 interface AttendanceRow {
   id: string; user_id: string; user_name: string; role: string; job_role: string[];
   location_name: string; check_in_at: string; check_out_at: string | null;
-  is_wfh: boolean; work_type: string; auto_checked_out: boolean;
+  is_wfh: boolean; work_type: string; auto_checked_out: boolean; workDate?: string; timezone?: string; breakMinutes?: number;
 }
 interface DaySummary { date: string; entries: AttendanceRow[]; totalGrossHours: number; totalBreakHours: number; totalNetHours: number; }
-interface StaffSummary { user_id: string; user_name: string; job_role: string[]; days: DaySummary[]; totalDaysWorked: number; totalGrossHours: number; totalBreakHours: number; totalNetHours: number; wfhDays: number; onSiteDays: number; }
+interface StaffSummary { user_id: string; user_name: string; job_role: string[]; days: DaySummary[]; totalDaysWorked: number; totalGrossHours: number; totalBreakHours: number; totalNetHours: number; wfhDays: number; onSiteDays: number; remoteDays: number; }
 
 interface AttendanceSummaryProps { currentUserId: string; currentUserRole: string; currentUserJobRoles: string[]; }
 
@@ -42,7 +44,7 @@ function calcEntryHours(entry: AttendanceRow) {
   if (!entry.check_out_at) return { gross: 0, breakH: 0, net: 0, isOpen: true };
   const grossMs = new Date(entry.check_out_at).getTime() - new Date(entry.check_in_at).getTime();
   const grossH = grossMs / 3600000;
-  const breakMin = getBreakForRoles(entry.job_role);
+  const breakMin = entry.breakMinutes ?? getBreakForRoles(entry.job_role);
   const breakH = breakMin / 60;
   return { gross: grossH, breakH, net: Math.max(grossH - breakH, 0), isOpen: false };
 }
@@ -124,6 +126,7 @@ export default function AttendanceSummary({ currentUserId, currentUserRole }: At
           is_wfh: r.isWfh || false,
           work_type: r.workType || (r.isWfh ? 'wfh' : 'on_site'),
           auto_checked_out: r.autoCheckedOut || false,
+          workDate: r.workDate, timezone: r.timezone,
         };
       });
   }, [rawRecords, users, canViewAll, selectedStaffId, currentUserId]);
@@ -135,17 +138,24 @@ export default function AttendanceSummary({ currentUserId, currentUserRole }: At
     byUser.forEach((userRecords, userId) => {
       const first = userRecords[0];
       const byDate = new Map<string, AttendanceRow[]>();
-      for (const r of userRecords) { const date = new Date(r.check_in_at).toLocaleDateString('en-CA'); if (!byDate.has(date)) byDate.set(date, []); byDate.get(date)!.push(r); }
-      const days: DaySummary[] = []; let totalGross = 0, totalBreak = 0, totalNet = 0, wfhDays = 0, onSiteDays = 0;
+      for (const r of userRecords) { const date = r.workDate || localParts(r.check_in_at, r.timezone || 'Europe/Rome').date; if (!byDate.has(date)) byDate.set(date, []); byDate.get(date)!.push(r); }
+      const days: DaySummary[] = []; let totalGross = 0, totalBreak = 0, totalNet = 0, wfhDays = 0, onSiteDays = 0, remoteDays = 0;
       const sortedDates = Array.from(byDate.keys()).sort();
       for (const date of sortedDates) {
-        const entries = byDate.get(date)!.sort((a, b) => a.check_in_at.localeCompare(b.check_in_at));
-        let dayGross = 0, dayBreak = 0, dayNet = 0, hasWfh = false, hasOnSite = false;
-        for (const entry of entries) { const h = calcEntryHours(entry); dayGross += h.gross; dayBreak += h.breakH; dayNet += h.net; if (entry.is_wfh) hasWfh = true; else hasOnSite = true; }
+        const sorted = byDate.get(date)!.sort((a, b) => a.check_in_at.localeCompare(b.check_in_at));
+        let remainingBreak = getBreakForRoles(first.job_role);
+        const entries = sorted.map(entry => {
+          const grossMinutes = entry.check_out_at ? Math.max(0, Date.parse(entry.check_out_at) - Date.parse(entry.check_in_at)) / 60000 : 0;
+          const breakMinutes = Math.min(remainingBreak, grossMinutes);
+          remainingBreak -= breakMinutes;
+          return { ...entry, breakMinutes };
+        });
+        let dayGross = 0, dayBreak = 0, dayNet = 0, hasWfh = false, hasOnSite = false, hasRemote = false;
+        for (const entry of entries) { const h = calcEntryHours(entry); dayGross += h.gross; dayBreak += h.breakH; dayNet += h.net; if (entry.work_type === 'wfh') hasWfh = true; else if (entry.work_type === 'remote') hasRemote = true; else hasOnSite = true; }
         days.push({ date, entries, totalGrossHours: dayGross, totalBreakHours: dayBreak, totalNetHours: dayNet });
-        totalGross += dayGross; totalBreak += dayBreak; totalNet += dayNet; if (hasWfh) wfhDays++; if (hasOnSite) onSiteDays++;
+        totalGross += dayGross; totalBreak += dayBreak; totalNet += dayNet; if (hasWfh) wfhDays++; if (hasOnSite) onSiteDays++; if (hasRemote) remoteDays++;
       }
-      result.push({ user_id: userId, user_name: first.user_name, job_role: first.job_role, days, totalDaysWorked: sortedDates.length, totalGrossHours: totalGross, totalBreakHours: totalBreak, totalNetHours: totalNet, wfhDays, onSiteDays });
+      result.push({ user_id: userId, user_name: first.user_name, job_role: first.job_role, days, totalDaysWorked: sortedDates.length, totalGrossHours: totalGross, totalBreakHours: totalBreak, totalNetHours: totalNet, wfhDays, onSiteDays, remoteDays });
     });
     result.sort((a, b) => a.user_name.localeCompare(b.user_name));
     return result;
@@ -256,7 +266,7 @@ function StaffCard({ staff }: { staff: StaffSummary }) {
           <Metric
             label="Days worked"
             value={staff.totalDaysWorked}
-            hint={staff.wfhDays > 0 ? `${staff.onSiteDays} on site · ${staff.wfhDays} WFH` : undefined}
+            hint={`${staff.onSiteDays} on site · ${staff.wfhDays} WFH · ${staff.remoteDays} remote`}
           />
           <Metric label="Gross hours" value={formatH(staff.totalGrossHours)} />
           <Metric label="Breaks" value={formatH(staff.totalBreakHours)} />
@@ -275,7 +285,8 @@ function StaffCard({ staff }: { staff: StaffSummary }) {
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-sm font-medium">{formatDateLabel(day.date)}</span>
                       {day.entries.some((e) => e.is_wfh) && <House className="size-3.5 text-muted-foreground" aria-label="Worked from home" />}
-                      {day.entries.some((e) => !e.is_wfh) && <MapPin className="size-3.5 text-muted-foreground" aria-label="On site" />}
+                      {day.entries.some((e) => e.work_type === 'on_site') && <MapPin className="size-3.5 text-muted-foreground" aria-label="On site" />}
+                      {day.entries.some((e) => e.work_type === 'remote') && <WorkModeBadge mode="remote" />}
                       {day.entries.some((e) => e.auto_checked_out) && <Badge className="bg-warning/15 text-warning">Auto checked out</Badge>}
                     </div>
                     <p className="text-xs text-muted-foreground tabular-nums">
@@ -293,9 +304,7 @@ function StaffCard({ staff }: { staff: StaffSummary }) {
                       return (
                         <div key={entry.id} className="flex flex-col gap-1 rounded-lg bg-muted/60 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-2">
-                            {entry.is_wfh
-                              ? <House className="size-4 text-muted-foreground" aria-hidden="true" />
-                              : <MapPin className="size-4 text-muted-foreground" aria-hidden="true" />}
+                            <WorkModeBadge mode={entry.work_type as DailyMode} />
                             <span>{entry.is_wfh ? 'Work from home' : entry.location_name}</span>
                           </div>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground tabular-nums">

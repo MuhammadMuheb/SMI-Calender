@@ -52,6 +52,7 @@ const TONE_CLASS: Record<Tone, string> = {
 };
 
 const ACTION_OPTIONS: AuditAction[] = [
+  'work_policy_updated', 'work_arrangement_request', 'work_arrangement_assign', 'work_arrangement_approve', 'work_arrangement_reject', 'work_arrangement_modify', 'work_arrangement_revoke', 'work_arrangement_cancel',
   'user_created', 'user_updated', 'user_deleted',
   'leave_requested', 'leave_approved', 'leave_rejected', 'leave_overridden',
   'balance_adjusted', 'auto_assignment_run',
@@ -60,6 +61,7 @@ const ACTION_OPTIONS: AuditAction[] = [
 ];
 
 const ENTITY_OPTIONS: AuditEntity[] = [
+  'work_arrangement', 'work_policy',
   'user', 'leave_request', 'balance', 'staffing_rule',
   'special_day', 'holiday', 'auto_assignment', 'notification_setting',
 ];

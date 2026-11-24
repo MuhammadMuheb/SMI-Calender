@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAnalytics, type Analytics } from 'firebase/analytics';
 
 // Firebase's web config is meant to be public — real access control lives in
@@ -27,6 +27,12 @@ const firebaseConfig = {
 export const firebaseApp = initializeApp(firebaseConfig);
 export const auth = getAuth(firebaseApp);
 export const db = getFirestore(firebaseApp);
+// Explicit, development-only emulator support for end-to-end tests. Never route production to an emulator.
+if (import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true') {
+  if (!firebaseConfig.projectId.startsWith('demo-')) throw new Error('Emulators require a demo Firebase project');
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectFirestoreEmulator(db, '127.0.0.1', 8085);
+}
 
 let analytics: Analytics | undefined;
 if (import.meta.env.PROD) {

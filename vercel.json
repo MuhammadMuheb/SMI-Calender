@@ -1,5 +1,6 @@
 {
   "buildCommand": "npm run build",
+  "functions": { "api/*.js": { "maxDuration": 60, "includeFiles": "shared/**" } },
   "routes": [
     {
       "src": "/api/(.*)",

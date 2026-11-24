@@ -38,11 +38,20 @@ import {
 } from '@/utils/dateUtils';
 
 const WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+import { useWorkArrangements } from '@/features/work-arrangements/WorkArrangementsContext';
+import { TeamWorkSchedule } from '@/features/work-arrangements/TeamWorkSchedule';
+import { WorkSelect } from '@/features/work-arrangements/WorkFields';
+import { MODE_LABELS, WorkModeBadge } from '@/features/work-arrangements/WorkModeBadge';
+import type { DailyMode } from '../../../shared/work-arrangements.mjs';
 
 /** Stable order for leave markers inside a cell. */
 const LEAVE_ORDER = Object.keys(LEAVE_TYPE_META) as LeaveType[];
 
 export default function CalendarPage() {
+  const { slotsFor, departments } = useWorkArrangements();
+  const [employeeFilter, setEmployeeFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [workFilter, setWorkFilter] = useState('all');
   const { user } = useAuth();
   const { requests } = useLeave();
   const { jobRoles, roleAssignments, staffingRules, holidays, specialDays, tourAssignments, users, schedules } = useAppData();
@@ -150,6 +159,12 @@ export default function CalendarPage() {
         )}
       />
 
+      <div className="grid gap-3 sm:grid-cols-3">
+        <WorkSelect label="Employee work modes" value={employeeFilter} onChange={e => setEmployeeFilter(e.target.value)}><option value="all">Everyone</option>{users.filter(u => u.role !== 'spectator').map(u => <option key={u.id} value={u.id}>{u.displayName}</option>)}</WorkSelect>
+        <WorkSelect label="Department" value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)}><option value="all">All departments</option>{[...new Set(Object.values(departments))].map(d => <option key={d}>{d}</option>)}</WorkSelect>
+        <WorkSelect label="Work arrangement" value={workFilter} onChange={e => setWorkFilter(e.target.value)}><option value="all">All arrangements</option>{Object.entries(MODE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</WorkSelect>
+      </div>
+      <div className="flex flex-wrap gap-2" aria-label="Work mode legend">{(['on_site', 'wfh', 'remote', 'hybrid'] as const).map(m => <WorkModeBadge key={m} mode={m} />)}</div>
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
         <Card className="gap-0 py-0">
           <div className="flex items-center justify-between gap-2 px-3 py-3 sm:px-4">
@@ -192,6 +207,7 @@ export default function CalendarPage() {
                   <CalendarTile
                     key={tile.dateStr}
                     day={tile.day}
+                    workModes={tile.isCurrentMonth ? [...new Set(users.filter(u => u.role !== 'spectator' && (employeeFilter === 'all' || u.id === employeeFilter) && (departmentFilter === 'all' || departments[u.id] === departmentFilter)).flatMap(u => slotsFor(u.id, tile.dateStr)).filter(s => s.mode !== 'off' && (workFilter === 'all' || s.mode === workFilter || workFilter === 'hybrid' && s.hybrid)).map(s => s.mode as DailyMode))] : []}
                     dateStr={tile.dateStr}
                     isToday={tile.isToday}
                     isCurrentMonth={tile.isCurrentMonth}
@@ -223,6 +239,7 @@ export default function CalendarPage() {
         </Card>
 
         <div className="space-y-6">
+          <TeamWorkSchedule date={previewDate} employee={employeeFilter} department={departmentFilter} mode={workFilter} />
           <DayPreviewPanel
             date={previewDate}
             requests={requests}

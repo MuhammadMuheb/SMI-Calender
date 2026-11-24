@@ -1,4 +1,6 @@
 import { TranslatedText } from '@/i18n/LanguageContext';
+import { WorkModeBadge } from '@/features/work-arrangements/WorkModeBadge';
+import type { DailyMode } from '../../../../shared/work-arrangements.mjs';
 import { useState, useEffect, useMemo } from 'react';
 import { House, MapPin, Users } from 'lucide-react';
 import { toast } from 'sonner';
@@ -27,6 +29,7 @@ interface CheckInRecord {
   checkInAt: string;
   checkOutAt: string | null;
   isWfh: boolean;
+  workType: DailyMode;
   autoCheckedOut: boolean;
 }
 
@@ -98,6 +101,7 @@ export default function CheckInBoard({ onBack, currentUserRole }: CheckInBoardPr
         checkInAt: r.checkInAt,
         checkOutAt: r.checkOutAt || null,
         isWfh: r.isWfh || false,
+        workType: (r.workType || (r.isWfh ? 'wfh' : 'on_site')) as DailyMode,
         autoCheckedOut: r.autoCheckedOut || false,
       };
     });
@@ -258,7 +262,7 @@ function RecordSection({ title, records, now, open = false }: { title: string; r
 function RecordBadges({ record }: { record: CheckInRecord }) {
   return (
     <>
-      {record.isWfh && <Badge className="bg-info/15 text-info"><TranslatedText text="WFH" /></Badge>}
+      <WorkModeBadge mode={record.workType} />
       {record.autoCheckedOut && <Badge className="bg-warning/15 text-warning">Auto checked out</Badge>}
     </>
   );

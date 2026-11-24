@@ -12,6 +12,7 @@ import InstallPrompt from '@/components/shared/InstallPrompt';
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Toaster } from '@/components/ui/sonner';
+import { WorkArrangementsProvider } from '@/features/work-arrangements/WorkArrangementsContext';
 
 function AppInner() {
   const { user } = useAuth();
@@ -20,12 +21,14 @@ function AppInner() {
       <AppDataProvider>
         <NotificationProvider>
           <LeaveProvider>
+            <WorkArrangementsProvider>
             <SwapProvider>
               <TaskProvider>
                 <AppShell />
                 <InstallPrompt />
               </TaskProvider>
             </SwapProvider>
+            </WorkArrangementsProvider>
           </LeaveProvider>
         </NotificationProvider>
       </AppDataProvider>

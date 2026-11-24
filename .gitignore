@@ -31,6 +31,7 @@ supabase-real-data.sql
 
 # Firebase & Service Account Keys (sensitive credentials)
 functions/lib
+functions/shared
 firebase-debug.log
 firebase-debug.*.log
 .firebase

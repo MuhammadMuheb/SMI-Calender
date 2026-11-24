@@ -6,7 +6,7 @@ import {
 import { ROLES, type Role } from '@/config/roles';
 
 export type TabId =
-  | 'home' | 'tasks' | 'calendar' | 'staff' | 'settings'
+  | 'home' | 'tasks' | 'calendar' | 'staff' | 'settings' | 'workArrangements'
   | 'requests' | 'admin' | 'staffingRules' | 'autoAssign' | 'auditLog' | 'staffManagement';
 
 export interface NavItem {
@@ -27,6 +27,7 @@ const LEADS: Role[] = [ROLES.SUPER_ADMIN, ROLES.MANAGER];
 const ADMIN: Role[] = [ROLES.SUPER_ADMIN];
 
 export const NAV_ITEMS: Record<TabId, NavItem> = {
+  workArrangements: { id: 'workArrangements', label: 'Work arrangements', icon: CalendarDays, roles: WORKERS },
   home: { id: 'home', label: 'Dashboard', icon: LayoutDashboard, roles: EVERYONE },
   calendar: { id: 'calendar', label: 'Calendar', icon: CalendarDays, roles: EVERYONE },
   tasks: { id: 'tasks', label: 'Tasks', icon: ClipboardList, roles: WORKERS },
@@ -42,7 +43,7 @@ export const NAV_ITEMS: Record<TabId, NavItem> = {
 
 /** Sidebar grouping on desktop, and the "More" sheet on mobile. */
 const GROUPS: { label: string; ids: TabId[] }[] = [
-  { label: 'Workspace', ids: ['home', 'calendar', 'tasks'] },
+  { label: 'Workspace', ids: ['home', 'calendar', 'tasks', 'workArrangements'] },
   { label: 'Team', ids: ['requests', 'staff'] },
   { label: 'Administration', ids: ['staffManagement', 'staffingRules', 'autoAssign', 'auditLog', 'admin'] },
 ];

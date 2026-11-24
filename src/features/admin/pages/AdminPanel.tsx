@@ -20,8 +20,9 @@ const LocationManager = lazyWithReload(() => import('@/features/attendance/compo
 const ScheduleImport = lazyWithReload(() => import('@/features/admin/pages/ScheduleImport'));
 
 const OverridePage = lazyWithReload(() => import('./OverridePage'));
+const WorkArrangementsPage = lazyWithReload(() => import('@/features/work-arrangements/WorkArrangementsPage'));
 
-type AdminView = 'override' | 'menu' | 'roles' | 'staffing' | 'special' | 'vacation' | 'notifications' | 'auto' | 'audit' | 'coffee' | 'locations' | 'schedules';
+type AdminView = 'work' | 'override' | 'menu' | 'roles' | 'staffing' | 'special' | 'vacation' | 'notifications' | 'auto' | 'audit' | 'coffee' | 'locations' | 'schedules';
 
 interface MenuItem {
   id: Exclude<AdminView, 'menu'>;
@@ -32,6 +33,7 @@ interface MenuItem {
 }
 
 const MENU_ITEMS: MenuItem[] = [
+  { id: 'work', label: 'Work arrangements', description: 'Eligibility, hybrid schedules, remote policies and attendance reports.', icon: MapPin, superAdminOnly: true },
   { id: 'override', label: 'Override leave decision', description: 'Change a leave decision with an audit reason.', icon: ShieldCheck, superAdminOnly: true },
   { id: 'roles', label: 'Job roles', description: 'Positions, colors and shift times, including hidden roles.', icon: Tags, superAdminOnly: true },
   { id: 'staffing', label: 'Staffing rules', description: 'Minimum coverage per job role for each day.', icon: ShieldCheck, superAdminOnly: true },
@@ -58,6 +60,7 @@ export default function AdminPanel({ onBack }: AdminPanelProps) {
   const backToMenu = () => setView('menu');
 
   const views: Record<Exclude<AdminView, 'menu'>, ReactNode> = {
+    work: <><PageHeader title="Work arrangement administration" onBack={backToMenu} /><WorkArrangementsPage /></>,
     override: <OverridePage onBack={backToMenu} />,
     roles: <RoleManagement onBack={backToMenu} />,
     staffing: <StaffingRulesPage onBack={backToMenu} />,

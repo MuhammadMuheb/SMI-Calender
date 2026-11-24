@@ -19,6 +19,7 @@ Firebase web config falls back to the `smi-calender` project defaults. Copy `.en
 - Tailwind CSS v4 + [shadcn/ui](https://ui.shadcn.com) (Radix, lucide icons, Geist) — see [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md)
 - Firebase Firestore with protected rules and live listeners; server-verified PIN login using private credential records and Firebase Auth custom tokens
 - Web push via `api/send-push.js` (Vercel serverless function)
+- Approved on-site, WFH, remote and hybrid schedules integrated with attendance, leave and the team calendar — see [Work arrangements](docs/WORK_ARRANGEMENTS.md).
 
 ## Project structure
 

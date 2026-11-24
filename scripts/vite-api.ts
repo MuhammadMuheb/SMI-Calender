@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import type { Plugin } from 'vite';
-const endpoints = new Set(['session', 'users', 'leave', 'swaps', 'attendance', 'attendance-cron', 'change-pin', 'send-push']);
+const endpoints = new Set(['session', 'users', 'leave', 'swaps', 'attendance', 'attendance-cron', 'change-pin', 'send-push', 'work-arrangements']);
 /** Local equivalent of Vercel's Node handlers. Credentials stay in the Node process. */
 export function localApi(): Plugin {
   return {

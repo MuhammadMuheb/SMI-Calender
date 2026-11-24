@@ -13,6 +13,7 @@ function atLocal(date, time) {
   return new Date(guess);
 }
 function shiftFor(checkIn, assignments, roles) {
+  if (checkIn.scheduledStart && checkIn.scheduledEnd) return { start: new Date(checkIn.scheduledStart), end: new Date(checkIn.scheduledEnd) };
   const assigned = assignments.filter(a => a.userId === checkIn.userId);
   const assignment = assigned.find(a => a.isPrimary) || assigned[0];
   const role = roles.find(r => r.id === assignment?.jobRoleId);
@@ -56,7 +57,7 @@ async function runAttendance(db, now = new Date()) {
     } else if (!c.checkOutAt && now >= shift.end) {
       await notifyOnce('checkout_' + snap.id, c.userId, 'Remember to check out', 'Your scheduled shift has ended. Please check out when you finish.', snap.id);
     }
-    if (localParts(new Date(c.checkInAt)).date === localParts(now).date && Date.parse(c.checkInAt) > shift.start.getTime() + 15 * 60000) {
+    if (localParts(new Date(c.checkInAt)).date === localParts(now).date && Date.parse(c.checkInAt) > shift.start.getTime() + (c.graceMinutes ?? 15) * 60000) {
       for (const manager of managers) await notifyOnce('late_' + snap.id + '_' + manager.id, manager.id, 'Late arrival', (c.userName || c.userId) + ' checked in after the shift grace period.', snap.id);
     }
   }
@@ -70,6 +71,8 @@ async function runAttendance(db, now = new Date()) {
     for (const manager of managers) await notifyOnce('summary_' + localNow.date + '_' + manager.id, manager.id,
       "Tomorrow's absences", off.size + ' people have approved leave for ' + tomorrow, tomorrow);
   }
+  const { runWorkReminders } = require('./work-reminders.cjs');
+  await runWorkReminders(db, now);
   return { autoCheckedOut: changed };
 }
 module.exports = { localParts, atLocal, shiftFor, runAttendance };

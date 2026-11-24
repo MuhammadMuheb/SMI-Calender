@@ -28,6 +28,8 @@ import { MobileTabBar } from './MobileTabBar';
 import { NotificationBell } from './NotificationBell';
 import { BrandMark } from './BrandMark';
 import { NAV_ITEMS, canAccess, type TabId } from './navigation';
+import { WorkSummary } from '@/features/work-arrangements/WorkSummary';
+const WorkArrangementsPage = lazyWithReload(() => import('@/features/work-arrangements/WorkArrangementsPage'));
 
 export default function AppShell() {
   const translate = useText();
@@ -48,7 +50,8 @@ export default function AppShell() {
   };
 
   const content: Record<TabId, ReactNode> = {
-    home: dashboards[user.role],
+    home: <><WorkSummary onOpen={() => setTab('workArrangements')} />{dashboards[user.role]}</>,
+    workArrangements: <WorkArrangementsPage />,
     tasks: <TaskBoard />,
     calendar: <CalendarPage />,
     staff: <StaffPage />,

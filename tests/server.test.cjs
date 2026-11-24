@@ -53,6 +53,7 @@ const session = require('../api/session.js');
 const users = require('../api/users.js');
 const attendance = require('../api/attendance.js');
 const push = require('../api/send-push.js');
+const work = require('../api/work-arrangements.js');
 async function call(handler, token, body, method = 'POST') {
   const result = { statusCode: 200 };
   const res = { setHeader() {}, status(code) { result.statusCode = code; return this; }, json(value) { result.body = value; return this; } };
@@ -288,4 +289,13 @@ test('attendance reminders deduplicate and automatic checkout persists', async (
   await runAttendance(db, new Date('2026-09-23T18:30:00Z'));
   assert.equal(rows.get('check_ins/c').checkOutAt, '2026-09-23T16:00:00.000Z');
   assert.equal(rows.get('check_ins/c').autoCheckedOut, true);
+});
+
+test('work arrangement API rejects unsigned and spectator mutations and scopes employee reads', async () => {
+  assert.equal((await call(work, null, { action: 'request' })).statusCode, 401);
+  rows.set('users/a', { ...rows.get('users/a'), role: 'spectator' });
+  assert.equal((await call(work, 'staff', { action: 'request' })).statusCode, 403);
+  assert.equal((await call(work, 'manager', { action: 'policy', data: {} })).statusCode, 403);
+  rows.set('work_arrangements/private', { userId: 'm', requesterRole: 'manager', reason: 'private' });
+  assert.equal((await call(work, 'receiver', { action: 'list' })).body.arrangements.length, 0);
 });

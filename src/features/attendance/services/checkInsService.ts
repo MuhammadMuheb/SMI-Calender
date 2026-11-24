@@ -19,6 +19,11 @@ export interface CheckInData {
   checkOutLat?: number;
   checkOutLng?: number;
   autoCheckedOut?: boolean;
+  workDate?: string;
+  timezone?: string;
+  scheduledStart?: string;
+  scheduledEnd?: string;
+  arrangementId?: string | null;
 }
 
 /**

@@ -28,18 +28,22 @@ service cloud.firestore {
     }
     match /check_ins/{id} {
       allow read: if member();
-      allow create: if owner(request.resource.data.userId)
-        && request.resource.data.checkOutAt == null
-        && !request.resource.data.keys().hasAny(['autoCheckedOut', 'editedBy']);
-      allow update: if owner(resource.data.userId)
-        && resource.data.checkOutAt == null
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['checkOutAt', 'checkOutLat', 'checkOutLng', 'updatedAt'])
-        && request.resource.data.checkOutAt is string;
-      allow delete: if admin();
+      allow write: if false; // Server validates approved mode, location, timestamps and concurrent sessions.
+    }
+    match /work_calendar/{id} {
+      allow read: if member(); // Sanitized schedules: no reasons or personal addresses.
+      allow write: if false;
+    }
+    match /work_arrangements/{id} {
+      allow read: if member() && (resource.data.userId == request.auth.uid || admin()
+        || (role() == 'manager' && get(/databases/$(database)/documents/users/$(resource.data.userId)).data.role == 'staff'));
+      allow write: if false;
     }
     match /notifications/{id} {
       allow read: if member() && (resource.data.userId == request.auth.uid || manager() || (role() == 'spectator' && resource.data.type == 'daily_absence_summary'));
-      allow create: if worker() && request.resource.data.userId is string;
+      allow create: if worker() && request.resource.data.userId is string
+        && !request.resource.data.keys().hasAny(['pushPending', 'pushDelivery', 'pushAttempts'])
+        && request.resource.data.get('entityType', '') != 'work_arrangement';
       allow update: if member() && resource.data.userId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'isRead', 'readAt', 'confirmStatus', 'rejectReason']);
       allow delete: if member() && (resource.data.userId == request.auth.uid || admin());
@@ -49,7 +53,8 @@ service cloud.firestore {
     }
     match /audit_log/{id} {
       allow read: if manager();
-      allow create: if worker() && request.resource.data.actorId == request.auth.uid;
+      allow create: if worker() && request.resource.data.actorId == request.auth.uid
+        && !(request.resource.data.get('entityType', '') in ['work_arrangement', 'work_policy', 'check_in']);
     }
     match /tasks/{id} {
       allow read: if member();

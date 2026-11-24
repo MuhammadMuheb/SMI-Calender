@@ -9,6 +9,7 @@ import { useNotifications } from '@/features/notifications/NotificationContext';
 import { LEAVE_TYPE_META, LeaveStatusBadge, LeaveTypeDot, formatShortDate, leaveTypeMeta } from '@/features/leave/leaveMeta';
 import { checkStaffingForDate } from '@/services/staffingService';
 import { ResponsiveDialog } from '@/components/shared/ResponsiveDialog';
+import { TeamWorkSchedule } from '@/features/work-arrangements/TeamWorkSchedule';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { UserAvatar } from '@/components/shared/UserAvatar';
 import { Badge } from '@/components/ui/badge';
@@ -224,6 +225,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
         size="md"
       >
         <div className="space-y-6">
+          {date && <TeamWorkSchedule date={date} />}
           {(holiday || special || isFirstSunday) && (
             <div className="flex flex-wrap gap-1.5">
               {holiday && (

@@ -21,6 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
+import { WorkSummary } from '@/features/work-arrangements/WorkSummary';
 
 const STATUS_META: Record<Task['status'], { label: string; icon: LucideIcon; iconClass: string }> = {
   pending: { label: 'To do', icon: Circle, iconClass: 'text-muted-foreground' },
@@ -109,6 +110,7 @@ export default function TaskBoard() {
 
   return (
     <div className="space-y-6">
+      <WorkSummary date={selectedDate} />
       <PageHeader
         title="Tasks"
         description={summary}

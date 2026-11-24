@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils';
 import type { DaySummary } from '@/models/calendar';
 import type { LeaveType } from '@/models/leave';
 import { leaveTypeMeta } from '@/features/leave/leaveMeta';
+import { WorkModeBadge, MODE_LABELS } from '@/features/work-arrangements/WorkModeBadge';
+import type { DailyMode } from '../../../../shared/work-arrangements.mjs';
 
 /** One person's approved leave, as shown inside a day cell. */
 export interface CalendarTileLeave {
@@ -16,6 +18,7 @@ export interface CalendarTileLeave {
 }
 
 interface CalendarTileProps {
+  workModes?: DailyMode[];
   day: number;
   dateStr: string;
   isToday?: boolean;
@@ -58,7 +61,7 @@ function firstName(name: string) {
 export default function CalendarTile({
   day, dateStr, isToday = false, isCurrentMonth = true, isWeekend = false,
   summary, isUserOff = false, hasLeave = false, hasScheduledGuides = false, staffingLevel = null, onClick,
-  leaves, isSelected = false, holidayName, specialDayName, isFirstSunday = false,
+  leaves, isSelected = false, holidayName, specialDayName, isFirstSunday = false, workModes = [],
 }: CalendarTileProps) {
   const isHoliday = isCurrentMonth && (summary?.isHoliday ?? !!holidayName);
   const isSpecialDay = isCurrentMonth && (summary?.isSpecialDay ?? !!specialDayName);
@@ -104,7 +107,7 @@ export default function CalendarTile({
       onClick={onClick}
       disabled={!isCurrentMonth}
       data-date={dateStr}
-      aria-label={a11yLabel}
+      aria-label={a11yLabel + (workModes.length ? ', work modes: ' + workModes.map(m => MODE_LABELS[m]).join(', ') : '')}
       aria-current={isToday ? 'date' : undefined}
       className={cn(
         'relative flex min-h-14 min-w-0 flex-col gap-1 border-r border-b p-1 text-left transition-colors outline-none nth-[7n]:border-r-0 sm:min-h-24 sm:p-1.5 lg:min-h-28',
@@ -182,6 +185,7 @@ export default function CalendarTile({
           </span>
         )}
       </div>
+      {workModes.length > 0 && <span className="flex flex-wrap gap-0.5" aria-hidden="true">{workModes.map(mode => <WorkModeBadge key={mode} mode={mode} compact />)}</span>}
     </button>
   );
 }

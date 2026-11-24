@@ -59,10 +59,11 @@ test('leave and swap changes must go through server validation', async () => {
     await assertFails(setDoc(doc(db(id), 'swaps', 'rogue'), { status: 'accepted' }));
   }
 });
-test('staff can only check out their own record and cannot edit arrival time', async () => {
+test('all attendance changes require the authenticated server', async () => {
   await assertFails(updateDoc(doc(db('staff'), 'check_ins', 'other'), { checkOutAt: '2026-09-23T17:00:00Z' }));
   await assertFails(updateDoc(doc(db('staff'), 'check_ins', 'own'), { checkInAt: '2026-09-23T08:00:00Z' }));
-  await assertSucceeds(updateDoc(doc(db('staff'), 'check_ins', 'own'), { checkOutAt: '2026-09-23T17:00:00Z' }));
+  await assertFails(updateDoc(doc(db('staff'), 'check_ins', 'own'), { checkOutAt: '2026-09-23T17:00:00Z' }));
+  await assertFails(setDoc(doc(db('staff'), 'check_ins', 'forged'), { userId: 'staff', workType: 'wfh', checkOutAt: null }));
 });
 test('task assignees can complete both schemas without changing assignment', async () => {
   for (const id of ['own', 'legacy']) {
@@ -79,4 +80,23 @@ test('notification responses are private and cannot change recipients', async ()
 test('spectators cannot write team data', async () => {
   await assertFails(setDoc(doc(db('viewer'), 'tasks', 'new'), { assignedTo: 'viewer' }));
   await assertFails(setDoc(doc(db('viewer'), 'notificationSettings', 'global'), { dailyReminderEnabled: false }));
+});
+
+test('work schedules are sanitized and all policies/history/mutations are server controlled', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'work_calendar', 'approved'), { userId: 'staff', mode: 'wfh' });
+    await setDoc(doc(context.firestore(), 'work_arrangements', 'private'), { userId: 'staff', requesterRole: 'staff', reason: 'private reason' });
+    await setDoc(doc(context.firestore(), 'work_arrangements', 'manager-private'), { userId: 'admin', requesterRole: 'super_admin', reason: 'private reason' });
+  });
+  for (const id of ['staff', 'manager', 'admin', 'viewer']) {
+    await assertSucceeds(getDoc(doc(db(id), 'work_calendar', 'approved')));
+    for (const name of ['work_calendar', 'work_arrangements', 'work_policies', 'work_arrangement_history', 'work_locks']) await assertFails(setDoc(doc(db(id), name, 'forged'), { userId: id, status: 'approved' }));
+    for (const name of ['work_policies', 'work_arrangement_history', 'work_locks']) await assertFails(getDoc(doc(db(id), name, 'global')));
+  }
+  await assertSucceeds(getDoc(doc(db('staff'), 'work_arrangements', 'private')));
+  await assertSucceeds(getDoc(doc(db('manager'), 'work_arrangements', 'private')));
+  await assertFails(getDoc(doc(db('staff'), 'work_arrangements', 'manager-private')));
+  await assertFails(getDoc(doc(db('manager'), 'work_arrangements', 'manager-private')));
+  await assertFails(getDoc(doc(db('viewer'), 'work_arrangements', 'private')));
+  await assertFails(setDoc(doc(db('staff'), 'notifications', 'push-forgery'), { userId: 'manager', pushPending: true, entityType: 'work_arrangement' }));
 });
