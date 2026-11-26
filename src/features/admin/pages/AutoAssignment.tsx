@@ -1,4 +1,5 @@
 import { TranslatedText } from '@/i18n/LanguageContext';
+import { isWeekend } from '../../../../shared/work-arrangements.mjs';
 import { useState, useMemo } from 'react';
 import { CalendarCheck, ChevronLeft, ChevronRight, CircleCheck, RefreshCw, Sparkles, TriangleAlert, Users } from 'lucide-react';
 import { toast } from 'sonner';
@@ -181,6 +182,12 @@ export default function AutoAssignment({ onBack }: Props) {
 
     for (const cell of calendarGrid) {
       if (!cell.inMonth) continue;
+      if (isWeekend(cell.dateStr)) {
+        oMap[cell.dateStr] ||= [];
+        for (const person of users.filter(u => u.weekendsOff)) {
+          if (!oMap[cell.dateStr].some(entry => entry.name === person.displayName)) oMap[cell.dateStr].push({ name: person.displayName, isNew: false });
+        }
+      }
       const dayRequests = simulated.filter(r => r.date === cell.dateStr);
       const statuses = checkStaffingForDate(cell.dateStr, staffingRules, roleAssignments, dayRequests, roleNames);
 

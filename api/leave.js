@@ -2,6 +2,7 @@ const { services, requireUser } = require('../server/firebase.cjs');
 const {
   fail, getStaffingError, validateStaffing, approvalReplacements, validateMonthlyAllowance,
   countedMonthDates, monthlyAllowance, monthLabel,
+  isExecutive, validateExecutiveLeave,
 } = require('../server/leave.cjs');
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
@@ -48,6 +49,12 @@ module.exports = async (req, res) => {
         const skipped = [];
         const people = usersSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u => u.role !== 'spectator');
         for (const u of people) {
+          if (await isExecutive(tx, db, u.id)) {
+            const { isWeekend } = await import('../shared/work-arrangements.mjs');
+            if (isWeekend(date) || consumesBalance) {
+              skipped.push({ name: u.displayName, reason: isWeekend(date) ? 'scheduled weekend off' : 'Executive has fixed weekends instead of a regular-day allowance' }); continue;
+            }
+          }
           const mine = monthLeaves.filter(l => l.userId === u.id);
           if (mine.some(l => l.date === date && ['pending', 'approved'].includes(l.status))) {
             skipped.push({ name: u.displayName, reason: 'already has leave that day' }); continue;
@@ -99,13 +106,14 @@ module.exports = async (req, res) => {
         if (!isAdmin && !['regular_day_off', 'paid_vacation', 'sick_day'].includes(data.leaveType)) fail('Administrator required', 403);
         const target = (await tx.get(db.collection('users').doc(data.userId))).data();
         if (!target?.isActive) fail('User not found', 404);
+        await validateExecutiveLeave(tx, db, data);
         const sameDate = await tx.get(db.collection('leave_requests').where('date', '==', data.date));
         if (sameDate.docs.some(d => d.data().userId === data.userId && ['pending', 'approved'].includes(d.data().status))) fail('A request already exists for this date', 409);
         // Serialize approvals on a date, including when there are no leaves yet.
         const dayLock = db.collection('leave_day_locks').doc(data.date);
         await tx.get(dayLock);
         const settings = (await tx.get(settingsRef)).data();
-        if (!isAdmin) await validateStaffing(tx, db, data);
+        if (!isAdmin || await isExecutive(tx, db, data.userId)) await validateStaffing(tx, db, data);
         const directApproval = isAdmin && data.status === 'approved';
         const autoApproved = !directApproval && settings?.autoApprove === true
           && ['regular_day_off', 'paid_vacation', 'sick_day'].includes(data.leaveType)
@@ -150,9 +158,10 @@ module.exports = async (req, res) => {
         if (greenOnly && !target?.isActive) fail('User is no longer active', 409);
         let dayLock;
         if (status === 'approved') {
+          await validateExecutiveLeave(tx, db, old);
           dayLock = db.collection('leave_day_locks').doc(old.date);
           await tx.get(dayLock);
-          if (greenOnly || !isAdmin) await validateStaffing(tx, db, old, greenOnly);
+          if (greenOnly || !isAdmin || await isExecutive(tx, db, old.userId)) await validateStaffing(tx, db, old, greenOnly);
         }
         const patch = { status, updatedAt: now };
         if (data.isOverridden) Object.assign(patch, { isOverridden: true, overriddenBy: actorRef, overriddenAt: now });

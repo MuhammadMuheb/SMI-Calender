@@ -27,6 +27,10 @@ export interface ScheduleContext {
   specialDays?: { date: string; appliesToAll: boolean; appliesTo?: string[] }[];
 }
 export const MODES: WorkMode[];
+export function hasExecutiveRole(userId: string, assignments: { userId: string; jobRoleId: string }[], roles: { id: string; leavePolicy?: string }[]): boolean;
+export function isWeekend(date: string): boolean;
+export function weekendDates(start: string, end: string): string[];
+export function executiveLeaveError(date: string, type: string): string | null;
 export const DEFAULT_POLICY: WorkPolicy;
 export function validDate(value: unknown): boolean;
 export function addDays(date: string, count: number): string;

@@ -1,4 +1,5 @@
 import { TranslatedText } from '@/i18n/LanguageContext';
+import { weekendDates, isWeekend } from '../../../shared/work-arrangements.mjs';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { localDayRange } from '@/features/attendance/services/checkInsService';
@@ -77,8 +78,10 @@ export default function CalendarPage() {
   const userOffDates = useMemo(() => {
     if (!user) return new Set<string>();
     // Filter ONLY approved requests - pending requests do NOT show on calendar
-    return new Set(requests.filter((r) => r.userId === user.id && r.status === 'approved').map((r) => r.date));
-  }, [requests, user]);
+    const dates = requests.filter((r) => r.userId === user.id && r.status === 'approved').map((r) => r.date);
+    if (users.find(u => u.id === user.id)?.weekendsOff) dates.push(...weekendDates(`${year}-${String(month + 1).padStart(2, '0')}-01`, `${year}-${String(month + 1).padStart(2, '0')}-${new Date(year, month + 1, 0).getDate()}`));
+    return new Set(dates);
+  }, [requests, user, users, year, month]);
 
   // CRITICAL: Calendar indicators only reflect APPROVED leave, not pending.
   // Peers only ever see "someone is off" — the leave type (esp. Sick Day) is
@@ -100,6 +103,14 @@ export default function CalendarPage() {
       if (list) list.push(entry);
       else map.set(r.date, [entry]);
     }
+    for (const date of weekendDates(monthPrefix + '-01', monthPrefix + '-' + new Date(year, month + 1, 0).getDate())) {
+      const list = map.get(date) || [];
+      for (const person of users.filter(u => u.weekendsOff)) {
+        if (requests.some(r => r.userId === person.id && r.date === date && r.status === 'approved')) continue;
+        list.push({ id: `weekend-${person.id}-${date}`, name: person.displayName + ' · Weekend off', type: null, isYou: person.id === user?.id });
+      }
+      if (list.length) map.set(date, list);
+    }
     for (const list of map.values()) {
       list.sort((a, b) => {
         if (a.isYou !== b.isYou) return a.isYou ? -1 : 1;
@@ -109,7 +120,7 @@ export default function CalendarPage() {
       });
     }
     return map;
-  }, [requests, year, month, user?.id, isRichView]);
+  }, [requests, year, month, user?.id, isRichView, users]);
 
   // CRITICAL: Staffing calculations only use APPROVED leave requests
   // Pending requests do NOT affect staffing levels until approved
@@ -352,6 +363,7 @@ function DayPreviewPanel({
 }) {
   const dayRequests = requests.filter((r) => r.date === date && r.status !== 'cancelled');
   const approved = dayRequests.filter((r) => r.status === 'approved');
+  const weekendOff = isWeekend(date) ? users.filter(u => u.weekendsOff && !approved.some(r => r.userId === u.id)) : [];
   const pending = dayRequests.filter((r) => r.status === 'pending');
   const holiday = holidays.find((h) => h.date === date);
   const special = specialDays.find((s) => s.date === date);
@@ -361,11 +373,11 @@ function DayPreviewPanel({
   const scheduledGuides = [...new Set(schedules.filter((s) => s.date === date).map((s) => s.guide))].sort();
 
   const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  const isEmpty = approved.length === 0 && pending.length === 0 && !holiday && !special && scheduledGuides.length === 0;
+  const isEmpty = approved.length === 0 && weekendOff.length === 0 && pending.length === 0 && !holiday && !special && scheduledGuides.length === 0;
   const attendance = useDayAttendanceCounts(date);
 
   const summaryParts = [
-    approved.length > 0 ? `${approved.length} off` : null,
+    approved.length + weekendOff.length > 0 ? `${approved.length + weekendOff.length} off` : null,
     pending.length > 0 ? `${pending.length} pending` : null,
     scheduledGuides.length > 0 ? `${scheduledGuides.length} ${scheduledGuides.length === 1 ? 'guide' : 'guides'}` : null,
   ].filter(Boolean);
@@ -381,6 +393,7 @@ function DayPreviewPanel({
       </CardHeader>
 
       <CardContent className="space-y-5">
+        {weekendOff.length > 0 && <section><SectionLabel>Weekend off</SectionLabel><div className="flex flex-wrap gap-2">{weekendOff.map(person => <Badge key={person.id} variant="outline">{person.displayName}</Badge>)}</div></section>}
         {(holiday || special) && (
           <div className="flex flex-wrap gap-1.5">
             {holiday && (

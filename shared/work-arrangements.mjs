@@ -1,5 +1,20 @@
 // Pure schedule rules shared by the API, scheduler and PWA. No credentials here.
 export const MODES = ['on_site', 'wfh', 'remote', 'hybrid'];
+export function hasExecutiveRole(userId, assignments = [], roles = []) {
+  const ids = new Set(roles.filter(r => r.leavePolicy === 'executive').map(r => r.id));
+  return assignments.some(a => a.userId === userId && ids.has(a.jobRoleId));
+}
+export function isWeekend(date) { return [0, 6].includes(weekday(date)); }
+export function weekendDates(start, end) {
+  const dates = [];
+  for (let date = start; date <= end; date = addDays(date, 1)) if (isWeekend(date)) dates.push(date);
+  return dates;
+}
+export function executiveLeaveError(date, type) {
+  if (isWeekend(date)) return 'Saturday and Sunday are already scheduled days off; no leave is needed.';
+  if (['regular_day_off', 'auto_assigned', 'auto_sunday'].includes(type)) return 'Executive regular days off are Saturday and Sunday. Use vacation or sick leave for weekdays.';
+  return null;
+}
 export const DEFAULT_POLICY = {
   version: 1, approvalRequired: true, eligible: true, allowedModes: MODES,
   workingDays: [0, 1, 2, 3, 4, 5, 6], mandatoryOfficeDays: [], minOfficeDays: 0,

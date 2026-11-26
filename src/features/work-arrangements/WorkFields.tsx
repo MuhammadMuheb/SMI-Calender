@@ -17,6 +17,6 @@ export function WorkFieldset({ label, children }: { label: string; children: Rea
 }
 // eslint-disable-next-line react-refresh/only-export-components
 export const WEEKDAYS = [{ id: 1, name: 'Monday' }, { id: 2, name: 'Tuesday' }, { id: 3, name: 'Wednesday' }, { id: 4, name: 'Thursday' }, { id: 5, name: 'Friday' }, { id: 6, name: 'Saturday' }, { id: 0, name: 'Sunday' }];
-export function WorkDays({ value, onChange, label }: { value: number[]; onChange: (days: number[]) => void; label: string }) {
-  return <WorkFieldset label={label}><div className="flex flex-wrap gap-x-4">{WEEKDAYS.map(d => <WorkToggle key={d.id} label={d.name.slice(0, 3)} checked={value.includes(d.id)} onChange={checked => onChange(checked ? [...value, d.id] : value.filter(v => v !== d.id))} />)}</div></WorkFieldset>;
+export function WorkDays({ value, onChange, label, allowed = WEEKDAYS.map(d => d.id) }: { value: number[]; onChange: (days: number[]) => void; label: string; allowed?: number[] }) {
+  return <WorkFieldset label={label}><div className="flex flex-wrap gap-x-4">{WEEKDAYS.filter(d => allowed.includes(d.id)).map(d => <WorkToggle key={d.id} label={d.name.slice(0, 3)} checked={value.includes(d.id)} onChange={checked => onChange(checked ? [...value, d.id] : value.filter(v => v !== d.id))} />)}</div></WorkFieldset>;
 }

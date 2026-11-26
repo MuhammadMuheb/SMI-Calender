@@ -24,6 +24,7 @@ import { validateLeaveRequests } from '@/utils/dataValidation';
 import { getDatesBetween } from '@/utils/dateRangeUtils';
 import type { NotificationType } from '@/models/notification';
 import { checkStaffingBeforeSubmit } from '@/features/leave/services/staffingCheckOnSubmit';
+import { executiveLeaveError, isWeekend, weekendDates } from '../../../shared/work-arrangements.mjs';
 
 interface LeaveContextValue {
   requests: LeaveRequest[];
@@ -171,6 +172,10 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   const getMonthAllowance = useCallback((userId: string, date: string): MonthAllowance => {
     const month = getCycleForDate(date);
     const cycle = getNewCycle(date);
+    if (users.find(u => u.id === userId)?.weekendsOff) {
+      const count = weekendDates(month.start, month.end).length;
+      return { monthLabel: cycle ? getCycleLabel(cycle) : month.start.slice(0, 7), allowance: count, used: count, pending: 0, remaining: 0 };
+    }
     const allowance = getRegularOverride(userId, users) ?? REGULAR_DAYS_OFF_PER_CYCLE;
     const used = countedMonthDates(userId, month.start, month.end, requests, false).size;
     const withPending = countedMonthDates(userId, month.start, month.end, requests, true).size;
@@ -199,6 +204,11 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     userId: string, userRef: UserRef, date: string, leaveType: LeaveType, note: string = '', autoApprove: boolean = false,
   ): Promise<string | null> => {
     const normalizedDate = normalizeDateStr(date);
+
+    if (users.find(u => u.id === userId)?.weekendsOff) {
+      const error = executiveLeaveError(normalizedDate, leaveType);
+      if (error) return error;
+    }
 
     const existing = requests.find(
       (r) => r.userId === userId && r.date === normalizedDate && (r.status === 'pending' || r.status === 'approved'),
@@ -265,7 +275,13 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     const end = normalizeDateStr(endDate);
     if (!start || !end || end < start) return 'Please choose a valid date range';
 
-    const dates = getDatesBetween(start, end);
+    const weekendsOff = users.find(u => u.id === userRef.id)?.weekendsOff;
+    const dates = getDatesBetween(start, end).filter(d => !weekendsOff || !isWeekend(d));
+    if (!dates.length) return 'Saturday and Sunday are already scheduled days off; no leave is needed.';
+    if (weekendsOff) {
+      const error = executiveLeaveError(dates[0], leaveType);
+      if (error) return error;
+    }
     if (dates.length > MAX_RANGE_DAYS) return `You can request at most ${MAX_RANGE_DAYS} days at once`;
 
     const taken = new Set(
@@ -411,6 +427,10 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
   ): Promise<string | null> => {
     const normalizedDate = normalizeDateStr(date);
     const adminNote = `Directly assigned by ${adminName} (admin bypass)`;
+    if (users.find(u => u.id === targetUserId)?.weekendsOff) {
+      const error = executiveLeaveError(normalizedDate, leaveType);
+      if (error) return error;
+    }
     if (COUNTED_LEAVE_TYPES.includes(leaveType)) {
       const month = getMonthAllowance(targetUserId, normalizedDate);
       const alreadyCounted = requests.some((r) => r.userId === targetUserId && r.date === normalizedDate
@@ -466,13 +486,14 @@ export function LeaveProvider({ children }: { children: ReactNode }) {
     return computeBalance(
       userId, cycle.start, cycle.end, activeApproved,
       getVacationAccrual(userId, users), getRegularOverride(userId, users),
+      users.find(u => u.id === userId)?.weekendsOff,
     );
   }, [activeApproved, users]);
 
   /** Cycle-only balance for weekly views — deliberately excludes vacation. */
   const getCycleBalance = useCallback((userId: string): LeaveBalance => {
     const cycle = getCycleForDate(formatDateLocal(new Date()));
-    return computeBalance(userId, cycle.start, cycle.end, activeApproved, 0, getRegularOverride(userId, users));
+    return computeBalance(userId, cycle.start, cycle.end, activeApproved, 0, getRegularOverride(userId, users), users.find(u => u.id === userId)?.weekendsOff);
   }, [activeApproved, users]);
 
   const getUserRequests = useCallback(

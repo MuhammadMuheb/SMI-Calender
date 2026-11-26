@@ -67,6 +67,45 @@ beforeEach(() => {
   rows.set('role_assignments/b', { userId: 'b', jobRoleId: 'guide', isPrimary: true });
   rows.set('jobRoles/guide', { shiftStart: '09:00', shiftEnd: '18:00' });
 });
+
+function executiveFixtures() {
+  rows.set('jobRoles/executive', { name: 'Executive', leavePolicy: 'executive', shiftStart: '09:00', shiftEnd: '18:00' });
+  for (const id of ['a', 'b']) rows.set('role_assignments/' + id, { userId: id, jobRoleId: 'executive', isPrimary: true });
+  for (let dayOfWeek = 0; dayOfWeek < 5; dayOfWeek++) rows.set('staffing_rules/exec' + dayOfWeek, { jobRoleId: 'executive', dayOfWeek, minimumRequired: 1, enforcement: 'hard_block' });
+}
+
+test('Executive API rejects weekend vacation and weekday regular leave even for admins', async () => {
+  executiveFixtures();
+  for (const [date, leaveType] of [['2026-11-28', 'paid_vacation'], ['2026-11-29', 'regular_day_off'], ['2026-11-27', 'auto_assigned'], ['2026-11-27', 'regular_day_off']]) {
+    const result = await call(leave, 'admin', { action: 'create', data: { userId: 'a', date, leaveType, status: 'approved' } });
+    assert.equal(result.statusCode, 409, JSON.stringify(result));
+  }
+  assert.equal([...rows.keys()].filter(k => k.startsWith('leave_requests/')).length, 0);
+});
+
+test('Executive weekday cover allows one vacation and blocks the other, including admin approval', async () => {
+  executiveFixtures();
+  const first = await call(leave, 'admin', { action: 'create', data: { userId: 'a', date: '2026-11-27', leaveType: 'paid_vacation', status: 'approved' } });
+  assert.equal(first.statusCode, 200, JSON.stringify(first));
+  const second = await call(leave, 'admin', { action: 'create', data: { userId: 'b', date: '2026-11-27', leaveType: 'paid_vacation', status: 'approved' } });
+  assert.equal(second.statusCode, 409, JSON.stringify(second));
+  rows.set('leave_requests/pending-exec', { userId: 'b', date: '2026-11-27', leaveType: 'paid_vacation', status: 'pending' });
+  const approval = await call(leave, 'admin', { action: 'update', id: 'pending-exec', data: { status: 'approved' } });
+  assert.equal(approval.statusCode, 409);
+  const sick = await call(leave, 'receiver', { action: 'create', data: { userId: 'b', date: '2026-11-27', leaveType: 'sick_day' } });
+  assert.equal(sick.statusCode, 409, 'Existing pending leave still blocks duplicate sickness');
+});
+
+test('Executive work policy is returned to the employee and rejects weekend attendance', async () => {
+  executiveFixtures();
+  const result = await call(work, 'staff', { action: 'list' });
+  assert.equal(result.statusCode, 200, JSON.stringify(result));
+  assert.deepEqual(result.body.policy.workingDays, [1, 2, 3, 4, 5]);
+  assert(result.body.policy.allowedModes.includes('wfh'));
+  assert(result.body.policy.allowedModes.includes('hybrid'));
+  const { attendanceAction } = require('../server/work-attendance.cjs');
+  await assert.rejects(attendanceAction(db, rows.get('users/a'), { action: 'check-in' }, new Date('2026-11-28T09:00:00Z')), /Non-working day/);
+});
 test('PINs are salted, verified, and plaintext is refused', () => {
   const one = hashPin('4321'), two = hashPin('4321');
   assert.notEqual(one, two); assert(verifyPin('4321', one)); assert(!verifyPin('1234', one)); assert(!verifyPin('4321', '4321'));

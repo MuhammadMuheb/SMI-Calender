@@ -1,4 +1,5 @@
 import { TranslatedText } from '@/i18n/LanguageContext';
+import { isWeekend } from '../../../shared/work-arrangements.mjs';
 import { useState } from 'react';
 import {
   ArrowLeft, BarChart3, CalendarCheck, ChevronRight, ClipboardCheck, Clock, Coffee, History, Inbox, MapPin, Plus,
@@ -73,6 +74,7 @@ export default function ManagerDashboard() {
 
   const todayDate = formatDateLocal(new Date());
   const offTodayIds = new Set(requests.filter((r) => r.date === todayDate && r.status === 'approved').map((r) => r.userId));
+  if (isWeekend(todayDate)) activeStaff.filter(u => u.weekendsOff).forEach(u => offTodayIds.add(u.id));
   const workingTodayList = activeStaff.filter((u) => !offTodayIds.has(u.id));
   const offTodayList = activeStaff.filter((u) => offTodayIds.has(u.id));
 

@@ -1,5 +1,6 @@
 import type { LeaveBalance, BalanceAdjustment } from '@/models/balance';
 import type { LeaveRequest } from '@/models/leave';
+import { weekendDates } from '../../shared/work-arrangements.mjs';
 import {
   REGULAR_DAYS_OFF_PER_CYCLE, getFirstSundayOfMonth,
 } from '@/models/validation';
@@ -41,6 +42,7 @@ export function computeBalance(
   approvedRequests: LeaveRequest[],
   totalVacationAccrued: number,
   regularOverride?: number | null,
+  weekendsOff = false,
 ): LeaveBalance {
   const regularAllowed =
     regularOverride != null && regularOverride >= 0
@@ -70,13 +72,13 @@ export function computeBalance(
     userId,
     cycleStart,
     cycleEnd,
-    regularDaysAllowed: regularAllowed,
-    regularDaysUsed: regularUsed,
-    regularDaysRemaining: Math.max(0, regularAllowed - regularUsed),
+    regularDaysAllowed: weekendsOff ? weekendDates(cycleStart, cycleEnd).length : regularAllowed,
+    regularDaysUsed: weekendsOff ? weekendDates(cycleStart, cycleEnd).length : regularUsed,
+    regularDaysRemaining: weekendsOff ? 0 : Math.max(0, regularAllowed - regularUsed),
     vacationDaysTotal: totalVacationAccrued,
     vacationDaysUsed: vacationUsed,
     vacationDaysRemaining: totalVacationAccrued - vacationUsed,
-    autoSundayConsumed,
+    autoSundayConsumed: !weekendsOff && autoSundayConsumed,
     updatedAt: new Date().toISOString(),
   };
 }

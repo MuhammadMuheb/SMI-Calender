@@ -1,4 +1,5 @@
 import { TranslatedText } from '@/i18n/LanguageContext';
+import { isWeekend } from '../../../shared/work-arrangements.mjs';
 import { useState } from 'react';
 import { ArrowLeft, BarChart3, CalendarCheck, ClipboardCheck, Clock, Inbox, MapPin, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -97,6 +98,7 @@ export default function SuperAdminDashboard() {
   };
 
   const offTodayIds = new Set(requests.filter((r) => r.date === today && r.status === 'approved').map((r) => r.userId));
+  if (isWeekend(today)) activeStaff.filter(u => u.weekendsOff).forEach(u => offTodayIds.add(u.id));
   const workingTodayList = activeStaff.filter((u) => !offTodayIds.has(u.id));
   const offTodayList = activeStaff.filter((u) => offTodayIds.has(u.id));
 

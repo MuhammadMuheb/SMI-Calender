@@ -25,6 +25,7 @@ export function validateUser(value: unknown): StaffUser {
     createdAt: text(u.createdAt ?? u.created_at), updatedAt: text(u.updatedAt ?? u.updated_at),
     vacationOverride: typeof u.vacationOverride === 'number' ? u.vacationOverride : null,
     regularOverride: typeof u.regularOverride === 'number' ? u.regularOverride : null,
+    weekendsOff: u.weekendsOff === true,
     jobRole: Array.isArray(jobs) ? jobs.filter((v): v is string => typeof v === 'string') : [] };
 }
 export function validateUsers(values: unknown): StaffUser[] {

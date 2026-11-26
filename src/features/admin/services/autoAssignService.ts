@@ -51,7 +51,7 @@ export function runAutoAssignment(
 ): AutoAssignPreview {
   const warnings: string[] = [];
   const assignments: AutoAssignResult[] = [];
-  const activeUsers = users.filter((u) => u.isActive && u.role !== ROLES.SPECTATOR);
+  const activeUsers = users.filter((u) => u.isActive && u.role !== ROLES.SPECTATOR && !u.weekendsOff);
 
   const startDate = new Date(cycleStart + 'T00:00:00');
   const year = startDate.getFullYear();

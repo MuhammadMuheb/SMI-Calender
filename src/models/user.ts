@@ -17,6 +17,8 @@ export interface StaffUser {
     vacationOverride?: number | null;
     regularOverride?: number | null;
     jobRole?: string[];
+    /** Derived from current job-role assignments, never an access permission. */
+    weekendsOff?: boolean;
 }
 
 /**

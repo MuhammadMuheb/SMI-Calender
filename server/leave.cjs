@@ -1,4 +1,17 @@
 function fail(message, status = 400) { throw Object.assign(new Error(message), { status }); }
+async function isExecutive(tx, db, userId) {
+  const [assignments, roles, domain] = await Promise.all([
+    tx.get(db.collection('role_assignments')), tx.get(db.collection('jobRoles')),
+    import('../shared/work-arrangements.mjs'),
+  ]);
+  return domain.hasExecutiveRole(userId, assignments.docs.map(d => d.data()), roles.docs.map(d => ({ ...d.data(), id: d.id })));
+}
+async function validateExecutiveLeave(tx, db, leave) {
+  if (!await isExecutive(tx, db, leave.userId)) return;
+  const { executiveLeaveError } = await import('../shared/work-arrangements.mjs');
+  const error = executiveLeaveError(leave.date, leave.leaveType);
+  if (error) fail(error, 409);
+}
 function staffingError(date, userId, leaveType, rules, assignments, leaves, activeIds, greenOnly = false) {
   if (leaveType === 'sick_day' && !greenOnly) return null;
   const day = (new Date(date + 'T12:00:00Z').getUTCDay() + 6) % 7;
@@ -92,6 +105,7 @@ async function validateMonthlyAllowance(tx, db, leave, options = {}) {
 }
 
 module.exports = {
+  isExecutive, validateExecutiveLeave,
   fail, staffingError, getStaffingError, validateStaffing, approvalReplacements,
   COUNTED_TYPES, firstSundayOf, countedMonthDates, monthlyAllowance, monthLabel, validateMonthlyAllowance,
 };

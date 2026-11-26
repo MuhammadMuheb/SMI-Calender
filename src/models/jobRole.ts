@@ -10,6 +10,7 @@
 export interface JobRole {
   id: string;
   name: string;
+  leavePolicy?: 'executive';
   color: string; // Hex color for calendar dots/badges
   isHidden: boolean;
   shiftStartTime: string; // e.g. "08:00"

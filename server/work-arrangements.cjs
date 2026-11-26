@@ -13,9 +13,11 @@ function rolePolicy(policy, context, userId) {
   const assigned = context.assignments.filter(a => a.userId === userId);
   const primary = assigned.find(a => a.isPrimary) || assigned[0];
   const role = context.roles.find(r => r.id === primary?.jobRoleId);
+  const executive = context.roles.some(r => r.leavePolicy === 'executive' && assigned.some(a => a.jobRoleId === r.id));
   return { ...policy, employees: { ...policy.employees, [userId]: {
     ...(role ? { shiftStart: role.shiftStart || role.shiftStartTime || '09:00', shiftEnd: role.shiftEnd || role.shiftEndTime || '18:00' } : {}),
     ...policy.employees?.[userId],
+    ...(executive ? { workingDays: [1, 2, 3, 4, 5], eligible: true, allowedModes: ['on_site', 'wfh', 'hybrid'], remoteAllowed: false } : {}),
   } } };
 }
 function notification(tx, db, userId, title, body, entityId, now, key) {
@@ -125,7 +127,7 @@ async function read(db, actor, body) {
   }
   return { arrangements: arrangements.filter(a => a.userId === actor.id || canManage(actor, users.find(u => u.id === a.userId) || {})),
     teamPolicy,
-    policy: actor.role === 'super_admin' ? policy : { ...d.effectivePolicy(policy, actor.id), version: policy.version },
+    policy: actor.role === 'super_admin' ? policy : { ...d.effectivePolicy(rolePolicy(policy, context, actor.id), actor.id), version: policy.version },
     departments: Object.fromEntries(users.map(u => [u.id, policy.employees?.[u.id]?.department || 'Unassigned'])) };
 }
 module.exports = { domain, rows, canManage, loadContext, rolePolicy, notification, mutate, read };

@@ -1,5 +1,5 @@
 const { services, requireUser } = require('../server/firebase.cjs');
-const { fail } = require('../server/leave.cjs');
+const { fail, validateExecutiveLeave } = require('../server/leave.cjs');
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST required' });
   try {
@@ -17,6 +17,7 @@ module.exports = async (req, res) => {
         const receiver = (await tx.get(db.collection('users').doc(String(receiverId)))).data();
         if (!leave || leave.userId !== actor.id || leave.status !== 'approved' || leave.leaveType !== 'regular_day_off') fail('Choose one of your approved days off');
         if (!receiver?.isActive || receiverId === actor.id || receiver.role === 'spectator') fail('Invalid recipient');
+        await validateExecutiveLeave(tx, db, { userId: receiverId, date: leave.date, leaveType: 'regular_day_off' });
         const assignments = (await tx.get(db.collection('role_assignments'))).docs.map(d => d.data());
         const common = assignments.find(a => a.userId === actor.id && assignments.some(b => b.userId === receiverId && b.jobRoleId === a.jobRoleId));
         if (!common) fail('Swaps require a shared job role');
@@ -34,6 +35,7 @@ module.exports = async (req, res) => {
               !assignments.some(a => a.userId === old.proposerId && a.jobRoleId === old.commonJobRoleId)) fail('The shared role is no longer assigned', 409);
           if (!source || source.status !== 'approved' || source.userId !== old.proposerId || source.date !== old.date) fail('The original day off has changed', 409);
           if (sameDate.docs.some(d => d.data().userId === actor.id && ['pending', 'approved'].includes(d.data().status))) fail('You already have leave on this day', 409);
+          await validateExecutiveLeave(tx, db, { userId: actor.id, date: old.date, leaveType: 'regular_day_off' });
           // A swap transfers the day off: the proposer works, the recipient is off.
           tx.update(sourceRef, { status: 'cancelled', updatedAt: now, swappedTo: actor.id });
           tx.create(db.collection('leave_requests').doc(), { ...source, userId: actor.id, userRef: { id: actor.id, displayName: actor.displayName, role: actor.role }, staffNote: 'Day off transferred by swap', createdAt: now, updatedAt: now, swapId: ref.id });

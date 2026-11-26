@@ -5,6 +5,7 @@ import type { StaffingRule } from '@/models/staffing';
 import type { StaffRoleAssignment } from '@/models/jobRole';
 import type { Schedule } from '@/models/schedule';
 import { checkStaffingForDate, wouldCauseShortage } from '@/services/staffingService';
+import { isWeekend } from '../../../../shared/work-arrangements.mjs';
 
 /**
  * STATUS: SERVICE PLACEHOLDER
@@ -29,6 +30,7 @@ export function buildMonthSummaries(
   roleNames: Record<string, string>,
   schedules: Schedule[] = [],
   activeUserNames: string[] = [], // CRITICAL: List of active user display names
+  weekendUserIds: string[] = [],
 ): DaySummary[] {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const summaries: DaySummary[] = [];
@@ -55,7 +57,9 @@ export function buildMonthSummaries(
       ),
     ].sort();
 
-    const onDuty = totalStaff - approvedLeaves;
+    const offIds = new Set(approvedOnDate.map(r => r.userId));
+    if (isWeekend(dateStr)) weekendUserIds.forEach(id => offIds.add(id));
+    const onDuty = Math.max(0, totalStaff - offIds.size);
 
     // Per-role staffing check
     const staffingStatuses = checkStaffingForDate(

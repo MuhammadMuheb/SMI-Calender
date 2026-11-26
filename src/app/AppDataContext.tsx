@@ -36,6 +36,7 @@ import {
 import { collection, onSnapshot, doc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'sonner';
+import { hasExecutiveRole } from '../../shared/work-arrangements.mjs';
 
 /**
  * STATUS: FIREBASE FIRESTORE ONLY
@@ -120,7 +121,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
       // CRITICAL: Use only ACTIVE users - filter out all deleted/inactive
       const validatedUsers = validateUsers(Array.isArray(activeUsers) ? activeUsers : SAFE_EMPTY_USERS);
-      setUsers(validatedUsers);
+      setUsers(validatedUsers.map(u => ({ ...u, weekendsOff: hasExecutiveRole(u.id, ra, jr) })));
 
       setJobRoles(Array.isArray(jr) ? jr : []);
       const finalRoleAssignments = Array.isArray(ra) ? ra : [];

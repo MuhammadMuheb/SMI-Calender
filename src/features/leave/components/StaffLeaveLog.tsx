@@ -10,6 +10,8 @@ import { displayStaffNote } from '@/features/leave/requestNotes';
 import type { LeaveRequest, LeaveStatus, LeaveType } from '@/models/leave';
 import { getFirstSundayOfMonth } from '@/models/validation';
 import { getCycleForMonth, getCycleLabel } from '@/utils/cycleUtils';
+import { useAppData } from '@/app/AppDataContext';
+import { weekendDates } from '../../../../shared/work-arrangements.mjs';
 
 interface StaffLeaveLogProps {
   userId: string;
@@ -57,6 +59,8 @@ function detailFor(r: LeaveRequest): string {
 /** Month-by-month log of the days a person has off (and, optionally, every request). */
 export default function StaffLeaveLog({ userId, initialMonth }: StaffLeaveLogProps) {
   const { requests, getMonthAllowance } = useLeave();
+  const { users } = useAppData();
+  const weekendsOff = users.find(u => u.id === userId)?.weekendsOff;
   const [view, setView] = useState<View>('off');
   const [month, setMonth] = useState(() => {
     const d = initialMonth ? new Date(initialMonth + 'T00:00:00') : new Date();
@@ -81,14 +85,18 @@ export default function StaffLeaveLog({ userId, initialMonth }: StaffLeaveLogPro
     // The first Sunday is always off and counts towards the month, even
     // when no request was recorded for it.
     const firstSunday = getFirstSundayOfMonth(cycle.year, cycle.month);
-    if (!inMonth.some((r) => r.date === firstSunday && r.status !== 'cancelled' && r.status !== 'rejected')) {
+    if (weekendsOff) {
+      for (const date of weekendDates(cycle.start, cycle.end)) {
+        if (!list.some(e => e.date === date && e.status === 'approved')) list.push({ id: `weekend-${date}`, date, leaveType: 'regular_day_off', status: 'approved', detail: 'Scheduled weekend · no vacation deducted', automatic: true });
+      }
+    } else if (!inMonth.some((r) => r.date === firstSunday && r.status !== 'cancelled' && r.status !== 'rejected')) {
       list.push({
         id: `first-sunday-${firstSunday}`, date: firstSunday, leaveType: 'auto_sunday', status: 'approved',
         detail: 'Always off · counts as 1 of the month’s days', automatic: true,
       });
     }
     return list.sort((a, b) => a.date.localeCompare(b.date));
-  }, [requests, userId, view, cycle.start, cycle.end, cycle.year, cycle.month]);
+  }, [requests, userId, view, cycle.start, cycle.end, cycle.year, cycle.month, weekendsOff]);
 
   const daysOff = entries.filter((e) => e.status === 'approved');
   const countsByType = daysOff.reduce<Partial<Record<LeaveType, number>>>((acc, e) => {
@@ -157,7 +165,7 @@ export default function StaffLeaveLog({ userId, initialMonth }: StaffLeaveLogPro
                 {e.detail && <p className="mt-0.5 text-xs text-muted-foreground">{e.detail}</p>}
               </div>
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                <LeaveTypeBadge type={e.leaveType} />
+                {e.id.startsWith('weekend-') ? <Badge variant="outline">Weekend off</Badge> : <LeaveTypeBadge type={e.leaveType} />}
                 {e.automatic
                   ? <Badge variant="outline">Automatic</Badge>
                   : view === 'all' && <LeaveStatusBadge status={e.status} />}

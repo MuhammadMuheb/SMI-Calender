@@ -1,4 +1,5 @@
 import { TranslatedText } from '@/i18n/LanguageContext';
+import { isWeekend } from '../../../../shared/work-arrangements.mjs';
 import { useState, useMemo, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { ArrowLeftRight, CalendarCheck, Flag, MapPin, PartyPopper, Plus, Star, Trash } from 'lucide-react';
@@ -95,10 +96,11 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
 
   const dayRequests = requests.filter((r) => r.date === day && r.status !== 'cancelled');
   const approvedOff = dayRequests.filter((r) => r.status === 'approved');
+  const weekendOff = isWeekend(day) ? users.filter(u => u.weekendsOff && !approvedOff.some(r => r.userId === u.id)) : [];
   const pending = dayRequests.filter((r) => r.status === 'pending');
   const holiday = holidays.find((h) => h.date === day);
   const special = specialDays.find((s) => s.date === day);
-  const amIWorking = !approvedOff.some((r) => r.userId === user.id);
+  const amIWorking = !approvedOff.some((r) => r.userId === user.id) && !weekendOff.some(u => u.id === user.id);
   const myRoleIds = roleAssignments.filter((a) => a.userId === user.id).map((a) => a.jobRoleId);
   const isSuperAdmin = user.role === 'super_admin';
   const isManagerView = user.role === 'manager' || isSuperAdmin;
@@ -108,7 +110,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
     user.role === 'manager' || isSuperAdmin || r.userId === user.id;
 
   // Users not already off this day
-  const assignableUsers = users.filter(u => u.isActive && !approvedOff.some(r => r.userId === u.id) && !pending.some(r => r.userId === u.id));
+  const assignableUsers = users.filter(u => u.isActive && !weekendOff.some(w => w.id === u.id) && !approvedOff.some(r => r.userId === u.id) && !pending.some(r => r.userId === u.id));
 
   const swappableOff = amIWorking ? approvedOff.filter((r) => {
     if (r.userId === user.id) return false;
@@ -209,7 +211,7 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
   const isFirstSunday = new Date(day + 'T00:00:00').getDay() === 0 && Number(day.slice(8, 10)) <= 7;
 
   const summary = [
-    approvedOff.length > 0 ? `${approvedOff.length} off` : null,
+    approvedOff.length + weekendOff.length > 0 ? `${approvedOff.length + weekendOff.length} off` : null,
     pending.length > 0 ? `${pending.length} pending` : null,
   ].filter(Boolean).join(' · ') || 'Everyone is working';
 
@@ -417,10 +419,11 @@ export default function DayDetailModal({ date, open, onClose }: DayDetailModalPr
             </section>
           )}
 
-          {isEmpty && (
+          {isEmpty && weekendOff.length === 0 && (
             <EmptyState icon={CalendarCheck} title="Everyone is working" description="No one is off this day." className="py-6" />
           )}
 
+          {weekendOff.length > 0 && <section className="space-y-2"><SectionLabel>Weekend off</SectionLabel>{weekendOff.map(person => <div key={person.id} className="rounded-lg border p-3 text-sm">{person.displayName}<span className="block text-xs text-muted-foreground">Scheduled Saturday–Sunday rest · no vacation deducted</span></div>)}</section>}
           {/* Super Admin: quick assign day off */}
           {isSuperAdmin && !showAssign && !showEveryone && (
             <div className="grid gap-2 sm:grid-cols-2">

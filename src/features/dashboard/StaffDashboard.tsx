@@ -22,6 +22,7 @@ import CoffeeLeaderboard from '@/features/admin/pages/CoffeeLeaderboard';
 import WorkingTodayModal from '@/features/dashboard/components/WorkingTodayModal';
 import CheckInButton from '@/features/attendance/components/CheckInButton';
 import AttendanceSummary from '@/features/attendance/components/AttendanceSummary';
+import { isWeekend } from '../../../shared/work-arrangements.mjs';
 
 export default function StaffDashboard() {
   const { user } = useAuth();
@@ -46,6 +47,7 @@ export default function StaffDashboard() {
   );
 
   const balance = getBalance(user.id);
+  const weekendsOff = users.find(u => u.id === user.id)?.weekendsOff;
   const currentCycle = getCurrentCycle();
   const currentWeek = currentCycle ? getWeekNumberInCycle(currentCycle) : null;
   const myRequests = getUserRequests(user.id);
@@ -69,6 +71,7 @@ export default function StaffDashboard() {
   const activeStaff = users.filter((u) => u.isActive && u.role === 'staff');
   const today = todayStr();
   const offTodayIds = new Set(requests.filter((r) => r.date === today && r.status === 'approved').map((r) => r.userId));
+  if (isWeekend(today)) activeStaff.filter(u => u.weekendsOff).forEach(u => offTodayIds.add(u.id));
   const workingToday = activeStaff.filter((u) => !offTodayIds.has(u.id));
   const offToday = activeStaff.filter((u) => offTodayIds.has(u.id));
 
@@ -78,6 +81,7 @@ export default function StaffDashboard() {
   const tomorrowStr = formatDateLocal(tomorrow);
   const tomorrowLabel = tomorrow.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const offTomorrowIds = new Set(requests.filter((r) => r.date === tomorrowStr && r.status === 'approved').map((r) => r.userId));
+  if (isWeekend(tomorrowStr)) activeStaff.filter(u => u.weekendsOff).forEach(u => offTomorrowIds.add(u.id));
   const workingTomorrow = activeStaff.filter((u) => !offTomorrowIds.has(u.id));
   const offTomorrow = activeStaff.filter((u) => offTomorrowIds.has(u.id));
 
@@ -99,14 +103,14 @@ export default function StaffDashboard() {
       {/* Leave balances: two independent systems, each its own card */}
       <div className="grid gap-3 lg:grid-cols-2">
         <LeaveAllowanceCard
-          title="Regular days off"
+          title={weekendsOff ? 'Weekends off' : 'Regular days off'}
           subtitle={currentCycle && currentWeek ? `Week ${currentWeek} of ${currentCycle.weeks}` : undefined}
           segments={[
-            { label: 'taken', value: balance.regularDaysUsed, tone: 'taken' },
+            { label: weekendsOff ? 'scheduled' : 'taken', value: balance.regularDaysUsed, tone: 'taken' },
             { label: 'booked', value: regularBooked, tone: 'booked' },
             { label: 'remaining', value: regularRemainingAfterBooked, tone: 'remaining' },
           ]}
-          footnote={balance.autoSundayConsumed
+          footnote={weekendsOff ? 'Every Saturday and Sunday. Weekends do not use vacation days.' : balance.autoSundayConsumed
             ? 'Includes the first Sunday, which is always off. Resets each month.'
             : 'Resets each month'}
           footnoteColor={balance.autoSundayConsumed ? 'emphasis' : undefined}

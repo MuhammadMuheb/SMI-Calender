@@ -21,6 +21,9 @@ import { formatDateLocal } from '@/utils/dateUtils';
 import { getPickableDateRange, getCurrentCycle, getCycleForDate, getCycleLabel } from '@/utils/cycleUtils';
 import { VACATION_ACCRUAL_PER_MONTH } from '@/models/validation';
 import VacationDateRangeSelector from '@/features/leave/components/VacationDateRangeSelector';
+import { useAppData } from '@/app/AppDataContext';
+import { getDatesBetween } from '@/utils/dateRangeUtils';
+import { isWeekend } from '../../../../shared/work-arrangements.mjs';
 
 interface RequestFormModalProps { open: boolean; onClose: () => void; }
 
@@ -39,9 +42,12 @@ function getYearEnd(): string {
 
 export default function RequestFormModal({ open, onClose }: RequestFormModalProps) {
   const { user } = useAuth();
+  const { users } = useAppData();
+  const weekendsOff = users.find(u => u.id === user?.id)?.weekendsOff === true;
   const { submitRequest, submitRangeRequest, getMonthAllowance, getVacationAvailable } = useLeave();
 
-  const [leaveType, setLeaveType] = useState<RequestableType>('regular_day_off');
+  const [selectedType, setLeaveType] = useState<RequestableType>('regular_day_off');
+  const leaveType = weekendsOff && selectedType === 'regular_day_off' ? 'paid_vacation' : selectedType;
   const [date, setDate] = useState('');
   const [vacationStartDate, setVacationStartDate] = useState('');
   const [vacationEndDate, setVacationEndDate] = useState('');
@@ -76,7 +82,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
   // Vacation: what's left now plus what accrues by the month the vacation ends.
   const vacation = getVacationAvailable(userId, vacationEndDate || vacationStartDate || getTodayStr());
   const vacationDays = vacationStartDate && vacationEndDate && vacationEndDate >= vacationStartDate
-    ? Math.round((Date.parse(vacationEndDate) - Date.parse(vacationStartDate)) / 86400000) + 1
+    ? getDatesBetween(vacationStartDate, vacationEndDate).filter(d => !weekendsOff || !isWeekend(d)).length
     : 0;
 
   const { minDate, maxDate, dateLabel } = useMemo(() => {
@@ -189,7 +195,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
     }
   };
 
-  const typeOptions: { value: RequestableType; title: string; description: string }[] = [
+  const allTypeOptions: { value: RequestableType; title: string; description: string }[] = [
     {
       value: 'regular_day_off',
       title: 'Day off',
@@ -198,6 +204,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
     { value: 'paid_vacation', title: 'Paid vacation', description: 'A date range · uses vacation days' },
     { value: 'sick_day', title: 'Sick day', description: 'Medical certificate optional' },
   ];
+  const typeOptions = allTypeOptions.filter(option => !weekendsOff || option.value !== 'regular_day_off');
 
   const submitDisabled = submitting || isRegularLocked || isOverQuota || isOverVacation;
 
@@ -206,7 +213,7 @@ export default function RequestFormModal({ open, onClose }: RequestFormModalProp
       open={open}
       onOpenChange={(o) => { if (!o) handleClose(); }}
       title="Request time off"
-      description="Your manager gets a notification and reviews it."
+      description={weekendsOff ? 'Saturday and Sunday are always off. Vacation uses weekdays only and follows the staff allowance.' : 'Your manager gets a notification and reviews it.'}
       size="md"
       footer={
         <>

@@ -12,6 +12,7 @@ export async function fetchJobRoles(): Promise<JobRole[]> {
       return {
         id: data.id as string,
         name: data.name as string,
+        leavePolicy: data.leavePolicy === 'executive' ? 'executive' : undefined,
         color: data.color as string,
         isHidden: data.isHidden as boolean,
         shiftStartTime: data.shiftStart as string,

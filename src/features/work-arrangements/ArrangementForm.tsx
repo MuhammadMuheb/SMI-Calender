@@ -28,11 +28,14 @@ export function ArrangementForm({ initial, parent, assign = false, onClose }: { 
   const [error, setError] = useState('');
   const set = <K extends keyof typeof draft>(key: K, value: typeof draft[K]) => setDraft(d => ({ ...d, [key]: value }));
   const employees = users.filter(u => u.role !== 'spectator' && (user!.role === 'super_admin' || u.role === 'staff'));
+  const executive = users.find(u => u.id === draft.userId)?.weekendsOff;
+  const weekdays = executive ? draft.weekdays.filter(d => d !== 0 && d !== 6) : draft.weekdays;
+  const allowedModes = executive ? MODES.filter(m => m !== 'remote') : MODES;
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError('');
     try {
       await mutate({ action: initial ? 'modify' : assign ? 'assign' : 'request', id: initial?.id, expectedVersion: initial?.version, note,
-        data: { ...draft, endDate: draft.kind === 'permanent' ? null : draft.endDate, portion: draft.kind === 'half' ? draft.portion === 'full' ? 'am' : draft.portion : 'full' } });
+        data: { ...draft, weekdays, endDate: draft.kind === 'permanent' ? null : draft.endDate, portion: draft.kind === 'half' ? draft.portion === 'full' ? 'am' : draft.portion : 'full' } });
       toast.success(initial ? 'Request modified. Review it before approval.' : assign ? 'Arrangement assigned' : 'Request submitted'); onClose();
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save'); }
     finally { setBusy(false); }
@@ -45,17 +48,18 @@ export function ArrangementForm({ initial, parent, assign = false, onClose }: { 
       {error && <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
       {assign && !parent && <WorkSelect label="Employee" value={draft.userId} onChange={e => set('userId', e.target.value)}>{employees.map(u => <option key={u.id} value={u.id}>{u.displayName}</option>)}</WorkSelect>}
       <div className="grid gap-3 sm:grid-cols-2">
-        <WorkSelect label="Work mode" value={draft.mode} onChange={e => set('mode', e.target.value as WorkMode)}>{MODES.map(m => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}</WorkSelect>
+        <WorkSelect label="Work mode" value={draft.mode} onChange={e => set('mode', e.target.value as WorkMode)}>{allowedModes.map(m => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}</WorkSelect>
         <WorkSelect label="Duration" value={draft.kind} onChange={e => set('kind', e.target.value as Arrangement['kind'])}>{[['single', 'Single day'], ['half', 'Half day'], ['multi', 'Multiple days'], ['recurring', 'Recurring weekly'], ['temporary', 'Temporary'], ['permanent', 'Permanent']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}</WorkSelect>
         <WorkInput label="Start date" type="date" required value={draft.startDate} onChange={e => set('startDate', e.target.value)} />
         {!['single', 'half', 'permanent'].includes(draft.kind) && <WorkInput label="End date" type="date" required min={draft.startDate} value={draft.endDate || ''} onChange={e => set('endDate', e.target.value)} />}
         {draft.kind === 'half' && <WorkSelect label="Half day" value={draft.portion === 'full' ? 'am' : draft.portion} onChange={e => set('portion', e.target.value as Arrangement['portion'])}><option value="am">Morning</option><option value="pm">Afternoon</option></WorkSelect>}
       </div>
-      <WorkDays label="Days covered each week" value={draft.weekdays} onChange={v => set('weekdays', v)} />
+      {executive && <p className="text-sm text-muted-foreground">Executive schedule: Monday–Friday. Saturday and Sunday are off.</p>}
+      <WorkDays label="Days covered each week" value={weekdays} allowed={executive ? [1, 2, 3, 4, 5] : undefined} onChange={v => set('weekdays', v)} />
       {draft.mode === 'hybrid' && <WorkFieldset label="Hybrid schedule">
         <WorkSelect label="Schedule type" value={draft.hybridStyle} onChange={e => set('hybridStyle', e.target.value as 'fixed' | 'flexible')}><option value="fixed">Fixed weekly pattern</option><option value="flexible">Flexible weekly pattern with dated changes</option></WorkSelect>
         <p className="text-sm text-muted-foreground">Set your usual pattern. For a flexible week, submit a dated change to choose different office days. Office requirements still apply.</p>
-        <div className="grid gap-3 sm:grid-cols-2">{WEEKDAYS.filter(d => draft.weekdays.includes(d.id)).map(d => <WorkSelect key={d.id} label={d.name} value={draft.schedule[d.id] || 'on_site'} onChange={e => set('schedule', { ...draft.schedule, [d.id]: e.target.value as DailyMode })}>{MODES.filter(m => m !== 'hybrid').map(m => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}</WorkSelect>)}</div>
+        <div className="grid gap-3 sm:grid-cols-2">{WEEKDAYS.filter(d => weekdays.includes(d.id)).map(d => <WorkSelect key={d.id} label={d.name} value={draft.schedule[d.id] || 'on_site'} onChange={e => set('schedule', { ...draft.schedule, [d.id]: e.target.value as DailyMode })}>{allowedModes.filter(m => m !== 'hybrid').map(m => <option key={m} value={m}>{MODE_LABELS[m]}</option>)}</WorkSelect>)}</div>
       </WorkFieldset>}
       <WorkFieldset label="Location and working hours">
         <WorkInput label="Working location (private to you and approvers)" required={draft.mode !== 'on_site'} placeholder="Home office, workspace or office name" value={draft.location} onChange={e => set('location', e.target.value)} maxLength={200} />

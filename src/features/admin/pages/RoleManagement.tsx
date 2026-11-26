@@ -155,6 +155,7 @@ export default function RoleManagement({ onBack }: Props) {
                       <div className="flex items-center gap-2.5">
                         <Swatch color={role.color} />
                         <span className="font-medium">{role.name}</span>
+                        {role.leavePolicy === 'executive' && <Badge variant="outline">Sat–Sun off · WFH / Hybrid</Badge>}
                         {role.isHidden && (
                           <Badge variant="outline" className="text-muted-foreground">
                             <EyeOff data-icon="inline-start" />
@@ -201,6 +202,7 @@ export default function RoleManagement({ onBack }: Props) {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <p className="font-medium">{role.name}</p>
+                      {role.leavePolicy === 'executive' && <p className="text-xs text-muted-foreground">Sat–Sun off · WFH / Hybrid · staff vacation rules</p>}
                       {role.isHidden && (
                         <Badge variant="outline" className="text-muted-foreground">
                           <EyeOff data-icon="inline-start" />

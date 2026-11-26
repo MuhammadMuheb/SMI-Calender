@@ -54,8 +54,9 @@ export function useCalendarData(
         roleNames,
         schedules,
         activeUserDisplayNames, // CRITICAL: Pass active user names for filtering
+        users.filter(u => u.weekendsOff).map(u => u.id),
       ),
-    [year, month, leaveRequests, totalStaff, holidays, specialDays, staffingRules, roleAssignments, roleNames, schedules, activeUserDisplayNames],
+    [year, month, leaveRequests, totalStaff, holidays, specialDays, staffingRules, roleAssignments, roleNames, schedules, activeUserDisplayNames, users],
   );
 
   const summaryMap = useMemo(() => {
